@@ -21,6 +21,8 @@ sys.path.insert(0, os.path.dirname(fullPath))
 
 from feedie import AboutFeedieDialog, PreferencesFeedieDialog
 from feedie.feedieconfig import getdatapath
+from desktopcouch.records.server import CouchDatabase
+from desktopcouch.records.record import Record
 
 class FeedieWindow(gtk.Window):
     __gtype_name__ = "FeedieWindow"
@@ -52,6 +54,7 @@ class FeedieWindow(gtk.Window):
         #self.preferences = dlg.get_preferences()
 
         #code for other initialization actions should be added here
+        self.database = CouchDatabase('feedie', create=True)
 
     def about(self, widget, data=None):
         """about - display the about box for feedie """
@@ -77,6 +80,18 @@ class FeedieWindow(gtk.Window):
         #clean up code for saving application state should be added here
 
         gtk.main_quit()
+
+    def save_file(self, widget, data=None):
+        print 'save'
+        title = self.builder.get_object('entry1').get_text()
+        buf = self.builder.get_object('textview1').get_buffer()
+        text = buf.get_text(buf.get_start_iter(), buf.get_end_iter())
+        new_rec = Record({
+            'record_type':'http://xph.us/2009/12/01/feedie-example.html',
+            'title':title,
+            'text':text,
+        })
+        self.database.put(record)
 
 def NewFeedieWindow():
     """NewFeedieWindow - returns a fully instantiated
