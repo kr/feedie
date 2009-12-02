@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Feedie
+Comment=Feedie application
+Categories=GNOME;Utility;
+Exec=feedie
+Icon=feedie
+Terminal=false
+Type=Application
