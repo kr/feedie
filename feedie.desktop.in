@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Feedie
-Comment=Feedie application
-Categories=GNOME;Utility;
+Comment=Feed Reader
+Categories=GNOME;Internet;
 Exec=feedie
 Icon=feedie
 Terminal=false

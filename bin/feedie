@@ -7,6 +7,17 @@
 import sys
 import os
 import gtk
+import gio
+import webkit
+import feedparser
+import couchdb
+from desktopcouch.records.server import CouchDatabase
+
+from twisted.internet import gtk2reactor
+gtk2reactor.install()
+
+from twisted.internet import reactor, defer
+from twisted.web import client
 
 # Check if we are working in the source tree or from the installed 
 # package and mangle the python path accordingly
@@ -20,9 +31,59 @@ else:
 sys.path.insert(0, os.path.dirname(fullPath))
 
 from feedie import AboutFeedieDialog, PreferencesFeedieDialog
+from feedie.SourcesView import SourcesView
+from feedie.posts_tree_model import PostsTreeModel
+from feedie import models
+from feedie import fetcher
 from feedie.feedieconfig import getdatapath
-from desktopcouch.records.server import CouchDatabase
-from desktopcouch.records.record import Record
+from feedie import images
+from feedie import conn
+from feedie import util
+from feedie import http
+
+MAX_FEED_DOC_SIZE = 1000000
+
+from feedie import design_doc
+
+sources = None
+
+def subscribe(uri, more=()):
+    promise = util.EventEmitter()
+    def got_all(result):
+      print type(result)
+      doc = result.body
+
+      try:
+          print 'parsing...'
+          xml = feedparser.parse(doc)
+          print 'done'
+          print xml.version
+
+          print xml.feed.keys()
+          if xml.version: # feedparser thinks this is a feed
+            promise.callback((sources.subscribe(uri, xml), xml))
+            return
+
+          if 'links' in xml.feed:
+            uris = [x.href for x in xml.feed.links if x.rel == 'alternate']
+            d = subscribe(uris[0], uris[1:])
+            d.chainDeferred(promise)
+            d.chainEvents(promise)
+            return
+
+          promise.errback(RuntimeError('Sorry, could not find a feed at ' + uri))
+          return
+      except Exception, ex:
+          raise
+          promise.errback(ex)
+          return
+
+    # TODO cancel ability
+    d = fetcher.fetch(uri)
+    d.addCallback(got_all)
+    d.addErrback(promise.errback)
+    d.chainEvents(promise)
+    return promise
 
 class FeedieWindow(gtk.Window):
     __gtype_name__ = "FeedieWindow"
@@ -37,9 +98,11 @@ class FeedieWindow(gtk.Window):
         FeedieWindow object.
 
         """
-        pass
+        conn.database = CouchDatabase('feedie', create=True)
+        design_doc.add_views()
 
     def finish_initializing(self, builder):
+        global sources
         """finish_initalizing should be called after parsing the ui definition
         and creating a FeedieWindow object with it in order to finish
         initializing the start of the new FeedieWindow instance.
@@ -54,7 +117,75 @@ class FeedieWindow(gtk.Window):
         #self.preferences = dlg.get_preferences()
 
         #code for other initialization actions should be added here
-        self.database = CouchDatabase('feedie', create=True)
+
+        # now add other widgets that glade doesn't know about
+
+        sources = models.Sources()
+        self.sources_view = SourcesView(sources)
+        sources.add_builtin(models.AllNewsSource())
+        self.sources_view.show()
+
+        self.builder.get_object('vbox2').pack_start(self.sources_view)
+
+        self.web = webkit.WebView()
+        self.web.open('http://xph.us/nopage')
+        self.web.show()
+        self.builder.get_object('scrolledwindow1').add(self.web)
+
+        treeview = self.builder.get_object('posts-treeview')
+
+        treeview.insert_column_with_attributes(0, 'Starred',
+            gtk.CellRendererText(),
+            text=2)
+        treeview.get_column(0).set_sizing(gtk.TREE_VIEW_COLUMN_FIXED)
+        treeview.get_column(0).set_fixed_width(24)
+        treeview.get_column(0).set_min_width(24)
+        treeview.get_column(0).set_max_width(24)
+        star = images.make('star')
+        star.show()
+        treeview.get_column(0).set_widget(star)
+
+        treeview.insert_column_with_attributes(1, 'Read',
+            gtk.CellRendererText(),
+            text=1)
+        treeview.get_column(1).set_sizing(gtk.TREE_VIEW_COLUMN_FIXED)
+        treeview.get_column(1).set_fixed_width(24)
+        treeview.get_column(1).set_min_width(24)
+        treeview.get_column(1).set_max_width(24)
+        #treeview.get_column(1).set_widget(read_dot)
+
+        treeview.insert_column_with_attributes(2, 'Title',
+            gtk.CellRendererText(),
+            text=3)
+        treeview.get_column(2).set_expand(True)
+
+        treeview.insert_column_with_attributes(3, 'Updated',
+            gtk.CellRendererText(),
+            text=0)
+        treeview.get_column(3).set_sizing(gtk.TREE_VIEW_COLUMN_FIXED)
+        treeview.get_column(3).set_fixed_width(150)
+        treeview.get_column(3).set_min_width(150)
+        treeview.get_column(3).set_max_width(150)
+
+        self.builder.get_object('vpaned1').set_position(200)
+        self.builder.get_object('main-area').set_position(180)
+        blue = gtk.gdk.color_parse('#7db6ff')
+        self.builder.get_object('subscribe-box').modify_bg(gtk.STATE_NORMAL, blue)
+
+        self.sources_view.connect('selection-changed', self.select_feed)
+
+    def select_feed(self, widget, selected_id):
+      source = widget.selected
+
+      self.builder.get_object('action-remove-feed').set_sensitive(bool(source))
+
+      model, title = None, ''
+      if source:
+        model = PostsTreeModel(source)
+        title = source.title
+      treeview = self.builder.get_object('posts-treeview')
+      treeview.set_model(model)
+      treeview.get_column(2).set_title(title)
 
     def about(self, widget, data=None):
         """about - display the about box for feedie """
@@ -79,19 +210,92 @@ class FeedieWindow(gtk.Window):
         """on_destroy - called when the FeedieWindow is close. """
         #clean up code for saving application state should be added here
 
-        gtk.main_quit()
+        #gtk.main_quit()
+        reactor.stop()
 
-    def save_file(self, widget, data=None):
-        print 'save'
-        title = self.builder.get_object('entry1').get_text()
-        buf = self.builder.get_object('textview1').get_buffer()
-        text = buf.get_text(buf.get_start_iter(), buf.get_end_iter())
-        new_rec = Record({
-            'record_type':'http://xph.us/2009/12/01/feedie-example.html',
-            'title':title,
-            'text':text,
-        })
-        self.database.put(record)
+    def show_subscribe(self, widget, data=None):
+        self.show_subscribe_box()
+
+    def cancel_subscribe(self, widget, data=None):
+        self.hide_subscribe_box()
+
+    def start_subscribe(self):
+        def success((feed, xml)):
+          self.hide_subscribe_box()
+          self.sources_view.flash(feed.id)
+
+        def error(reason):
+          self.show_subscribe_box()
+
+          message = str(reason)
+
+          dialog = gtk.MessageDialog(
+              parent=self,
+              flags=gtk.DIALOG_MODAL|gtk.DIALOG_DESTROY_WITH_PARENT,
+              type=gtk.MESSAGE_WARNING,
+              buttons=gtk.BUTTONS_CLOSE,
+              message_format=message)
+          dialog.connect('response', lambda *x: dialog.destroy())
+          dialog.show()
+
+        def begun(event):
+          self.subscribe_progress(0.04)
+
+        def progress(event, got, outof):
+          print 'progress', (1.0 * got / outof)
+          self.subscribe_progress(1.0 * got / outof)
+
+        self.subscribe_progress(0.02)
+        self.builder.get_object('subscribe-button').set_sensitive(False)
+        uri = self.builder.get_object('subscribe-entry').get_text()
+        d = subscribe(uri)
+        d.addListener('body', progress)
+        d.addListener('begin', begun)
+        d.addCallback(success)
+        d.addErrback(error)
+
+    def subscribe_cb(self, widget, data=None):
+        self.start_subscribe()
+
+    def subscribe_progress(self, x):
+      self.builder.get_object('subscribe-entry').set_progress_fraction(x)
+
+    def show_subscribe_box(self):
+        self.builder.get_object('subscribe-box').show()
+        self.builder.get_object('subscribe-entry').grab_focus()
+        self.subscribe_progress(0)
+        self.builder.get_object('subscribe-button').set_sensitive(True)
+
+    def hide_subscribe_box(self):
+        self.builder.get_object('subscribe-box').hide()
+        self.builder.get_object('subscribe-entry').set_text('')
+        self.builder.get_object('subscribe-button').set_sensitive(True)
+
+    def subscribe_entry_keypress(self, widget, data=None):
+        key = gtk.gdk.keyval_name(data.keyval)
+
+        if key == 'Return':
+          self.start_subscribe()
+          return
+
+        if key == 'Escape':
+          self.hide_subscribe_box()
+          return
+
+    def remove_feed(self, widget, data=None):
+      sel = self.sources_view.selected
+      if sel:
+        sel.delete()
+
+    def refresh(self, widget, data=None):
+      #self.builder.get_object('scrolledwindow1').hide()
+      global dummy_counter
+      dummy_counter += 1
+      dummy_counter %= 2
+      feedids = ['http://feeds2.feedburner.com/krarick', 'http://ranchero.com/xml/rss.xml']
+      self.sources_view.flash(feedids[dummy_counter])
+
+dummy_counter = 0
 
 def NewFeedieWindow():
     """NewFeedieWindow - returns a fully instantiated
@@ -123,7 +327,10 @@ if __name__ == "__main__":
         logging.debug('logging enabled')
 
     #run the application
+    gtk.gdk.threads_init()
     window = NewFeedieWindow()
+    window.set_default_size(900, 1000)
     window.show()
-    gtk.main()
+    #gtk.main()
+    reactor.run()
 
