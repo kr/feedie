@@ -169,7 +169,7 @@ class FeedieWindow(gtk.Window):
         treeview.get_column(3).set_max_width(150)
 
         self.builder.get_object('vpaned1').set_position(200)
-        self.builder.get_object('main-area').set_position(180)
+        self.builder.get_object('main-area').set_position(225)
         blue = gtk.gdk.color_parse('#7db6ff')
         self.builder.get_object('subscribe-box').modify_bg(gtk.STATE_NORMAL, blue)
 
