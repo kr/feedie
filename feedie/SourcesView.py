@@ -8,6 +8,7 @@ import time
 
 from feedie.feedieconfig import *
 from feedie.util import *
+from feedie import graphics
 
 class SourcesView(gtk.DrawingArea):
   __gsignals__ = dict(selection_changed=(gobject.SIGNAL_RUN_LAST,
@@ -20,6 +21,7 @@ class SourcesView(gtk.DrawingArea):
     self.connect('button_press_event', self.button_press)
     self.add_events(gtk.gdk.BUTTON_PRESS_MASK)
     self.lines = {}
+    self.rev_lines = {}
     self.selected_id = None
     self.sources = sources
     self.sources.add_listener(self)
@@ -27,12 +29,16 @@ class SourcesView(gtk.DrawingArea):
     self.update(self.sources)
 
   @property
-  def selected(self):
+  def selected_view(self):
     if not self.selected_id: return None
     if self.selected_id not in self.items: return None
-    item_view = self.items[self.selected_id]
-    if not item_view: return None
-    return item_view.source
+    return self.items[self.selected_id]
+
+  @property
+  def selected(self):
+    view = self.selected_view
+    if not view: return None
+    return view.source
 
   def is_item_selected(self, item_id):
     return item_id == self.selected_id
@@ -42,7 +48,7 @@ class SourcesView(gtk.DrawingArea):
     self.update_heading_items()
     if self.selected_id not in self.items:
       self.select(None)
-    self.redraw_canvas()
+    self.invalidate()
 
   def update_heading_order(self):
     names = set()
@@ -60,15 +66,20 @@ class SourcesView(gtk.DrawingArea):
     self.heading_items = by_heading
 
   def button_press(self, widget, event):
-    line = int(event.y / self.line_height())
+    line = int(event.y / self.line_height)
     item = self.lines.get(line, None)
     if item:
       self.select(item.id)
 
+  def get_y(self, item_id):
+    return self.line_height * self.rev_lines[item_id]
+
   def select(self, item_id):
     if self.selected_id != item_id:
+      prev = self.selected_view
       self.selected_id = item_id
-      self.redraw_canvas()
+      if prev: prev.invalidate()
+      if self.selected_view: self.selected_view.invalidate()
       self.emit('selection-changed', self.selected_id)
 
   def expose(self, widget, event):
@@ -82,24 +93,24 @@ class SourcesView(gtk.DrawingArea):
     self.draw(self.context)
     return False
 
-  def text_height(self):
+  @property
+  def approx_text_height(self):
     height = self.context.font_extents()[2]
     return int(height)
 
+  @property
   def line_height(self):
-    return max(self.text_height() + self.text_height() / 2, 20)
+    return max(self.approx_text_height + self.approx_text_height / 2, 20)
 
-  def leading(self):
-    return leading(self.line_height(), self.text_height())
-
-  def baseline_offset(self):
-    ascent = self.context.font_extents()[0]
-    return ascent + self.leading() / 2 - 0.5
+  @property
+  def width(self):
+    rect = self.get_allocation()
+    return rect.width
 
   def draw_line(self, line, f, *args, **kwargs):
     self.context.save()
     try:
-      self.context.translate(0, line * self.line_height())
+      self.context.translate(0, line * self.line_height)
       return f(*args, **kwargs)
     finally:
       self.context.restore()
@@ -119,12 +130,15 @@ class SourcesView(gtk.DrawingArea):
     self.context.set_font_size(font_size)
     line = 0
     self.lines = {}
+    self.rev_lines = {}
     for heading_name in self.heading_order:
       items = self.heading_items[heading_name]
       self.draw_line(line, draw_heading, self, context, heading_name)
       line += 1
       for item in items:
-        if item.is_selectable(): self.lines[line] = item
+        if item.is_selectable():
+          self.lines[line] = item
+          self.rev_lines[item.id] = line
         self.draw_line(line, item.draw, context)
         line += 1
       line += 1 # margin
@@ -134,32 +148,51 @@ class SourcesView(gtk.DrawingArea):
     glib.idle_add(self.update_flash_anim)
 
   def update_flash_anim(self):
-    self.redraw_canvas()
+    ret = False
+    # TODO functionalize
     for item in self.items.values():
-      if item.is_flashing(): return True
-    return False
+      if item.is_flashing():
+        item.invalidate()
+        ret = True
+    return ret
 
-  def redraw_canvas(self):
+  def invalidate_rect(self, x, y, width, height):
+    rect = gtk.gdk.Rectangle(x, y, width, height)
     if self.window:
-      alloc = self.get_allocation()
-      rect = gtk.gdk.Rectangle(0, 0, alloc.width, alloc.height)
+      # TODO investigate queue_draw_area
       self.window.invalidate_rect(rect, True)
 
+  def invalidate(self):
+    alloc = self.get_allocation()
+    self.invalidate_rect(0, 0, alloc.width, alloc.height)
+
+def draw_text(context, text, weight, rgba, width, height, dx, dy):
+  if width < 1: return
+  context.set_source_rgba(*rgba)
+  layout = context.create_layout()
+  layout.set_width(width * pango.SCALE)
+  layout.set_wrap(False)
+  layout.set_ellipsize(pango.ELLIPSIZE_END)
+  fd = font_desc.copy()
+  fd.set_weight(weight)
+  fd.set_size(fd.get_size() * 9 / 10)
+  layout.set_font_description(fd)
+  layout.set_text(text)
+  text_width, text_height = layout.get_pixel_size()
+  context.move_to(dx, leading(height, text_height) / 2 + dy)
+  context.show_layout(layout)
+
 def draw_heading(sourceview, context, text):
-  baseline = sourceview.baseline_offset()
-  #text = u'\u25bc ' + text
+  baseline = 5
   text = text.upper()
 
-  context.select_font_face(font_desc.get_family(),
-      cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
+  label_width = sourceview.width - 10
 
-  context.set_source_rgba(1, 1, 1, 0.5)
-  context.move_to(10, baseline + 1)
-  context.show_text(text)
+  draw_text(context, text, 700, (1, 1, 1, 0.5),
+      label_width, sourceview.line_height, 10, 1)
 
-  context.set_source_rgb(0.447, 0.498, 0.584)
-  context.move_to(10, baseline)
-  context.show_text(text)
+  draw_text(context, text, 700, (0.447, 0.498, 0.584, 1),
+      label_width, sourceview.line_height, 10, 0)
 
 class SourceSeparatorItem:
   def __init__(self, heading):
@@ -170,7 +203,7 @@ class SourceSeparatorItem:
     return False
 
   def draw(self, context):
-    line_height = self.sourceview.line_height()
+    line_height = self.sourceview.line_height
     line_width = self.sourceview.get_allocation().width
 
     sep_height = 1
@@ -187,28 +220,46 @@ class SourceItem:
   def __init__(self, sourceview, source):
     self.source = source
     self.sourceview = sourceview
-    if source.unread > 0:
-      self.label = '%s (%d)' % (source.title, source.unread)
-    else:
-      self.label = source.title
-    self.icon = source.icon
-    self.id = source.id
     self.flash_go = False
     self.flash_start = 0
     source.add_listener(self)
 
   @property
+  def id(self):
+    return self.source.id
+
+  @property
+  def label(self):
+    return self.source.title
+
+  @property
   def is_selected(self):
-    return self.sourceview.is_item_selected(self.id)
+    return self.sourceview.is_item_selected(self.source.id)
+
+  @property
+  def x(self):
+    return 0
+
+  @property
+  def y(self):
+    return self.sourceview.get_y(self.id)
+
+  @property
+  def width(self):
+    return self.sourceview.get_allocation().width
+
+  @property
+  def height(self):
+    return self.sourceview.line_height
 
   def update(self, item, arg=None):
-    if self.source.unread > 0:
-      self.label = '%s (%d)' % (self.source.title, self.source.unread)
-    else:
-      self.label = self.source.title
-    self.icon = self.source.icon
-    self.id = self.source.id
-    self.sourceview.redraw_canvas()
+    self.invalidate()
+
+  def invalidate_rect(self, x, y, width, height):
+    self.sourceview.invalidate_rect(self.x + x, self.y + y, width, height)
+
+  def invalidate(self):
+    self.invalidate_rect(0, 0, self.width, self.height)
 
   def is_selectable(self):
     return True
@@ -227,7 +278,7 @@ class SourceItem:
       self.flash_go = False
       self.flash_start = time.time()
 
-    height = self.sourceview.line_height()
+    height = self.sourceview.line_height
     width = self.sourceview.get_allocation().width
     prog = self.flash_prog()
     if prog < 0.5:
@@ -260,11 +311,11 @@ class SourceItem:
     context.fill()
 
   def draw_icon(self, context):
-    height = self.sourceview.line_height()
-    #icon = cairo.ImageSurface.create_from_png(self.icon_path)
+    height = self.sourceview.line_height
+    #icon = cairo.ImageSurface.create_from_png(self.source.icon_path)
     theme = gtk.icon_theme_get_default()
     try:
-      icon = theme.load_icon(self.icon, 16, 0)
+      icon = theme.load_icon(self.source.icon, 16, 0)
     except:
       icon = None
 
@@ -275,52 +326,88 @@ class SourceItem:
       shift = 20 # icon width + 4
     return shift
 
+  def leading(self, height):
+    return leading(self.height, height)
+
+  def half_leading(self, height):
+    return self.leading(height) / 2
+
   def draw(self, context):
-    baseline = self.sourceview.baseline_offset()
+    def draw_my_text(weight, rgba, dy):
+      draw_text(context, self.label, weight, rgba,
+          label_width, self.height, dx, dy)
 
-    text = self.label
+    def draw_pill():
+      padding = 5
+      lr_margin = 4
+      tb_margin = 3
+      if self.source.unread < 1: return lr_margin
 
-    height = self.sourceview.line_height()
-    if self.is_selected:
-      width = self.sourceview.get_allocation().width
+      layout = context.create_layout()
+      layout.set_wrap(False)
+      fd = font_desc.copy()
+      fd.set_weight(700)
+      fd.set_size(fd.get_size() * 9 / 10)
+      layout.set_font_description(fd)
+      layout.set_text(str(self.source.unread))
+      text_width, text_height = layout.get_pixel_size()
 
-      linear = cairo.LinearGradient(0, 0, 0, height)
-      linear.add_color_stop_rgb(0, 0.153, 0.420, 0.851)
-      linear.add_color_stop_rgb(1, 0.129, 0.361, 0.729)
-      context.set_source(linear)
-      context.rectangle(0, 0, width, height)
+      if text_width >= self.width - dx: return lr_margin
+      pill_width = text_width + 2 * padding
+
+      if self.is_selected:
+        context.set_source_rgb(1, 1, 1)
+      else:
+        #context.set_source_rgb(0.15, 0.23, 0.99)
+        #context.set_source_rgb(0x8f/255.0, 0xac/255.0, 0xe0/255.0)
+        context.set_source_rgb(0x76/255.0, 0x96/255.0, 0xd0/255.0)
+      graphics.rounded_rect(context, self.width - pill_width - lr_margin, tb_margin,
+          pill_width, self.height - 2 * tb_margin, 1000)
       context.fill()
 
-      context.set_source_rgb(0.129, 0.361, 0.729)
+      if self.is_selected:
+        context.set_source_rgb(0.35, 0.35, 0.35)
+      else:
+        context.set_source_rgb(1, 1, 1)
+      context.move_to(self.width - text_width - padding - lr_margin,
+          leading(self.height, text_height) / 2)
+      context.show_layout(layout)
+
+
+
+      return pill_width + 2 * lr_margin
+
+    if self.is_selected:
+      bot_grad_color = (0.129, 0.361, 0.729)
+      top_grad_color = mix(0.30, bot_grad_color, (1, 1, 1))
+      #top_grad_color = (0.153, 0.420, 0.851)
+      top_line_color = mix(0.18, bot_grad_color, (1, 1, 1))
+
+      linear = cairo.LinearGradient(0, 0, 0, self.height)
+      linear.add_color_stop_rgb(0, *top_grad_color)
+      linear.add_color_stop_rgb(1, *bot_grad_color)
+      context.set_source(linear)
+      context.rectangle(0, 0, self.width, self.height)
+      context.fill()
+
+      context.set_source_rgb(*top_line_color)
       context.move_to(0 + 0.5, 0 + 0.5)
-      context.line_to(width + 0.5, 0 + 0.5)
+      context.line_to(self.width + 0.5, 0 + 0.5)
       context.set_line_width(1)
       context.stroke()
 
-      self.draw_flash(context)
+    self.draw_flash(context)
+    dx = 20
+    dx += self.draw_icon(context)
 
-      shift = self.draw_icon(context)
+    pill_width = draw_pill()
 
-      context.select_font_face(font_desc.get_family(),
-          cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
+    label_width = self.width - dx - pill_width
 
-      context.set_source_rgba(0, 0, 0, 0.5)
-      context.move_to(20 + shift, baseline + 1)
-      context.show_text(text)
-
-      context.set_source_rgb(*mix(1.0, (0.153, 0.420, 0.851), (1, 1, 1)))
-      context.move_to(20 + shift, baseline)
-      context.show_text(text)
+    if self.is_selected:
+      draw_my_text(700, (0, 0, 0, 0.5), 1)
+      draw_my_text(700, (1, 1, 1, 1.0), 0)
     else:
-      self.draw_flash(context)
-
-      shift = self.draw_icon(context)
-
-
-      context.select_font_face(font_desc.get_family(),
-          cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-
-      context.set_source_rgba(0, 0, 0, 1)
-      context.move_to(20 + shift, baseline)
-      context.show_text(text)
+      weight = [400, 700][self.source.unread > 0]
+      draw_my_text(weight, (0, 0, 0, 1.0), 0)
 

@@ -128,7 +128,8 @@ class FeedieWindow(gtk.Window):
         self.builder.get_object('vbox2').pack_start(self.sources_view)
 
         self.web = webkit.WebView()
-        self.web.open('http://xph.us/nopage')
+        #self.web.open('http://xph.us/nopage')
+        self.web.open('file:/home/kr/src/xph.us/_site/index.html')
         self.web.show()
         self.builder.get_object('scrolledwindow1').add(self.web)
 
