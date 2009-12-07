@@ -30,6 +30,9 @@ class PostsTreeModel(gtk.GenericTreeModel):
     self.order = [x['id'] for x in docs]
     self.refs = dict(((self.order[i], i) for i in range(len(self.order))))
 
+  def __len__(self):
+    return len(self.order)
+
   def column_title(self, doc):
     return doc.get('title', '(unknown title)')
 
@@ -88,7 +91,7 @@ class PostsTreeModel(gtk.GenericTreeModel):
 
   def on_iter_n_children(self, rowref):
     if rowref: return 0
-    return len(self.order)
+    return len(self)
 
   def on_iter_nth_child(self, parent, n):
     if parent: return None
