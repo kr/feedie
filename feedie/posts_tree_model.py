@@ -1,6 +1,5 @@
 import gtk
 import time
-import random
 
 from feedie import images
 
@@ -23,10 +22,6 @@ class PostsTreeModel(gtk.GenericTreeModel):
     gtk.GenericTreeModel.__init__(self)
     docs = feed.post_summaries()
     self.docs = dict(((doc['id'], doc) for doc in docs))
-
-    for doc in docs:
-      doc['read'] = random.random() > 0.5
-
     self.order = [x['id'] for x in docs]
     self.refs = dict(((self.order[i], i) for i in range(len(self.order))))
 
