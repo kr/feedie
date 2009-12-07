@@ -6,11 +6,12 @@ from feedie import images
 
 class PostsTreeModel(gtk.GenericTreeModel):
   columns = (
-      ('title',      str),
-      ('updated_at', str),
-      ('star',       gtk.gdk.Pixbuf),
-      ('read',       gtk.gdk.Pixbuf),
-      ('weight',     int),
+      ('title',       str),
+      ('updated_at',  str),
+      ('pretty_date', str),
+      ('star',        gtk.gdk.Pixbuf),
+      ('read',        gtk.gdk.Pixbuf),
+      ('weight',      int),
   )
 
   @classmethod
@@ -22,7 +23,6 @@ class PostsTreeModel(gtk.GenericTreeModel):
     gtk.GenericTreeModel.__init__(self)
     docs = feed.post_summaries()
     self.docs = dict(((doc['id'], doc) for doc in docs))
-    docs = sorted(docs, key=lambda x: x.get('updated_at', 0), reverse=True)
 
     for doc in docs:
       doc['read'] = random.random() > 0.5
@@ -30,14 +30,13 @@ class PostsTreeModel(gtk.GenericTreeModel):
     self.order = [x['id'] for x in docs]
     self.refs = dict(((self.order[i], i) for i in range(len(self.order))))
 
-  def __len__(self):
-    return len(self.order)
-
   def column_title(self, doc):
     return doc.get('title', '(unknown title)')
 
-  def column_updated_at(self, doc):
+  def column_pretty_date(self, doc):
     return '3:11 p.m.'
+
+  def column_updated_at(self, doc):
     return doc.get('updated_at', '0000-00-00T00:00:00Z')
 
   def column_read(self, doc):
@@ -91,7 +90,7 @@ class PostsTreeModel(gtk.GenericTreeModel):
 
   def on_iter_n_children(self, rowref):
     if rowref: return 0
-    return len(self)
+    return len(self.order)
 
   def on_iter_nth_child(self, parent, n):
     if parent: return None
