@@ -8,6 +8,7 @@ import sys
 import os
 import gtk
 import gio
+import pango
 import webkit
 import feedparser
 import couchdb
@@ -134,35 +135,45 @@ class FeedieWindow(gtk.Window):
         self.builder.get_object('scrolledwindow1').add(self.web)
 
         treeview = self.builder.get_object('posts-treeview')
+        treeview.set_property('rules-hint', True)
 
         treeview.insert_column_with_attributes(0, 'Starred',
-            gtk.CellRendererText(),
-            text=2)
+            gtk.CellRendererPixbuf(),
+            pixbuf=PostsTreeModel.colnum('star'))
         treeview.get_column(0).set_sizing(gtk.TREE_VIEW_COLUMN_FIXED)
         treeview.get_column(0).set_fixed_width(24)
         treeview.get_column(0).set_min_width(24)
         treeview.get_column(0).set_max_width(24)
-        star = images.make('star')
-        star.show()
-        treeview.get_column(0).set_widget(star)
+        star_heading = images.make_widget('blank')
+        star_heading.show()
+        treeview.get_column(0).set_widget(star_heading)
 
         treeview.insert_column_with_attributes(1, 'Read',
-            gtk.CellRendererText(),
-            text=1)
+            gtk.CellRendererPixbuf(),
+            pixbuf=PostsTreeModel.colnum('read'))
         treeview.get_column(1).set_sizing(gtk.TREE_VIEW_COLUMN_FIXED)
         treeview.get_column(1).set_fixed_width(24)
         treeview.get_column(1).set_min_width(24)
         treeview.get_column(1).set_max_width(24)
         #treeview.get_column(1).set_widget(read_dot)
+        read_heading = images.make_widget('blank')
+        read_heading.show()
+        treeview.get_column(1).set_widget(read_heading)
 
+        title_cell_renderer = gtk.CellRendererText()
+        title_cell_renderer.set_property('ellipsize', pango.ELLIPSIZE_END)
         treeview.insert_column_with_attributes(2, 'Title',
-            gtk.CellRendererText(),
-            text=3)
+            title_cell_renderer,
+            text=PostsTreeModel.colnum('title'),
+            weight=PostsTreeModel.colnum('weight'))
         treeview.get_column(2).set_expand(True)
 
-        treeview.insert_column_with_attributes(3, 'Updated',
-            gtk.CellRendererText(),
-            text=0)
+        updated_cell_renderer = gtk.CellRendererText()
+        updated_cell_renderer.set_property('ellipsize', pango.ELLIPSIZE_END)
+        treeview.insert_column_with_attributes(3, 'Date',
+            updated_cell_renderer,
+            text=PostsTreeModel.colnum('updated_at'),
+            weight=PostsTreeModel.colnum('weight'))
         treeview.get_column(3).set_sizing(gtk.TREE_VIEW_COLUMN_FIXED)
         treeview.get_column(3).set_fixed_width(150)
         treeview.get_column(3).set_min_width(150)
