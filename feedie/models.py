@@ -3,6 +3,7 @@ from datetime import datetime
 from desktopcouch.records.record import Record
 
 from feedie import conn
+from feedie import util
 
 class Model(object):
   def __model_init(self):
@@ -144,9 +145,9 @@ class Feed(Model):
   def save_post(self, xml, doc=None):
     if doc is None: doc = {}
     if 'updated' in xml:
-      updated = xml.updated
+      updated = util.normalize_datetime(xml.updated)
     elif 'published' in xml:
-      updated = xml.published
+      updated = util.normalize_datetime(xml.published)
     else:
       return
     if doc.get('updated_at', '0000-00-00T00:00:00Z') >= updated: return
