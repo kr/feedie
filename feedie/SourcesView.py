@@ -17,7 +17,6 @@ class SourcesView(gtk.DrawingArea):
 
   def __init__(self, sources):
     gtk.DrawingArea.__init__(self)
-    self.font_scale = (1 / 1.2)
     self.connect('expose_event', self.expose)
     self.connect('button_press_event', self.button_press)
     self.add_events(gtk.gdk.BUTTON_PRESS_MASK)
@@ -115,7 +114,7 @@ class SourcesView(gtk.DrawingArea):
 
   @property
   def line_height(self):
-    return int(max(self.approx_text_height + self.approx_text_height * 0.4, 10))
+    return max(self.approx_text_height + self.approx_text_height / 2 - 1, 10)
 
   @property
   def width(self):
