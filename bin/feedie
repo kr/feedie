@@ -128,7 +128,7 @@ class FeedieWindow(gtk.Window):
         sources.add_builtin(models.AllNewsSource())
         self.sources_view.show()
 
-        self.builder.get_object('vbox2').pack_start(self.sources_view)
+        self.builder.get_object('sources-scrolledwindow').add_with_viewport(self.sources_view)
 
         self.web = webkit.WebView()
         #self.web.open('http://xph.us/nopage')
@@ -138,6 +138,25 @@ class FeedieWindow(gtk.Window):
 
         treeview = self.builder.get_object('posts-treeview')
         treeview.set_property('rules-hint', True)
+        treeview_heading_widgets = []
+
+        def style_set(widget, previous_style):
+          def modify_all(widget, fd):
+            widget.modify_font(fd)
+            if isinstance(widget, gtk.Container):
+              for child in widget.get_children():
+                modify_all(child, fd)
+
+          fd = widget.get_style().font_desc.copy()
+          fd.set_size(int(fd.get_size() / 1.2))
+          print fd
+          self.sources_view.modify_font(fd)
+          treeview.modify_font(fd)
+          for col in treeview.get_columns():
+            w = col.get_widget()
+            if w: w.modify_font(fd)
+
+        self.connect('style-set', style_set)
 
         treeview.insert_column_with_attributes(0, 'Starred',
             gtk.CellRendererPixbuf(),
@@ -148,6 +167,7 @@ class FeedieWindow(gtk.Window):
         treeview.get_column(0).set_max_width(24)
         star_heading = images.make_widget('blank')
         star_heading.show()
+        treeview_heading_widgets.append(star_heading)
         treeview.get_column(0).set_widget(star_heading)
 
         treeview.insert_column_with_attributes(1, 'Read',
@@ -157,9 +177,9 @@ class FeedieWindow(gtk.Window):
         treeview.get_column(1).set_fixed_width(24)
         treeview.get_column(1).set_min_width(24)
         treeview.get_column(1).set_max_width(24)
-        #treeview.get_column(1).set_widget(read_dot)
         read_heading = images.make_widget('blank')
         read_heading.show()
+        treeview_heading_widgets.append(read_heading)
         treeview.get_column(1).set_widget(read_heading)
 
         title_cell_renderer = gtk.CellRendererText()
@@ -170,18 +190,25 @@ class FeedieWindow(gtk.Window):
             weight=PostsTreeModel.colnum('weight'))
         treeview.get_column(2).set_sort_column_id(PostsTreeModel.colnum('title'))
         treeview.get_column(2).set_expand(True)
+        treeview_title_heading = gtk.Label('Title')
+        treeview_title_heading.show()
+        treeview_heading_widgets.append(treeview_title_heading)
+        treeview.get_column(2).set_widget(treeview_title_heading)
 
         updated_cell_renderer = gtk.CellRendererText()
         updated_cell_renderer.set_property('ellipsize', pango.ELLIPSIZE_END)
         treeview.insert_column_with_attributes(3, 'Date',
             updated_cell_renderer,
-            text=PostsTreeModel.colnum('pretty_date'),
-            weight=PostsTreeModel.colnum('weight'))
+            text=PostsTreeModel.colnum('pretty_date'))
         treeview.get_column(3).set_sort_column_id(PostsTreeModel.colnum('updated_at'))
         treeview.get_column(3).set_sizing(gtk.TREE_VIEW_COLUMN_FIXED)
         treeview.get_column(3).set_fixed_width(150)
         treeview.get_column(3).set_min_width(150)
         treeview.get_column(3).set_max_width(150)
+        treeview_date_heading = gtk.Label('Date')
+        treeview_date_heading.show()
+        treeview_heading_widgets.append(treeview_date_heading)
+        treeview.get_column(3).set_widget(treeview_date_heading)
 
         self.builder.get_object('vpaned1').set_position(200)
         self.builder.get_object('main-area').set_position(225)
@@ -204,7 +231,7 @@ class FeedieWindow(gtk.Window):
         title = u'%s \u2013 %d posts' % (source.title, len(model))
       treeview = self.builder.get_object('posts-treeview')
       treeview.set_model(model)
-      treeview.get_column(2).set_title(title)
+      treeview.get_column(2).get_widget().set_text(title)
 
     def about(self, widget, data=None):
         """about - display the about box for feedie """

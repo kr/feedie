@@ -17,6 +17,7 @@ class SourcesView(gtk.DrawingArea):
 
   def __init__(self, sources):
     gtk.DrawingArea.__init__(self)
+    self.font_scale = (1 / 1.2)
     self.connect('expose_event', self.expose)
     self.connect('button_press_event', self.button_press)
     self.add_events(gtk.gdk.BUTTON_PRESS_MASK)
@@ -46,9 +47,14 @@ class SourcesView(gtk.DrawingArea):
   def update(self, item, arg=None):
     self.update_heading_order()
     self.update_heading_items()
+    self.set_size_request(-1, self.height_request)
     if self.selected_id not in self.items:
       self.select(None)
     self.invalidate()
+
+  @property
+  def height_request(self):
+    return self.line_height * len(self.lines)
 
   def update_heading_order(self):
     names = set()
@@ -83,39 +89,48 @@ class SourcesView(gtk.DrawingArea):
       self.emit('selection-changed', self.selected_id)
 
   def expose(self, widget, event):
-    self.context = widget.window.cairo_create()
+    cairo_context = widget.window.cairo_create()
 
     # set a clip region for the expose event
-    self.context.rectangle(event.area.x, event.area.y,
+    cairo_context.rectangle(event.area.x, event.area.y,
                            event.area.width, event.area.height)
-    self.context.clip()
+    cairo_context.clip()
 
-    self.draw(self.context)
+    self.draw(cairo_context)
     return False
 
   @property
+  def pango_context(self):
+    return self.get_pango_context()
+
+  @property
+  def font_desc(self):
+    return self.get_style().font_desc
+
+  @property
   def approx_text_height(self):
-    height = self.context.font_extents()[2]
-    return int(height)
+    fd = self.font_desc
+    metrics = self.pango_context.get_metrics(fd, None)
+    return (metrics.get_ascent() + metrics.get_descent()) / pango.SCALE
 
   @property
   def line_height(self):
-    return max(self.approx_text_height + self.approx_text_height / 2, 20)
+    return int(max(self.approx_text_height + self.approx_text_height * 0.4, 10))
 
   @property
   def width(self):
     rect = self.get_allocation()
     return rect.width
 
-  def draw_line(self, line, f, *args, **kwargs):
-    self.context.save()
-    try:
-      self.context.translate(0, line * self.line_height)
-      return f(*args, **kwargs)
-    finally:
-      self.context.restore()
+  def draw(self, cairo_context):
+    def draw_line(line, f, *args, **kwargs):
+      cairo_context.save()
+      try:
+        cairo_context.translate(0, line * self.line_height)
+        return f(*args, **kwargs)
+      finally:
+        cairo_context.restore()
 
-  def draw(self, context):
     rect = self.get_allocation()
     x = rect.x + rect.width / 2
     y = rect.y + rect.height / 2
@@ -123,23 +138,23 @@ class SourcesView(gtk.DrawingArea):
     radius = min(rect.width / 2, rect.height / 2) - 5
 
     # background
-    context.set_source_rgb(0.82, 0.85, 0.90)
-    context.rectangle(0, 0, rect.width, rect.height)
-    context.fill()
+    #cairo_context.set_source_rgb(0.82, 0.85, 0.90)
+    cairo_context.set_source_rgb(0xd7/255.0, 0xdd/255.0, 0xe6/255.0) # copy
+    cairo_context.rectangle(0, 0, rect.width, rect.height)
+    cairo_context.fill()
 
-    self.context.set_font_size(font_size)
     line = 0
     self.lines = {}
     self.rev_lines = {}
     for heading_name in self.heading_order:
       items = self.heading_items[heading_name]
-      self.draw_line(line, draw_heading, self, context, heading_name)
+      draw_line(line, draw_heading, self, cairo_context, heading_name)
       line += 1
       for item in items:
         if item.is_selectable():
           self.lines[line] = item
           self.rev_lines[item.id] = line
-        self.draw_line(line, item.draw, context)
+        draw_line(line, item.draw, cairo_context)
         line += 1
       line += 1 # margin
 
@@ -166,32 +181,31 @@ class SourcesView(gtk.DrawingArea):
     alloc = self.get_allocation()
     self.invalidate_rect(0, 0, alloc.width, alloc.height)
 
-def draw_text(context, text, weight, rgba, width, height, dx, dy):
+def draw_text(font_desc, cairo_context, text, rgba, width, height, dx, dy):
   if width < 1: return
-  context.set_source_rgba(*rgba)
-  layout = context.create_layout()
+  cairo_context.set_source_rgba(*rgba)
+  layout = cairo_context.create_layout()
   layout.set_width(width * pango.SCALE)
   layout.set_wrap(False)
   layout.set_ellipsize(pango.ELLIPSIZE_END)
-  fd = font_desc.copy()
-  fd.set_weight(weight)
-  fd.set_size(fd.get_size() * 9 / 10)
-  layout.set_font_description(fd)
+  layout.set_font_description(font_desc)
   layout.set_text(text)
   text_width, text_height = layout.get_pixel_size()
-  context.move_to(dx, leading(height, text_height) / 2 + dy)
-  context.show_layout(layout)
+  cairo_context.move_to(dx, leading(height, text_height) / 2 + dy)
+  cairo_context.show_layout(layout)
 
-def draw_heading(sourceview, context, text):
+def draw_heading(sourceview, cairo_context, text):
   baseline = 5
   text = text.upper()
 
   label_width = sourceview.width - 10
 
-  draw_text(context, text, 700, (1, 1, 1, 0.5),
+  fd = sourceview.font_desc.copy()
+  fd.set_weight(700)
+  draw_text(fd, cairo_context, text, (1, 1, 1, 0.5),
       label_width, sourceview.line_height, 10, 1)
 
-  draw_text(context, text, 700, (0.447, 0.498, 0.584, 1),
+  draw_text(fd, cairo_context, text, (0.447, 0.498, 0.584, 1),
       label_width, sourceview.line_height, 10, 0)
 
 class SourceSeparatorItem:
@@ -202,7 +216,7 @@ class SourceSeparatorItem:
   def is_selectable(self):
     return False
 
-  def draw(self, context):
+  def draw(self, cairo_context):
     line_height = self.sourceview.line_height
     line_width = self.sourceview.get_allocation().width
 
@@ -212,9 +226,9 @@ class SourceSeparatorItem:
     top = (line_height - sep_height) / 2
     left = (line_width - sep_width) / 2
 
-    context.set_source_rgba(0, 0, 0, 0.1)
-    context.rectangle(left, top, sep_width, sep_height)
-    context.fill()
+    cairo_context.set_source_rgba(0, 0, 0, 0.1)
+    cairo_context.rectangle(left, top, sep_width, sep_height)
+    cairo_context.fill()
 
 class SourceItem:
   def __init__(self, sourceview, source):
@@ -273,7 +287,7 @@ class SourceItem:
   def flash_prog(self):
     return (time.time() - self.flash_start) / 1.5
 
-  def draw_flash(self, context):
+  def draw_flash(self, cairo_context):
     if self.flash_go:
       self.flash_go = False
       self.flash_start = time.time()
@@ -306,11 +320,11 @@ class SourceItem:
     linear.add_color_stop_rgba(prog,                *color + (1,))
     linear.add_color_stop_rgba(prog + pulse_hwidth, *color + (0,))
     linear.add_color_stop_rgba(1.0,                 *color + (0,))
-    context.set_source(linear)
-    context.rectangle(0, 0, width, height)
-    context.fill()
+    cairo_context.set_source(linear)
+    cairo_context.rectangle(0, 0, width, height)
+    cairo_context.fill()
 
-  def draw_icon(self, context):
+  def draw_icon(self, cairo_context):
     height = self.sourceview.line_height
     #icon = cairo.ImageSurface.create_from_png(self.source.icon_path)
     theme = gtk.icon_theme_get_default()
@@ -321,8 +335,8 @@ class SourceItem:
 
     shift = 0
     if icon:
-      context.set_source_pixbuf(icon, 20, leading(height, 16) / 2)
-      context.paint()
+      cairo_context.set_source_pixbuf(icon, 20, leading(height, 16) / 2)
+      cairo_context.paint()
       shift = 20 # icon width + 4
     return shift
 
@@ -332,10 +346,12 @@ class SourceItem:
   def half_leading(self, height):
     return self.leading(height) / 2
 
-  def draw(self, context):
+  def draw(self, cairo_context):
     def draw_my_text(weight, rgba, dy):
-      draw_text(context, self.label, weight, rgba,
-          label_width, self.height, dx, dy)
+      fd = self.sourceview.font_desc.copy()
+      fd.set_weight(weight)
+      draw_text(fd, cairo_context, self.label,
+          rgba, label_width, self.height, dx, dy)
 
     def draw_pill():
       padding = 5
@@ -343,11 +359,10 @@ class SourceItem:
       tb_margin = 3
       if self.source.unread < 1: return lr_margin
 
-      layout = context.create_layout()
+      layout = cairo_context.create_layout()
       layout.set_wrap(False)
-      fd = font_desc.copy()
+      fd = self.sourceview.font_desc.copy()
       fd.set_weight(700)
-      fd.set_size(fd.get_size() * 9 / 10)
       layout.set_font_description(fd)
       layout.set_text(str(self.source.unread))
       text_width, text_height = layout.get_pixel_size()
@@ -356,22 +371,22 @@ class SourceItem:
       pill_width = text_width + 2 * padding
 
       if self.is_selected:
-        context.set_source_rgb(1, 1, 1)
+        cairo_context.set_source_rgb(1, 1, 1)
       else:
-        #context.set_source_rgb(0.15, 0.23, 0.99)
-        #context.set_source_rgb(0x8f/255.0, 0xac/255.0, 0xe0/255.0)
-        context.set_source_rgb(0x76/255.0, 0x96/255.0, 0xd0/255.0)
-      graphics.rounded_rect(context, self.width - pill_width - lr_margin, tb_margin,
+        #cairo_context.set_source_rgb(0.15, 0.23, 0.99)
+        #cairo_context.set_source_rgb(0x8f/255.0, 0xac/255.0, 0xe0/255.0)
+        cairo_context.set_source_rgb(0x76/255.0, 0x96/255.0, 0xd0/255.0)
+      graphics.rounded_rect(cairo_context, self.width - pill_width - lr_margin, tb_margin,
           pill_width, self.height - 2 * tb_margin, 1000)
-      context.fill()
+      cairo_context.fill()
 
       if self.is_selected:
-        context.set_source_rgb(0.35, 0.35, 0.35)
+        cairo_context.set_source_rgb(0.35, 0.35, 0.35)
       else:
-        context.set_source_rgb(1, 1, 1)
-      context.move_to(self.width - text_width - padding - lr_margin,
+        cairo_context.set_source_rgb(1, 1, 1)
+      cairo_context.move_to(self.width - text_width - padding - lr_margin,
           leading(self.height, text_height) / 2)
-      context.show_layout(layout)
+      cairo_context.show_layout(layout)
 
 
 
@@ -386,19 +401,19 @@ class SourceItem:
       linear = cairo.LinearGradient(0, 0, 0, self.height)
       linear.add_color_stop_rgb(0, *top_grad_color)
       linear.add_color_stop_rgb(1, *bot_grad_color)
-      context.set_source(linear)
-      context.rectangle(0, 0, self.width, self.height)
-      context.fill()
+      cairo_context.set_source(linear)
+      cairo_context.rectangle(0, 0, self.width, self.height)
+      cairo_context.fill()
 
-      context.set_source_rgb(*top_line_color)
-      context.move_to(0 + 0.5, 0 + 0.5)
-      context.line_to(self.width + 0.5, 0 + 0.5)
-      context.set_line_width(1)
-      context.stroke()
+      cairo_context.set_source_rgb(*top_line_color)
+      cairo_context.move_to(0 + 0.5, 0 + 0.5)
+      cairo_context.line_to(self.width + 0.5, 0 + 0.5)
+      cairo_context.set_line_width(1)
+      cairo_context.stroke()
 
-    self.draw_flash(context)
+    self.draw_flash(cairo_context)
     dx = 20
-    dx += self.draw_icon(context)
+    dx += self.draw_icon(cairo_context)
 
     pill_width = draw_pill()
 
@@ -408,6 +423,9 @@ class SourceItem:
       draw_my_text(700, (0, 0, 0, 0.5), 1)
       draw_my_text(700, (1, 1, 1, 1.0), 0)
     else:
-      weight = [400, 700][self.source.unread > 0]
-      draw_my_text(weight, (0, 0, 0, 1.0), 0)
+      weight, color = (
+          (400, (0.10, 0.10, 0.10, 1.0)),
+          (700, (0.20, 0.20, 0.20, 1.0)),
+        )[self.source.unread > 0]
+      draw_my_text(weight, color, 0)
 

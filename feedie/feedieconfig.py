@@ -17,9 +17,6 @@ import os
 import gtk
 import pango
 
-font_desc = gtk.Style().font_desc
-font_size = gtk.Style().font_desc.get_size() * 96 / 72 / pango.SCALE
-
 class project_path_not_found(Exception):
     pass
 
