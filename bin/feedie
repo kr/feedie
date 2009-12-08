@@ -38,6 +38,7 @@ from feedie import models
 from feedie import fetcher
 from feedie.feedieconfig import getdatapath
 from feedie import images
+from feedie import incoming
 from feedie import conn
 from feedie import util
 from feedie import http
@@ -57,12 +58,13 @@ def subscribe(uri, more=()):
       try:
           print 'parsing...'
           xml = feedparser.parse(doc)
+          ifeed = incoming.Feed(doc)
           print 'done'
           print xml.version
 
           print xml.feed.keys()
           if xml.version: # feedparser thinks this is a feed
-            promise.callback((sources.subscribe(uri, xml), xml))
+            promise.callback((sources.subscribe(uri, xml), xml, ifeed))
             return
 
           if 'links' in xml.feed:

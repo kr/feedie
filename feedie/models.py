@@ -96,15 +96,15 @@ class Sources(Model):
   def __getitem__(self, id):
     return self.builtins[id]
 
-  def subscribe(self, uri, xml):
+  def subscribe(self, uri, xml, ifeed):
     rec = None
     try:
       self.max_pos += 1
       doc = {}
       doc['type'] = 'feed'
-      doc['title'] = xml.feed.get('title', '(unknown title)')
+      doc['title'] = ifeed.title
       doc['pos'] = self.max_pos
-      if 'subtitle' in xml: doc['subtitle'] = xml.subtitle
+      doc['subtitle'] = ifeed.subtitle
       conn.database.db[uri] = doc
     except couchdb.client.ResourceConflict:
       rec = conn.database.db.get(uri)
@@ -115,8 +115,8 @@ class Sources(Model):
     rec = rec or conn.database.db.get(uri)
     summary = Feed.get_summary(key=uri)
     feed = self.add_feed(Feed(rec, summary, self))
-    for entry in xml.entries:
-      feed.save_post(entry)
+    for post in ifeed.posts:
+      feed.save_post(post)
     return feed
 
   def update(self, feed, data=None):
@@ -142,40 +142,40 @@ class Feed(Model):
       return x.value
     return dict(total=0, read=0)
 
-  def save_post(self, xml, doc=None):
+  def save_post(self, ipost, doc=None):
     if doc is None: doc = {}
-    if 'updated' in xml:
-      updated = util.normalize_datetime(xml.updated)
-    elif 'published' in xml:
-      updated = util.normalize_datetime(xml.published)
+    if 'updated' in ipost:
+      updated = util.normalize_datetime(ipost.updated)
+    elif 'published' in ipost:
+      updated = util.normalize_datetime(ipost.published)
     else:
       return
     if doc.get('updated_at', '0000-00-00T00:00:00Z') >= updated: return
 
     # try real hard to get a useful id for this post
-    if 'id' in xml:
-      post_id = xml.id
-    elif 'link' in xml:
-      post_id = xml.link
+    if 'id' in ipost:
+      post_id = ipost.id
+    elif 'link' in ipost:
+      post_id = ipost.link
     else:
       post_id = [self.id, updated]
 
     print 'syncing', post_id
 
     doc['type'] = 'post'
-    doc['title'] = xml.get('title', '(unknown title)')
+    doc['title'] = ipost.get('title', '(unknown title)')
     doc['updated_at'] = updated
     doc['feed_id'] = self.id
-    if 'link' in xml: doc['link'] = xml.link
-    if 'summary' in xml: doc['summary'] = xml.summary
-    if 'content' in xml: doc['content'] = xml.content # TODO use less-sanitized
-    if 'published' in xml: doc['published_at'] = xml.published
+    if 'link' in ipost: doc['link'] = ipost.link
+    if 'summary' in ipost: doc['summary'] = ipost.summary
+    if 'content' in ipost: doc['content'] = ipost.content # TODO use less-sanitized
+    if 'published' in ipost: doc['published_at'] = ipost.published
     try:
       conn.database.db[post_id] = doc
       self.summary = Feed.get_summary(key=self.id)
       self.changed()
     except couchdb.client.ResourceConflict:
-      return self.save_post(xml, conn.database.db[post_id])
+      return self.save_post(ipost, conn.database.db[post_id])
 
   @property
   def id(self):
