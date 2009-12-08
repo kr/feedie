@@ -1,12 +1,13 @@
 import gtk
 import time
+import gobject
 
 from feedie import images
 
 class PostsTreeModel(gtk.GenericTreeModel):
   columns = (
       ('title',       str),
-      ('updated_at',  str),
+      ('age',         int),
       ('pretty_date', str),
       ('star',        gtk.gdk.Pixbuf),
       ('read',        gtk.gdk.Pixbuf),
@@ -31,7 +32,8 @@ class PostsTreeModel(gtk.GenericTreeModel):
   def column_pretty_date(self, doc):
     return '3:11 p.m.'
 
-  def column_updated_at(self, doc):
+  def column_age(self, doc):
+    return 1234 # seconds ole
     return doc.get('updated_at', '0000-00-00T00:00:00Z')
 
   def column_read(self, doc):

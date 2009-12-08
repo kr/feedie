@@ -149,7 +149,6 @@ class FeedieWindow(gtk.Window):
 
           fd = widget.get_style().font_desc.copy()
           fd.set_size(int(fd.get_size() / 1.2))
-          print fd
           self.sources_view.modify_font(fd)
           treeview.modify_font(fd)
           for col in treeview.get_columns():
@@ -200,7 +199,7 @@ class FeedieWindow(gtk.Window):
         treeview.insert_column_with_attributes(3, 'Date',
             updated_cell_renderer,
             text=PostsTreeModel.colnum('pretty_date'))
-        treeview.get_column(3).set_sort_column_id(PostsTreeModel.colnum('updated_at'))
+        treeview.get_column(3).set_sort_column_id(PostsTreeModel.colnum('age'))
         treeview.get_column(3).set_sizing(gtk.TREE_VIEW_COLUMN_FIXED)
         treeview.get_column(3).set_fixed_width(150)
         treeview.get_column(3).set_min_width(150)
@@ -225,8 +224,8 @@ class FeedieWindow(gtk.Window):
       model, title = None, ''
       if source:
         model = gtk.TreeModelSort(PostsTreeModel(source))
-        model.set_sort_column_id(PostsTreeModel.colnum('updated_at'),
-            gtk.SORT_DESCENDING)
+        model.set_sort_column_id(PostsTreeModel.colnum('age'),
+            gtk.SORT_ASCENDING)
         model.set_default_sort_func(None)
         title = u'%s \u2013 %d posts' % (source.title, len(model))
       treeview = self.builder.get_object('posts-treeview')
