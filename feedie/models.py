@@ -115,7 +115,7 @@ class Sources(Model):
     self.emit('builtin-added', source)
     self.emit('source-added', source)
 
-  def add_source(self, feed):
+  def add_feed(self, feed):
     self.feeds[feed.id] = feed
     getattr(feed, 'added_to', lambda x: None)(self)
     self.emit('feed-added', feed)
@@ -138,7 +138,7 @@ class Sources(Model):
   def __getitem__(self, id):
     return self.builtins[id]
 
-  def subscribe(self, uri, xml, ifeed):
+  def subscribe(self, uri, ifeed):
     now = int(time.time())
     rec = None
     try:
@@ -159,9 +159,7 @@ class Sources(Model):
     summary = Feed.get_summary(key=uri)
     feed = Feed(rec, summary)
     feed.connect('deleted', self.feed_deleted)
-    feed = self.add_source(feed)
-    for post in ifeed.posts:
-      feed.save_post(post)
+    feed = self.add_feed(feed)
     return feed
 
   def feed_deleted(self, feed, event):
@@ -184,6 +182,10 @@ class Feed(Model):
     for x in rows:
       return x.value
     return dict(total=0, read=0)
+
+  def save_posts(self, ifeed):
+    for post in ifeed.posts:
+      self.save_post(post)
 
   def save_post(self, ipost, doc=None):
     if doc is None: doc = {}

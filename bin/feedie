@@ -64,7 +64,7 @@ def subscribe(uri, more=()):
 
           print xml.feed.keys()
           if xml.version: # feedparser thinks this is a feed
-            promise.callback((sources.subscribe(uri, xml, ifeed), xml, ifeed))
+            promise.callback((sources.subscribe(uri, ifeed), ifeed))
             return
 
           if 'links' in xml.feed:
@@ -280,9 +280,10 @@ class FeedieWindow(gtk.Window):
         self.hide_subscribe_box()
 
     def start_subscribe(self):
-        def success((feed, xml, ifeed)):
+        def success((feed, ifeed)):
           self.hide_subscribe_box()
           self.sources_view.flash(feed.id)
+          feed.save_posts(ifeed)
 
         def error(reason):
           self.show_subscribe_box()
