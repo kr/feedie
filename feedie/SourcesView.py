@@ -24,9 +24,10 @@ class SourcesView(gtk.DrawingArea):
     self.rev_lines = {}
     self.selected_id = None
     self.sources = sources
-    self.sources.add_listener(self)
+    self.sources.connect('source-added', self.source_added)
+    self.sources.connect('source-removed', self.source_removed)
     self.items = {}
-    self.update(self.sources)
+    self.update()
 
   @property
   def selected_view(self):
@@ -43,7 +44,13 @@ class SourcesView(gtk.DrawingArea):
   def is_item_selected(self, item_id):
     return item_id == self.selected_id
 
-  def update(self, item, arg=None):
+  def source_added(self, sources, event, source):
+    self.update()
+
+  def source_removed(self, sources, event, source):
+    self.update()
+
+  def update(self):
     self.update_heading_order()
     self.update_heading_items()
     self.set_size_request(-1, self.height_request)
@@ -236,7 +243,7 @@ class SourceItem:
     self.sourceview = sourceview
     self.flash_go = False
     self.flash_start = 0
-    source.add_listener(self)
+    source.connect('summary-changed', self.summary_changed)
 
   @property
   def id(self):
@@ -266,7 +273,7 @@ class SourceItem:
   def height(self):
     return self.sourceview.line_height
 
-  def update(self, item, arg=None):
+  def summary_changed(self, source, event):
     self.invalidate()
 
   def invalidate_rect(self, x, y, width, height):

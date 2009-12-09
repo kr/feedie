@@ -1,6 +1,8 @@
 import time
 import couchdb
+from collections import defaultdict
 from desktopcouch.records.record import Record
+from twisted.internet import reactor
 
 from feedie import conn
 from feedie import util
@@ -8,31 +10,58 @@ from feedie.attrdict import attrdict
 
 class Model(object):
   def __model_init(self):
-    try:
-      self.__listeners
-    except:
-      self.__listeners = []
+    self.handlers = getattr(self, 'handlers', defaultdict(list))
 
-  def add_listener(self, x):
+  def connect(self, name, handler):
+    assert callable(handler)
     self.__model_init()
-    self.__listeners.append(x)
+    self.handlers[name].append(handler)
+    return self
 
-  def changed(self, arg=None):
+  def emit(self, name, *args, **kwargs):
     self.__model_init()
-    for x in self.__listeners:
-      x.update(self, arg)
+    for handler in self.handlers[name] + self.handlers['*']:
+      reactor.callLater(0, handler, self, name, *args, **kwargs)
 
 class AllNewsSource(Model):
   def __init__(self):
-    self.summary = Feed.get_summary()
+    self.sources = None
+    self.update_summary()
+
+  def added_to(self, sources):
+    self.sources = sources
+    sources.connect('feed-added', self.feed_added)
+    sources.connect('feed-removed', self.feed_removed)
+    for feed in sources.feeds.values():
+      feed.connect('summary-changed', self.summary_changed)
+    self.update_summary()
+
+  def feed_added(self, sources, event, feed):
+    feed.connect('summary-changed', self.summary_changed)
+    self.update_summary()
+
+  def feed_removed(self, sources, event, feed):
+    self.update_summary()
+
+  def summary_changed(self, source, event):
+    self.update_summary()
+
+  def update_summary(self):
+    self.summary = attrdict(total=0, read=0)
+    if self.sources:
+      for feed in self.sources:
+        self.summary.total += feed.summary['total']
+        self.summary.read += feed.summary['read']
+    self.emit('summary-changed')
 
   @property
   def id(self):
     return 'all-news'
 
   def post_summaries(self):
+    print 'keys', self.sources.feed_ids
     rows = conn.database.db.view('feedie/feed_post',
-        startkey=['feed', 0], endkey=['feed', 1])
+        keys=self.sources.feed_ids)
     return [Post(row.value, self) for row in rows]
 
   @property
@@ -62,33 +91,42 @@ class AllNewsSource(Model):
 class Sources(Model):
   def __init__(self):
     def feed_from_row(r):
-      feed = Feed(r.value, summary.get(r.id, zero()), self)
+      feed = Feed(r.value, summary.get(r.id, zero()))
+      feed.connect('deleted', self.feed_deleted)
       return r.id, feed
 
     self.builtins = {}
     rows = conn.database.db.view('feedie/feed')
     summary = {}
-    for id, summ in Feed.get_summaries():
+    for id, summ in Feed.get_summaries(keys=[r.id for r in rows]):
       summary[id] = summ
 
     zero = lambda:dict(total=0, read=0)
     self.feeds = dict(map(feed_from_row, rows))
     self.max_pos = max([0] + [x.pos for x in self.feeds.values()])
 
+  @property
+  def feed_ids(self):
+    return self.feeds.keys()
+
   def add_builtin(self, source):
     self.builtins[source.id] = source
-    self.changed()
+    getattr(source, 'added_to', lambda x: None)(self)
+    self.emit('builtin-added', source)
+    self.emit('source-added', source)
 
-  def add_feed(self, feed):
+  def add_source(self, feed):
     self.feeds[feed.id] = feed
-    self.changed()
+    getattr(feed, 'added_to', lambda x: None)(self)
+    self.emit('feed-added', feed)
+    self.emit('source-added', feed)
     return self.feeds[feed.id]
 
   def remove_feed(self, feed):
     if feed.id in self.feeds:
-      raise RuntimeError('aaa')
       del self.feeds[feed.id]
-      self.changed()
+      self.emit('feed-removed', feed)
+      self.emit('source-removed', feed)
 
   def __iter__(self):
     feeds = sorted(self.feeds.values(), key=lambda x: (-x.pos, x.title, x.id))
@@ -116,20 +154,20 @@ class Sources(Model):
       rec = None
     rec = conn.database.db[uri]
     summary = Feed.get_summary(key=uri)
-    feed = self.add_feed(Feed(rec, summary, self))
+    feed = Feed(rec, summary)
+    feed.connect('deleted', self.feed_deleted)
+    feed = self.add_source(feed)
     for post in ifeed.posts:
       feed.save_post(post)
     return feed
 
-  def update(self, feed, data=None):
-    if feed.is_deleted:
-      self.remove_feed(feed)
+  def feed_deleted(self, feed, event):
+    self.remove_feed(feed)
 
 class Feed(Model):
-  def __init__(self, doc, summary, sources):
+  def __init__(self, doc, summary):
     self.doc = doc
     self.summary = summary
-    self.add_listener(sources)
 
   # Return a list of (uri, summary) pairs. Each summary is a small dictionary.
   @staticmethod
@@ -163,8 +201,9 @@ class Feed(Model):
     if 'published' in ipost: doc['published_at'] = ipost.published
     try:
       conn.database.db[post_id] = doc
+      self.emit('post-added', post_id)
       self.summary = Feed.get_summary(key=self.id)
-      self.changed()
+      self.emit('summary-changed')
     except couchdb.client.ResourceConflict:
       return self.save_post(ipost, conn.database.db[post_id])
 
@@ -173,7 +212,7 @@ class Feed(Model):
     return self.doc['_id']
 
   def post_summaries(self):
-    rows = conn.database.db.view('feedie/feed_post', key=['feed', 0, self.id])
+    rows = conn.database.db.view('feedie/feed_post', key=self.id)
     return [Post(row.value, self) for row in rows]
 
   @property
@@ -221,7 +260,7 @@ class Feed(Model):
   def delete(self):
     self.doc['deleted_at'] = int(time.time())
     conn.database.db[self.id] = self.doc
-    self.changed()
+    self.emit('deleted')
 
 class Post(Model):
   __slots__ = 'doc source'.split()

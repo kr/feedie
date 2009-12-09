@@ -2,6 +2,7 @@ import sys
 from datetime import datetime
 from collections import defaultdict
 from twisted.internet.defer import Deferred
+from twisted.internet import reactor
 
 TIME_FORMATS = (
   '%Y-%m-%dT%H:%M:%S',
@@ -38,10 +39,7 @@ class EventEmitter(Deferred):
   def emit(self, name, *args, **kw):
     self.init_listeners()
     for listener in self.listeners[name] + self.listeners['*']:
-      try:
-        listener(name, *args, **kw)
-      except Exception, e:
-        print >>sys.stderr, e
+      reactor.callLater(0, listener, name, *args, **kw)
 
   def init_listeners(self):
     self.listeners = getattr(self, 'listeners', defaultdict(list))

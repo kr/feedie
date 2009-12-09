@@ -3,7 +3,6 @@ import couchdb
 from feedie import conn
 
 DOC_ID = '_design/feedie'
-VERSION = 1 # change this when you modify the design doc
 
 SUMMARY_MAP = '''
 function (doc) {
@@ -32,7 +31,11 @@ function (keys, values, rereduce) {
 FEED_MAP = '''
 function (doc) {
   if (doc.type == 'feed') {
-    if (!doc.deleted_at) {
+    try {
+      if (!(doc.deleted_at > doc.subscribed_at)) {
+        emit(doc._id, doc);
+      }
+    } catch (e) {
       emit(doc._id, doc);
     }
   }
@@ -51,7 +54,7 @@ function (doc) {
         read: doc.read,
         updated_at: doc.updated_at,
       };
-      emit(['feed', 0, doc.feed_id], info);
+      emit(doc.feed_id, info);
     }
   }
 }
