@@ -209,12 +209,20 @@ class FeedieWindow(gtk.Window):
         treeview_heading_widgets.append(treeview_date_heading)
         treeview.get_column(3).set_widget(treeview_date_heading)
 
+        def sources_pane_resized(sv, rect):
+          w = max(rect.width - 5, 0)
+          self.builder.get_object('sources-status').set_size_request(w, -1)
+
+        self.sources_view.connect('size-allocate', sources_pane_resized)
         self.builder.get_object('vpaned1').set_position(200)
         self.builder.get_object('main-area').set_position(225)
         blue = gtk.gdk.color_parse('#7db6ff')
         self.builder.get_object('subscribe-box').modify_bg(gtk.STATE_NORMAL, blue)
 
         self.sources_view.connect('selection-changed', self.select_feed)
+
+        self.builder.get_object('sources-status').set_text('sources status')
+        self.builder.get_object('posts-status').set_text('posts status')
 
     def select_feed(self, widget, selected_id):
       source = widget.selected
@@ -377,7 +385,7 @@ if __name__ == "__main__":
     #run the application
     gtk.gdk.threads_init()
     window = NewFeedieWindow()
-    window.set_default_size(900, 1000)
+    window.set_default_size(800, 800)
     window.show()
     #gtk.main()
     reactor.run()
