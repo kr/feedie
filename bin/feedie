@@ -233,7 +233,8 @@ class FeedieWindow(gtk.Window):
     def select_feed(self, widget, selected_id):
       source = widget.selected
 
-      self.builder.get_object('action-remove-feed').set_sensitive(bool(source))
+      removable = source and sources.can_remove(source)
+      self.builder.get_object('action-remove-feed').set_sensitive(removable)
 
       model, title = None, ''
       if source:

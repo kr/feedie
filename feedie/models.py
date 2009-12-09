@@ -128,6 +128,9 @@ class Sources(Model):
       self.emit('feed-removed', feed)
       self.emit('source-removed', feed)
 
+  def can_remove(self, source):
+    return source.id in self.feeds
+
   def __iter__(self):
     feeds = sorted(self.feeds.values(), key=lambda x: (-x.pos, x.title, x.id))
     return iter(self.builtins.values() + feeds)
