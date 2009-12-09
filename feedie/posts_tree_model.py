@@ -30,11 +30,17 @@ class PostsTreeModel(gtk.GenericTreeModel):
     return doc.get('title', '(unknown title)')
 
   def column_pretty_date(self, doc):
-    return '3:11 p.m.'
+    now = time.time()
+    year = time.gmtime(now).tm_year
+    t = time.gmtime(doc.updated_at)
+    if t.tm_year != year:
+      return time.strftime('%d %b %Y', t)
+    if abs(now - doc.updated_at) > 82800: # 23 Hours
+      return time.strftime('%d %b', t)
+    return time.strftime('%I:%M %p', t)
 
   def column_age(self, doc):
-    return 1234 # seconds ole
-    return doc.get('updated_at', '0000-00-00T00:00:00Z')
+    return -doc.updated_at
 
   def column_read(self, doc):
     return str(doc.get('read', False))

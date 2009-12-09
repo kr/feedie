@@ -1,5 +1,5 @@
 from collections import namedtuple
-from twisted.internet import protocol, reactor
+from twisted.internet import protocol, reactor, error
 from twisted.web import http
 
 from feedie import util
@@ -46,14 +46,21 @@ class HTTPProtocol(http.HTTPClient):
     self.promise.emit('body', self.content_progress, self.content_length)
 
   def handleResponseEnd(self):
-    body = ''.join(self.chunks)
-    resp = Response(self.status, self.headers, body)
-    self.promise.callback(resp)
-    del self.promise
+    self.complete()
 
   def connectionLost(self, reason):
+    if reason.check(error.ConnectionDone):
+      self.complete()
     if hasattr(self, 'promise'):
       self.promise.errback(reason)
+      del self.promise
+
+  def complete(self):
+    if hasattr(self, 'promise'):
+      body = ''.join(self.chunks)
+      resp = Response(self.status, self.headers, body)
+      self.promise.callback(resp)
+      del self.promise
 
 class Client:
   def __init__(self, host, port):
@@ -79,6 +86,7 @@ class Client:
     return {
       'Host': self.host,
       'User-Agent': 'Feedie',
+      'Connection': 'close',
     }
 
   def get(self, *args, **kw):

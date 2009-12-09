@@ -64,7 +64,7 @@ def subscribe(uri, more=()):
 
           print xml.feed.keys()
           if xml.version: # feedparser thinks this is a feed
-            promise.callback((sources.subscribe(uri, xml), xml, ifeed))
+            promise.callback((sources.subscribe(uri, xml, ifeed), xml, ifeed))
             return
 
           if 'links' in xml.feed:
@@ -201,9 +201,9 @@ class FeedieWindow(gtk.Window):
             text=PostsTreeModel.colnum('pretty_date'))
         treeview.get_column(3).set_sort_column_id(PostsTreeModel.colnum('age'))
         treeview.get_column(3).set_sizing(gtk.TREE_VIEW_COLUMN_FIXED)
-        treeview.get_column(3).set_fixed_width(150)
-        treeview.get_column(3).set_min_width(150)
-        treeview.get_column(3).set_max_width(150)
+        treeview.get_column(3).set_fixed_width(100)
+        treeview.get_column(3).set_min_width(100)
+        treeview.get_column(3).set_max_width(100)
         treeview_date_heading = gtk.Label('Date')
         treeview_date_heading.show()
         treeview_heading_widgets.append(treeview_date_heading)
@@ -265,7 +265,7 @@ class FeedieWindow(gtk.Window):
         self.hide_subscribe_box()
 
     def start_subscribe(self):
-        def success((feed, xml)):
+        def success((feed, xml, ifeed)):
           self.hide_subscribe_box()
           self.sources_view.flash(feed.id)
 
@@ -287,8 +287,11 @@ class FeedieWindow(gtk.Window):
           self.subscribe_progress(0.04)
 
         def progress(event, got, outof):
-          print 'progress', (1.0 * got / outof)
-          self.subscribe_progress(1.0 * got / outof)
+          if not outof: return
+          print 'progress', event, got, outof
+          frac = 1.0 * got / outof
+          print 'frac', frac
+          self.subscribe_progress(frac)
 
         self.subscribe_progress(0.02)
         self.builder.get_object('subscribe-button').set_sensitive(False)

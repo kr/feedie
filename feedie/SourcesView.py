@@ -158,6 +158,7 @@ class SourcesView(gtk.DrawingArea):
       line += 1 # margin
 
   def flash(self, item_id):
+    if item_id not in self.items: return
     self.items[item_id].flash()
     glib.idle_add(self.update_flash_anim)
 

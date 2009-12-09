@@ -1,6 +1,11 @@
 import sys
+from datetime import datetime
 from collections import defaultdict
 from twisted.internet.defer import Deferred
+
+TIME_FORMATS = (
+  '%Y-%m-%dT%H:%M:%S',
+)
 
 def merge(a, b):
   a = a.copy()
@@ -18,9 +23,6 @@ def mix(f, a, b):
 
 def leading(line_height, item_height):
   return line_height - item_height
-
-def normalize_datetime(dt):
-  xxx
 
 class EventEmitter(Deferred):
   # The special event name "*" will register a listener for all events.

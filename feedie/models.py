@@ -1,9 +1,10 @@
+import time
 import couchdb
-from datetime import datetime
 from desktopcouch.records.record import Record
 
 from feedie import conn
 from feedie import util
+from feedie.attrdict import attrdict
 
 class Model(object):
   def __model_init(self):
@@ -32,7 +33,7 @@ class AllNewsSource(Model):
   def post_summaries(self):
     rows = conn.database.db.view('feedie/feed_post',
         startkey=['feed', 0], endkey=['feed', 1])
-    return [row.value for row in rows]
+    return [Post(row.value, self) for row in rows]
 
   @property
   def title(self):
@@ -79,13 +80,13 @@ class Sources(Model):
     self.changed()
 
   def add_feed(self, feed):
-    if feed.id not in self.feeds:
-      self.feeds[feed.id] = feed
-      self.changed()
+    self.feeds[feed.id] = feed
+    self.changed()
     return self.feeds[feed.id]
 
   def remove_feed(self, feed):
     if feed.id in self.feeds:
+      raise RuntimeError('aaa')
       del self.feeds[feed.id]
       self.changed()
 
@@ -97,6 +98,7 @@ class Sources(Model):
     return self.builtins[id]
 
   def subscribe(self, uri, xml, ifeed):
+    now = int(time.time())
     rec = None
     try:
       self.max_pos += 1
@@ -105,14 +107,14 @@ class Sources(Model):
       doc['title'] = ifeed.title
       doc['pos'] = self.max_pos
       doc['subtitle'] = ifeed.subtitle
+      doc['subscribed_at'] = now
       conn.database.db[uri] = doc
     except couchdb.client.ResourceConflict:
-      rec = conn.database.db.get(uri)
-      if rec.get('deleted', False):
-        rec.deleted = False
-        conn.database.db[rec.id] = rec
-        rec = None
-    rec = rec or conn.database.db.get(uri)
+      rec = conn.database.db[uri]
+      rec['subscribed_at'] = now
+      conn.database.db[uri] = rec
+      rec = None
+    rec = conn.database.db[uri]
     summary = Feed.get_summary(key=uri)
     feed = self.add_feed(Feed(rec, summary, self))
     for post in ifeed.posts:
@@ -144,27 +146,16 @@ class Feed(Model):
 
   def save_post(self, ipost, doc=None):
     if doc is None: doc = {}
-    if 'updated' in ipost:
-      updated = util.normalize_datetime(ipost.updated)
-    elif 'published' in ipost:
-      updated = util.normalize_datetime(ipost.published)
-    else:
-      return
-    if doc.get('updated_at', '0000-00-00T00:00:00Z') >= updated: return
 
-    # try real hard to get a useful id for this post
-    if 'id' in ipost:
-      post_id = ipost.id
-    elif 'link' in ipost:
-      post_id = ipost.link
-    else:
-      post_id = [self.id, updated]
+    if not ipost.has_useful_updated_at: return
+
+    post_id = '%s %s' % (self.id, ipost.id)
 
     print 'syncing', post_id
 
     doc['type'] = 'post'
     doc['title'] = ipost.get('title', '(unknown title)')
-    doc['updated_at'] = updated
+    doc['updated_at'] = ipost.updated_at
     doc['feed_id'] = self.id
     if 'link' in ipost: doc['link'] = ipost.link
     if 'summary' in ipost: doc['summary'] = ipost.summary
@@ -183,7 +174,7 @@ class Feed(Model):
 
   def post_summaries(self):
     rows = conn.database.db.view('feedie/feed_post', key=['feed', 0, self.id])
-    return [row.value for row in rows]
+    return [Post(row.value, self) for row in rows]
 
   @property
   def title(self):
@@ -214,10 +205,44 @@ class Feed(Model):
     return self.doc.get('pos', 0)
 
   @property
+  def x_deleted_at(self):
+    return self.doc.get('deleted_at', 0)
+
+  @property
+  def x_subscribed_at(self):
+    return self.doc.get('subscribed_at', 0)
+
+  @property
   def is_deleted(self):
-    return not not self.doc.get('deleted_at', None)
+    delat = self.x_deleted_at
+    subat = self.x_subscribed_at
+    return delat > subat
 
   def delete(self):
-    self.doc['deleted_at'] = datetime.utcnow().isoformat()
+    self.doc['deleted_at'] = int(time.time())
     conn.database.db[self.id] = self.doc
     self.changed()
+
+class Post(Model):
+  __slots__ = 'doc source'.split()
+
+  def __init__(self, doc, source):
+    self.doc = attrdict(doc)
+    self.source = source
+
+  def __getitem__(self, name):
+    return self.doc[name]
+
+  def __setitem__(self, name, value):
+    self.doc[name] = value
+
+  def __contains__(self, name):
+    return name in self.doc
+
+  def __getattr__(self, name):
+    return getattr(self.doc, name)
+
+  def __setattr__(self, name, value):
+    if name in self.__slots__:
+      return Model.__setattr__(self, name, value)
+    setattr(self.doc, name, value)
