@@ -305,3 +305,15 @@ class Post(Model):
     if name in self.__slots__:
       return Model.__setattr__(self, name, value)
     setattr(self.doc, name, value)
+
+  @defer.inlineCallbacks
+  def modify(self, modify):
+    self.doc = yield self.db.modify_doc(self._id, modify)
+    self.emit('changed')
+
+  @defer.inlineCallbacks
+  def set_read(self, is_read):
+    def modify(doc):
+      doc['read'] = is_read
+
+    yield self.modify(modify)
