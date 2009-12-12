@@ -184,9 +184,10 @@ class Feed(Model):
       return x.value
     return dict(total=0, read=0)
 
+  @defer.inlineCallbacks
   def save_posts(self, ifeed):
     for post in ifeed.posts:
-      self.save_post(post)
+      yield self.save_post(post)
 
   @defer.inlineCallbacks
   def save_post(self, ipost, doc=None):
