@@ -2,7 +2,7 @@ import time
 import couchdb
 from collections import defaultdict
 from desktopcouch.records.record import Record
-from twisted.internet import reactor
+from twisted.internet import reactor, defer
 
 from feedie import conn
 from feedie import util
@@ -89,21 +89,24 @@ class AllNewsSource(Model):
     return self.summary['read']
 
 class Sources(Model):
-  def __init__(self):
-    def feed_from_row(r):
-      feed = Feed(r.value, summary.get(r.id, zero()))
-      feed.connect('deleted', self.feed_deleted)
-      return r.id, feed
-
+  def __init__(self, db):
+    self.db = db
     self.builtins = {}
-    rows = conn.database.db.view('feedie/feed')
-    summary = {}
-    for id, summ in Feed.get_summaries(keys=[r.id for r in rows]):
-      summary[id] = summ
+    self.feeds = {}
+    self.max_pos = 0
 
-    zero = lambda:dict(total=0, read=0)
-    self.feeds = dict(map(feed_from_row, rows))
-    self.max_pos = max([0] + [x.pos for x in self.feeds.values()])
+  #@defer.inlineCallbacks
+  def load(self):
+    rows = conn.database.db.view('feedie/feed')
+
+    summaries = {}
+    for id, summ in Feed.get_summaries(keys=[r.id for r in rows]):
+      summaries[id] = summ
+
+    for row in rows:
+      feed = Feed(row.value, summaries.get(row.id, dict(total=0, read=0)))
+      feed.connect('deleted', self.feed_deleted)
+      self.add_feed(feed)
 
   @property
   def feed_ids(self):
@@ -120,6 +123,7 @@ class Sources(Model):
     getattr(feed, 'added_to', lambda x: None)(self)
     self.emit('feed-added', feed)
     self.emit('source-added', feed)
+    self.max_pos = max(self.max_pos, feed.pos)
     return self.feeds[feed.id]
 
   def remove_feed(self, feed):
@@ -138,6 +142,7 @@ class Sources(Model):
   def __getitem__(self, id):
     return self.builtins[id]
 
+  @defer.inlineCallbacks
   def subscribe(self, uri, ifeed):
     now = int(time.time())
     rec = None
@@ -149,18 +154,27 @@ class Sources(Model):
       doc['pos'] = self.max_pos
       doc['subtitle'] = ifeed.subtitle
       doc['subscribed_at'] = now
-      conn.database.db[uri] = doc
+      doc['_id'] = uri
+      #conn.database.db[uri] = doc
+      doc = yield self.db.save_doc(doc)
     except couchdb.client.ResourceConflict:
-      rec = conn.database.db[uri]
-      rec['subscribed_at'] = now
-      conn.database.db[uri] = rec
-      rec = None
-    rec = conn.database.db[uri]
+      print '@@@@@@'
+      print 'okay, getting previous version'
+      doc = yield self.db.load_doc(uri)
+      print 'HOORAY, made progress'
+      #rec = conn.database.db[uri]
+      doc['subscribed_at'] = now
+      #conn.database.db[uri] = rec
+      print '######'
+      print 'okay, saving again'
+      doc = yield self.db.save_doc(doc)
+      #rec = None
+    #rec = conn.database.db[uri]
     summary = Feed.get_summary(key=uri)
-    feed = Feed(rec, summary)
+    feed = Feed(doc, summary)
     feed.connect('deleted', self.feed_deleted)
     feed = self.add_feed(feed)
-    return feed
+    defer.returnValue(feed)
 
   def feed_deleted(self, feed, event):
     self.remove_feed(feed)

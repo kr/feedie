@@ -18,16 +18,19 @@ class HTTPProtocol(http.HTTPClient):
 
   def connectionMade(self):
     self.promise.emit('connected')
-    self.sendCommand(self.request.method, self.request.path)
+    self.sendCommand(self.request.method, self.request.path.encode())
     for k, v in self.request.headers.items():
       self.sendHeader(k, v)
-    #if self.request.body is not None:
-    #  self.sendBody(body)
     self.endHeaders()
+    if self.request.body is not None:
+      self.sendBody(self.request.body)
     self.promise.emit('sent')
 
+  def sendBody(self, body):
+    self.transport.write(body)
+
   def handleStatus(self, version, code, message):
-    self.status = Status(version, code, message)
+    self.status = Status(version, int(code), message)
     self.promise.emit('status', self.status)
 
   def handleHeader(self, key, value):
@@ -73,21 +76,20 @@ class Client:
     path = path or '/'
 
     promise = util.EventEmitter()
-    headers = util.merge(self.default_headers, headers)
+    headers = (headers or {}).copy()
+    headers.setdefault('Host', '%s:%d' % (self.host, self.port))
+    headers.setdefault('User-Agent', 'Feedie')
+    headers.setdefault('Connection', 'close')
+    if body is not None:
+      body = body.encode()
+      headers.setdefault('Content-Length', len(body))
+
     request = Request(method, path, headers, body)
     clientCreator = protocol.ClientCreator(reactor, HTTPProtocol, request,
         promise)
     d = clientCreator.connectTCP(self.host, self.port, timeout=30)
     d.addErrback(promise.errback)
     return promise
-
-  @property
-  def default_headers(self):
-    return {
-      'Host': self.host,
-      'User-Agent': 'Feedie',
-      'Connection': 'close',
-    }
 
   def get(self, *args, **kw):
     return self.request('GET', *args, **kw)

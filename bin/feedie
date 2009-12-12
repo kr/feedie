@@ -12,6 +12,7 @@ import pango
 import webkit
 import feedparser
 import couchdb
+import desktopcouch
 from desktopcouch.records.server import CouchDatabase
 
 from twisted.internet import gtk2reactor
@@ -42,6 +43,7 @@ from feedie import incoming
 from feedie import conn
 from feedie import util
 from feedie import http
+from feedie import database
 
 MAX_FEED_DOC_SIZE = 1000000
 
@@ -64,7 +66,13 @@ def subscribe(uri, more=()):
 
           print xml.feed.keys()
           if xml.version: # feedparser thinks this is a feed
-            promise.callback((sources.subscribe(uri, ifeed), ifeed))
+            def success(feed):
+              promise.callback((feed, ifeed))
+
+            d = sources.subscribe(uri, ifeed)
+            d.addCallback(success)
+            d.addErrback(promise.errback)
+            #promise.callback((sources.subscribe(uri, ifeed), ifeed))
             return
 
           if 'links' in xml.feed:
@@ -101,7 +109,11 @@ class FeedieWindow(gtk.Window):
         FeedieWindow object.
 
         """
+
         conn.database = CouchDatabase('feedie', create=True)
+        oauth_tokens = desktopcouch.local_files.get_oauth_tokens()
+        self.db = database.AsyncCouch(conn.database, oauth_tokens)
+
         design_doc.add_views()
 
     def finish_initializing(self, builder):
@@ -123,7 +135,8 @@ class FeedieWindow(gtk.Window):
 
         # now add other widgets that glade doesn't know about
 
-        sources = models.Sources()
+        sources = models.Sources(self.db)
+        sources.load()
         self.sources_view = SourcesView(sources)
         sources.add_builtin(models.AllNewsSource())
         self.sources_view.show()
@@ -304,9 +317,9 @@ class FeedieWindow(gtk.Window):
 
         def progress(event, got, outof):
           if not outof: return
-          print 'progress', event, got, outof
+          #print 'progress', event, got, outof
           frac = 1.0 * got / outof
-          print 'frac', frac
+          #print 'frac', frac
           self.subscribe_progress(frac)
 
         self.subscribe_progress(0.02)

@@ -12,7 +12,8 @@ open_counts = defaultdict(int) # default value of int() == 0
 
 # Schedules the given URI to be fetched as soon as reasonable. Respects
 # per-host and global limits on the number of open connections.
-def fetch(uri, **kw):
+def fetch(uri, headers=None):
+  if headers is None: headers = {}
   promise = util.EventEmitter()
   if not (uri.startswith('http://') or uri.startswith('https://')):
     uri = 'http://' + uri
@@ -27,7 +28,7 @@ def fetch(uri, **kw):
 
     promise.emit('fetch')
     open_counts[uri.hostname] += 1
-    d = http.Client(uri.hostname, uri.port or 80).get(path, headers=kw)
+    d = http.Client(uri.hostname, uri.port or 80).get(path, headers=headers)
     d.addBoth(fin)
     d.chainDeferred(promise)
     d.chainEvents(promise)
