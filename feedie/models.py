@@ -26,7 +26,7 @@ class AllNewsSource(Model):
   def __init__(self, db):
     self.db = db
     self.sources = None
-    self.post_cache = None
+    self.posts = []
     self.update_summary()
 
   def added_to(self, sources):
@@ -61,11 +61,11 @@ class AllNewsSource(Model):
 
   @defer.inlineCallbacks
   def post_summaries(self):
-    if not self.post_cache:
+    if not self.posts:
       rows = yield self.db.view('feedie/feed_post',
           keys=self.sources.feed_ids)
-      self.post_cache = [Post(row['value'], self) for row in rows]
-    defer.returnValue(self.post_cache)
+      self.posts = [Post(row['value'], self) for row in rows]
+    defer.returnValue(self.posts)
 
   @property
   def title(self):
@@ -173,7 +173,7 @@ class Feed(Model):
   def __init__(self, db, doc, summary=None):
     self.db = db
     self.doc = doc
-    self.post_cache = None
+    self.posts = []
     self.summary = summary or dict(total=0, read=0)
 
   # Return a list of (uri, summary) pairs. Each summary is a small dictionary.
@@ -193,6 +193,10 @@ class Feed(Model):
     for x in rows:
       defer.returnValue(x['value'])
     defer.returnValue(dict(total=0, read=0))
+
+  def add_post(self, post):
+    self.posts.append(post)
+    self.emit('post-added', post._id)
 
   @defer.inlineCallbacks
   def save_posts(self, ifeed):
@@ -215,7 +219,8 @@ class Feed(Model):
     post_id = '%s %s' % (self.id, ipost.id)
     doc = yield self.db.modify_doc(post_id, modify)
 
-    self.emit('post-added', post_id)
+    post = Post(doc, self)
+    self.add_post(post)
     yield self.update_summary()
     self.emit('summary-changed')
 
@@ -225,10 +230,10 @@ class Feed(Model):
 
   @defer.inlineCallbacks
   def post_summaries(self):
-    if not self.post_cache:
+    if not self.posts:
       rows = yield self.db.view('feedie/feed_post', key=self.id)
-      self.post_cache = [Post(row['value'], self) for row in rows]
-    defer.returnValue(self.post_cache)
+      self.posts = [Post(row['value'], self) for row in rows]
+    defer.returnValue(self.posts)
 
   @property
   def title(self):
