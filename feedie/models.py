@@ -259,9 +259,13 @@ class Feed(Model):
     subat = self.x_subscribed_at
     return delat > subat
 
+  @defer.inlineCallbacks
   def delete(self):
-    self.doc['deleted_at'] = int(time.time())
-    conn.database.db[self.id] = self.doc
+    def modify(doc):
+      doc['deleted_at'] = now
+
+    now = int(time.time())
+    yield self.db.modify_doc(self.id, modify)
     self.emit('deleted')
 
 class Post(Model):
