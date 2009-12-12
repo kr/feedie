@@ -21,6 +21,8 @@ gtk2reactor.install()
 from twisted.internet import reactor, defer
 from twisted.web import client
 
+webkit.WEB_NAVIGATION_REASON_OTHER = 5
+
 # Check if we are working in the source tree or from the installed 
 # package and mangle the python path accordingly
 if os.path.dirname(sys.argv[0]) != ".":
@@ -53,18 +55,13 @@ sources = None
 def subscribe(uri, more=()):
     promise = util.EventEmitter()
     def got_all(result):
-      print type(result)
       doc = result.body
 
       try:
-          print 'parsing...'
           xml = feedparser.parse(doc)
-          ifeed = incoming.Feed(doc)
-          print 'done'
-          print xml.version
-
-          print xml.feed.keys()
           if xml.version: # feedparser thinks this is a feed
+            ifeed = incoming.Feed(xml)
+
             def success(feed):
               promise.callback((feed, ifeed))
 
@@ -147,7 +144,37 @@ class FeedieWindow(gtk.Window):
 
         self.builder.get_object('sources-scrolledwindow').add_with_viewport(self.sources_view)
 
+        def poppop(webview, menu):
+          def blah_blah(item):
+            pass
+
+          for item in menu:
+            menu.remove(item)
+
+          item = gtk.MenuItem('_Blah Blah')
+          item.show()
+          item.connect('activate', blah_blah)
+          menu.append(item)
+
+        def nav_policy(view, frame, request, nav_action, decision):
+          reason = nav_action.get_reason()
+          if reason == webkit.WEB_NAVIGATION_REASON_OTHER:
+            decision.use()
+          else:
+            # TODO open with gnome url handler
+            decision.ignore()
+          return True
+
+        def request_starting(view, frame, resource, request, response):
+          uri = request.get_uri()
+          if uri.startswith('res:'):
+            pass
+
         self.web = webkit.WebView()
+        self.web.set_maintains_back_forward_list(False)
+        self.web.connect('populate-popup', poppop)
+        self.web.connect('navigation-policy-decision-requested', nav_policy)
+        self.web.connect('resource-request-starting', request_starting)
         self.web.show()
         self.builder.get_object('scrolledwindow1').add(self.web)
 
@@ -155,29 +182,16 @@ class FeedieWindow(gtk.Window):
 
         @defer.inlineCallbacks
         def update_web_view():
-          def preferred_content(item):
-            if 'html' in item['type']: return 0
-            if item['type'] == 'text/plain': return 1
-            return 2
-
           if self.current_post_ids:
             feed_id, post_id = self.current_post_ids
             feed = sources.get_feed(feed_id)
             post = yield feed.get_post(post_id)
-            content = yield post.get_content()
-            if content:
-              item = min(content, key=preferred_content)
-              value, type = item['value'], item['type']
-            else:
-              content = yield post.get_summary()
-              value, type = content, 'text/plain'
-            if type == 'text/html':
-              html = value
-            else:
-              html = 'some funky ' + type
+            html = yield post.get_display()
+            base = post.base()
           else:
-            html = ''
-          self.web.load_html_string(html, 'file:///')
+            html, base = '', ''
+
+          self.web.load_html_string(html, base)
 
         post_id_colnum = PostsTreeModel.colnum('post_id')
         feed_id_colnum = PostsTreeModel.colnum('feed_id')

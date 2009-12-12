@@ -1,5 +1,7 @@
+import cgi
 import time
 import couchdb
+import urlparse
 from collections import defaultdict
 from desktopcouch.records.record import Record
 from twisted.internet import reactor, defer
@@ -146,6 +148,7 @@ class Sources(Model):
     def modify(doc):
       doc['type'] = 'feed'
       doc['title'] = ifeed.title
+      doc['link'] = ifeed.link
       doc['pos'] = self.max_pos
       doc['subtitle'] = ifeed.subtitle
       doc['subscribed_at'] = now
@@ -215,9 +218,9 @@ class Feed(Model):
       doc['title'] = ipost.get('title', '(unknown title)')
       doc['updated_at'] = ipost.updated_at
       doc['feed_id'] = self.id
-      if 'link' in ipost: doc['link'] = ipost.link
-      if 'summary' in ipost: doc['summary'] = ipost.summary
-      if 'content' in ipost: doc['content'] = ipost.content # TODO use less-sanitized
+      doc['link'] = ipost.link
+      doc['summary_detail'] = ipost.summary_detail
+      doc['content'] = ipost.content # TODO use less-sanitized
       if 'published' in ipost: doc['published_at'] = ipost.published
 
     if not ipost.has_useful_updated_at: return
@@ -250,6 +253,10 @@ class Feed(Model):
   @property
   def icon(self):
     return 'cancel'
+
+  @property
+  def link(self):
+    return self.doc.get('link', 'about:blank')
 
   @property
   def category(self):
@@ -319,6 +326,13 @@ class Post(Model):
       return Model.__setattr__(self, name, value)
     setattr(self.doc, name, value)
 
+  def base(self):
+    post_domain = urlparse.urlsplit(self.link).netloc
+    feed_domain = urlparse.urlsplit(self.source.link).netloc
+    if post_domain == feed_domain:
+      return self.link
+    return self.source.link
+
   @defer.inlineCallbacks
   def load_doc(self):
     if self.complete: return
@@ -333,10 +347,34 @@ class Post(Model):
     defer.returnValue(self.get('content', []))
 
   @defer.inlineCallbacks
-  def get_summary(self):
-    if 'summary' not in self:
+  def get_summary_detail(self):
+    if 'summary_detail' not in self:
       yield self.load_doc()
-    defer.returnValue(self.get('summary', []))
+    defer.returnValue(self.get('summary_detail', None))
+
+  @defer.inlineCallbacks
+  def get_display(self, preferred=('text/html',
+                                   'application/xhtml+xml',
+                                   'text/plain')):
+    def preference_score(item):
+      try:
+        return preferred[::-1].index(item['type'])
+      except ValueError:
+        print 'index error', item['type']
+        return -1
+
+    content = yield self.get_content()
+    if content:
+      item = max(content, key=preference_score)
+      if item['type'] in ('text/html', 'application/xhtml+xml'):
+        defer.returnValue(item['value'])
+      defer.returnValue(cgi.escape(item['value']))
+    item = yield self.get_summary_detail()
+    if item:
+      if item['type'] in ('text/html', 'application/xhtml+xml'):
+        defer.returnValue(item['value'])
+      defer.returnValue(cgi.escape(item['value']))
+    defer.returnValue('')
 
   @defer.inlineCallbacks
   def modify(self, modify):

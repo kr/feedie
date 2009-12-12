@@ -2,9 +2,8 @@ import calendar
 import feedparser
 
 class Feed:
-  def __init__(self, xml):
-    self.xml = xml
-    self.parsed = feedparser.parse(xml)
+  def __init__(self, parsed):
+    self.parsed = parsed
     self.feed = self.parsed.feed
 
   def __getattr__(self, name):
@@ -72,3 +71,18 @@ class Post:
     if 'id' in self: return self['id']
     if 'link' in self: return self.link
     return str(self.updated_at)
+
+  @property
+  def summary_detail(self):
+    if 'summary_detail' in self: return self['summary_detail']
+    return None
+
+  @property
+  def content(self):
+    if 'content' in self: return self['content']
+    return []
+
+  @property
+  def link(self):
+    if 'link' in self: return self['link']
+    return ''
