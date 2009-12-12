@@ -209,27 +209,6 @@ class Feed(Model):
     self.summary = Feed.get_summary(key=self.id)
     self.emit('summary-changed')
 
-
-    #if doc is None: doc = {}
-
-    #print 'syncing', post_id
-
-    #doc['type'] = 'post'
-    #doc['title'] = ipost.get('title', '(unknown title)')
-    #doc['updated_at'] = ipost.updated_at
-    #doc['feed_id'] = self.id
-    #if 'link' in ipost: doc['link'] = ipost.link
-    #if 'summary' in ipost: doc['summary'] = ipost.summary
-    #if 'content' in ipost: doc['content'] = ipost.content # TODO use less-sanitized
-    #if 'published' in ipost: doc['published_at'] = ipost.published
-    #try:
-    #  conn.database.db[post_id] = doc
-    #  self.emit('post-added', post_id)
-    #  self.summary = Feed.get_summary(key=self.id)
-    #  self.emit('summary-changed')
-    #except couchdb.client.ResourceConflict:
-    #  return self.save_post(ipost, conn.database.db[post_id])
-
   @property
   def id(self):
     return self.doc['_id']
