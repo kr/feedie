@@ -310,6 +310,7 @@ class FeedieWindow(gtk.Window):
     def start_subscribe(self):
         def success((feed, ifeed)):
           self.hide_subscribe_box()
+          self.sources_view.select(feed.id)
           self.sources_view.flash(feed.id)
           feed.save_posts(ifeed)
 
