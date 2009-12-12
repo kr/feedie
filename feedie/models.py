@@ -194,7 +194,7 @@ class Feed(Model):
     defer.returnValue(dict(total=0, read=0))
 
   def add_post(self, doc):
-    self.posts.setdefault(post._id, Post(doc, self))
+    post = self.posts.setdefault(doc['_id'], Post(doc, self))
     post.doc = doc
     self.emit('post-added', post._id)
 
@@ -219,7 +219,7 @@ class Feed(Model):
     post_id = '%s %s' % (self.id, ipost.id)
     doc = yield self.db.modify_doc(post_id, modify)
 
-    self.add_post(doc)
+    self.add_post(attrdict(doc))
     yield self.update_summary()
     self.emit('summary-changed')
 
