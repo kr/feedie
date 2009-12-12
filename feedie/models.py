@@ -26,25 +26,25 @@ class AllNewsSource(Model):
   def __init__(self, db):
     self.db = db
     self.sources = None
-    self.posts = []
+    self.posts = {}
     self.update_summary()
 
   def added_to(self, sources):
+    def summary_changed(source, event):
+      self.update_summary()
+
+    def feed_added(sources, event, feed):
+      feed.connect('summary-changed', summary_changed)
+      self.update_summary()
+
+    def feed_removed(sources, event, feed):
+      self.update_summary()
+
     self.sources = sources
-    sources.connect('feed-added', self.feed_added)
-    sources.connect('feed-removed', self.feed_removed)
-    for feed in sources.feeds.values():
-      feed.connect('summary-changed', self.summary_changed)
-    self.update_summary()
-
-  def feed_added(self, sources, event, feed):
-    feed.connect('summary-changed', self.summary_changed)
-    self.update_summary()
-
-  def feed_removed(self, sources, event, feed):
-    self.update_summary()
-
-  def summary_changed(self, source, event):
+    sources.connect('feed-added', feed_added)
+    sources.connect('feed-removed', feed_removed)
+    for feed in sources:
+      feed.connect('summary-changed', summary_changed)
     self.update_summary()
 
   def update_summary(self):
@@ -64,8 +64,8 @@ class AllNewsSource(Model):
     if not self.posts:
       rows = yield self.db.view('feedie/feed_post',
           keys=self.sources.feed_ids)
-      self.posts = [Post(row['value'], self) for row in rows]
-    defer.returnValue(self.posts)
+      self.posts = dict([(row['id'], Post(row['value'], self)) for row in rows])
+    defer.returnValue(self.posts.values())
 
   @property
   def title(self):
@@ -109,9 +109,8 @@ class Sources(Model):
       summaries[id] = summ
 
     for row in rows:
-      feed = Feed(self.db, row['value'], summaries.get(row['id'], None))
+      feed = self.add_feed(row['value'], summaries.get(row['id'], None))
       feed.connect('deleted', self.feed_deleted)
-      self.add_feed(feed)
 
   @property
   def feed_ids(self):
@@ -119,23 +118,18 @@ class Sources(Model):
 
   def add_builtin(self, source):
     self.builtins[source.id] = source
-    getattr(source, 'added_to', lambda x: None)(self)
+    source.added_to(self)
     self.emit('builtin-added', source)
     self.emit('source-added', source)
 
-  def add_feed(self, feed):
-    self.feeds[feed.id] = feed
-    getattr(feed, 'added_to', lambda x: None)(self)
+  def add_feed(self, doc, summary=None):
+    feed = self.feeds.setdefault(doc['_id'], Feed(self.db, doc, summary))
+    feed.doc = doc
+    feed.added_to(self)
     self.emit('feed-added', feed)
     self.emit('source-added', feed)
     self.max_pos = max(self.max_pos, feed.pos)
-    return self.feeds[feed.id]
-
-  def remove_feed(self, feed):
-    if feed.id in self.feeds:
-      del self.feeds[feed.id]
-      self.emit('feed-removed', feed)
-      self.emit('source-removed', feed)
+    return feed
 
   def can_remove(self, source):
     return source.id in self.feeds
@@ -160,21 +154,26 @@ class Sources(Model):
     now = int(time.time())
     doc = yield self.db.modify_doc(uri, modify)
 
-    feed = Feed(self.db, doc)
-    yield feed.update_summary()
+    feed = self.add_feed(doc)
     feed.connect('deleted', self.feed_deleted)
-    feed = self.add_feed(feed)
+    yield feed.update_summary()
     defer.returnValue(feed)
 
   def feed_deleted(self, feed, event):
-    self.remove_feed(feed)
+    if feed.id in self.feeds:
+      del self.feeds[feed.id]
+      self.emit('feed-removed', feed)
+      self.emit('source-removed', feed)
 
 class Feed(Model):
   def __init__(self, db, doc, summary=None):
     self.db = db
     self.doc = doc
-    self.posts = []
+    self.posts = {}
     self.summary = summary or dict(total=0, read=0)
+
+  def added_to(self, sources):
+    pass
 
   # Return a list of (uri, summary) pairs. Each summary is a small dictionary.
   @staticmethod
@@ -194,8 +193,9 @@ class Feed(Model):
       defer.returnValue(x['value'])
     defer.returnValue(dict(total=0, read=0))
 
-  def add_post(self, post):
-    self.posts.append(post)
+  def add_post(self, doc):
+    self.posts.setdefault(post._id, Post(doc, self))
+    post.doc = doc
     self.emit('post-added', post._id)
 
   @defer.inlineCallbacks
@@ -219,8 +219,7 @@ class Feed(Model):
     post_id = '%s %s' % (self.id, ipost.id)
     doc = yield self.db.modify_doc(post_id, modify)
 
-    post = Post(doc, self)
-    self.add_post(post)
+    self.add_post(doc)
     yield self.update_summary()
     self.emit('summary-changed')
 
@@ -232,8 +231,8 @@ class Feed(Model):
   def post_summaries(self):
     if not self.posts:
       rows = yield self.db.view('feedie/feed_post', key=self.id)
-      self.posts = [Post(row['value'], self) for row in rows]
-    defer.returnValue(self.posts)
+      self.posts = dict([(row['id'], Post(row['value'], self)) for row in rows])
+    defer.returnValue(self.posts.values())
 
   @property
   def title(self):

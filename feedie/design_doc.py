@@ -45,7 +45,7 @@ function (doc) {
   if (doc.type == 'post') {
     if (!doc.deleted_at) {
       var info = {
-        id: doc._id,
+        _id: doc._id,
         feed_id: doc.feed_id,
         title: doc.title,
         starred: doc.starred,
