@@ -42,7 +42,7 @@ class AsyncCouch:
     def success(response):
       promise.callback(response)
 
-    promise = util.EventEmitter()
+    promise = defer.Deferred()
 
     full_http_url = "http://%s:%d%s" % (self.host, self.port, path)
     headers.update(self.make_oauth_headers(verb, full_http_url))
@@ -61,7 +61,7 @@ class AsyncCouch:
       else:
         promise.errback(classify_error(value))
 
-    promise = util.EventEmitter()
+    promise = defer.Deferred()
     verb = verb.upper()
     params = params.copy()
     request_path = self.base_path + path + encode_params(params)
@@ -104,7 +104,7 @@ class AsyncCouch:
       doc['_rev'] = result['rev']
       promise.callback(doc)
 
-    promise = util.EventEmitter()
+    promise = defer.Deferred()
     doc = doc.copy()
 
     if '_id' not in doc:
@@ -116,6 +116,22 @@ class AsyncCouch:
     d.addErrback(promise.errback)
 
     return promise
+
+  @defer.inlineCallbacks
+  def modify_doc(self, doc_id, f, load_first=False):
+    while True:
+      if load_first:
+        doc = yield self.load_doc(doc_id)
+      else:
+        doc = {'_id': doc_id}
+
+      f(doc)
+
+      try:
+        doc = yield self.save_doc(doc)
+        defer.returnValue(doc)
+      except couchdb.client.ResourceConflict:
+        load_first = True
 
   def make_oauth_headers(self, verb, full_http_url):
     consumer = oauth.OAuthConsumer(self.oauth_tokens['consumer_key'],

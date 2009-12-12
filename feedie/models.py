@@ -104,7 +104,8 @@ class Sources(Model):
       summaries[id] = summ
 
     for row in rows:
-      feed = Feed(row.value, summaries.get(row.id, dict(total=0, read=0)))
+      feed = Feed(self.db, row.value,
+          summaries.get(row.id, dict(total=0, read=0)))
       feed.connect('deleted', self.feed_deleted)
       self.add_feed(feed)
 
@@ -144,23 +145,19 @@ class Sources(Model):
 
   @defer.inlineCallbacks
   def subscribe(self, uri, ifeed):
-    now = int(time.time())
-    try:
-      self.max_pos += 1
-      doc = {}
+    def modify(doc):
       doc['type'] = 'feed'
       doc['title'] = ifeed.title
       doc['pos'] = self.max_pos
       doc['subtitle'] = ifeed.subtitle
       doc['subscribed_at'] = now
-      doc['_id'] = uri
-      doc = yield self.db.save_doc(doc)
-    except couchdb.client.ResourceConflict:
-      doc = yield self.db.load_doc(uri)
-      doc['subscribed_at'] = now
-      doc = yield self.db.save_doc(doc)
+
+    self.max_pos += 1
+    now = int(time.time())
+    doc = yield self.db.modify_doc(uri, modify)
+
     summary = Feed.get_summary(key=uri)
-    feed = Feed(doc, summary)
+    feed = Feed(self.db, doc, summary)
     feed.connect('deleted', self.feed_deleted)
     feed = self.add_feed(feed)
     defer.returnValue(feed)
@@ -169,7 +166,8 @@ class Sources(Model):
     self.remove_feed(feed)
 
 class Feed(Model):
-  def __init__(self, doc, summary):
+  def __init__(self, db, doc, summary):
+    self.db = db
     self.doc = doc
     self.summary = summary
 
@@ -190,30 +188,46 @@ class Feed(Model):
     for post in ifeed.posts:
       self.save_post(post)
 
+  @defer.inlineCallbacks
   def save_post(self, ipost, doc=None):
-    if doc is None: doc = {}
+    def modify(doc):
+      doc['type'] = 'post'
+      doc['title'] = ipost.get('title', '(unknown title)')
+      doc['updated_at'] = ipost.updated_at
+      doc['feed_id'] = self.id
+      if 'link' in ipost: doc['link'] = ipost.link
+      if 'summary' in ipost: doc['summary'] = ipost.summary
+      if 'content' in ipost: doc['content'] = ipost.content # TODO use less-sanitized
+      if 'published' in ipost: doc['published_at'] = ipost.published
 
     if not ipost.has_useful_updated_at: return
-
     post_id = '%s %s' % (self.id, ipost.id)
+    doc = yield self.db.modify_doc(post_id, modify)
 
-    print 'syncing', post_id
+    self.emit('post-added', post_id)
+    self.summary = Feed.get_summary(key=self.id)
+    self.emit('summary-changed')
 
-    doc['type'] = 'post'
-    doc['title'] = ipost.get('title', '(unknown title)')
-    doc['updated_at'] = ipost.updated_at
-    doc['feed_id'] = self.id
-    if 'link' in ipost: doc['link'] = ipost.link
-    if 'summary' in ipost: doc['summary'] = ipost.summary
-    if 'content' in ipost: doc['content'] = ipost.content # TODO use less-sanitized
-    if 'published' in ipost: doc['published_at'] = ipost.published
-    try:
-      conn.database.db[post_id] = doc
-      self.emit('post-added', post_id)
-      self.summary = Feed.get_summary(key=self.id)
-      self.emit('summary-changed')
-    except couchdb.client.ResourceConflict:
-      return self.save_post(ipost, conn.database.db[post_id])
+
+    #if doc is None: doc = {}
+
+    #print 'syncing', post_id
+
+    #doc['type'] = 'post'
+    #doc['title'] = ipost.get('title', '(unknown title)')
+    #doc['updated_at'] = ipost.updated_at
+    #doc['feed_id'] = self.id
+    #if 'link' in ipost: doc['link'] = ipost.link
+    #if 'summary' in ipost: doc['summary'] = ipost.summary
+    #if 'content' in ipost: doc['content'] = ipost.content # TODO use less-sanitized
+    #if 'published' in ipost: doc['published_at'] = ipost.published
+    #try:
+    #  conn.database.db[post_id] = doc
+    #  self.emit('post-added', post_id)
+    #  self.summary = Feed.get_summary(key=self.id)
+    #  self.emit('summary-changed')
+    #except couchdb.client.ResourceConflict:
+    #  return self.save_post(ipost, conn.database.db[post_id])
 
   @property
   def id(self):
