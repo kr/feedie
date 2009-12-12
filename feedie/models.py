@@ -43,14 +43,14 @@ class AllNewsSource(Model):
     self.sources = sources
     sources.connect('feed-added', feed_added)
     sources.connect('feed-removed', feed_removed)
-    for feed in sources:
+    for feed in sources.feeds.values():
       feed.connect('summary-changed', summary_changed)
     self.update_summary()
 
   def update_summary(self):
     self.summary = attrdict(total=0, read=0)
     if self.sources:
-      for feed in self.sources:
+      for feed in self.sources.feeds.values():
         self.summary.total += feed.summary['total']
         self.summary.read += feed.summary['read']
     self.emit('summary-changed')
