@@ -279,7 +279,7 @@ class Feed(Model):
       doc['deleted_at'] = now
 
     now = int(time.time())
-    yield self.db.modify_doc(self.id, modify)
+    self.doc = yield self.db.modify_doc(self.id, modify, doc=self.doc)
     self.emit('deleted')
 
 class Post(Model):
@@ -308,7 +308,7 @@ class Post(Model):
 
   @defer.inlineCallbacks
   def modify(self, modify):
-    self.doc = yield self.db.modify_doc(self._id, modify)
+    self.doc = yield self.db.modify_doc(self._id, modify, doc=self.doc)
     self.emit('changed')
 
   @defer.inlineCallbacks

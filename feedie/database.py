@@ -127,12 +127,13 @@ class AsyncCouch:
     return promise
 
   @defer.inlineCallbacks
-  def modify_doc(self, doc_id, f, load_first=False):
+  def modify_doc(self, doc_id, f, load_first=False, doc=None):
     while True:
-      if load_first:
-        doc = yield self.load_doc(doc_id)
-      else:
-        doc = {'_id': doc_id}
+      if doc is None:
+        if load_first:
+          doc = yield self.load_doc(doc_id)
+        else:
+          doc = {'_id': doc_id}
 
       f(doc)
 
@@ -140,7 +141,7 @@ class AsyncCouch:
         doc = yield self.save_doc(doc)
         defer.returnValue(doc)
       except couchdb.client.ResourceConflict:
-        load_first = True
+        load_first, doc = True, None
 
   def make_oauth_headers(self, verb, full_http_url):
     consumer = oauth.OAuthConsumer(self.oauth_tokens['consumer_key'],
