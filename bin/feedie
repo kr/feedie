@@ -40,7 +40,6 @@ from feedie import fetcher
 from feedie.feedieconfig import getdatapath
 from feedie import images
 from feedie import incoming
-from feedie import conn
 from feedie import util
 from feedie import http
 from feedie import database
@@ -110,11 +109,16 @@ class FeedieWindow(gtk.Window):
 
         """
 
-        conn.database = CouchDatabase('feedie', create=True)
+        couchdb = CouchDatabase('feedie', create=True).db
         oauth_tokens = desktopcouch.local_files.get_oauth_tokens()
-        self.db = database.AsyncCouch(conn.database, oauth_tokens)
+        self.db = database.AsyncCouch(couchdb, oauth_tokens)
 
-        design_doc.add_views()
+        design_doc.add_views(self.db)
+
+    @defer.inlineCallbacks
+    def finish_initializing_async_part(self):
+      yield sources.load()
+
 
     def finish_initializing(self, builder):
         global sources
@@ -136,9 +140,8 @@ class FeedieWindow(gtk.Window):
         # now add other widgets that glade doesn't know about
 
         sources = models.Sources(self.db)
-        sources.load()
         self.sources_view = SourcesView(sources)
-        sources.add_builtin(models.AllNewsSource())
+        sources.add_builtin(models.AllNewsSource(self.db))
         self.sources_view.show()
 
         self.builder.get_object('sources-scrolledwindow').add_with_viewport(self.sources_view)
@@ -243,6 +246,8 @@ class FeedieWindow(gtk.Window):
 
         self.sources_view.connect('selection-changed', self.select_feed)
 
+        d = self.finish_initializing_async_part()
+
     def select_feed(self, widget, selected_id):
       source = widget.selected
 
@@ -251,7 +256,10 @@ class FeedieWindow(gtk.Window):
 
       model, title = None, ''
       if source:
-        model = gtk.TreeModelSort(PostsTreeModel(source))
+        raw_model = PostsTreeModel(source)
+        #raw_model.load()
+        reactor.callLater(2, raw_model.load)
+        model = gtk.TreeModelSort(raw_model)
         model.set_sort_column_id(PostsTreeModel.colnum('age'),
             gtk.SORT_ASCENDING)
         model.set_default_sort_func(None)

@@ -84,7 +84,7 @@ class SourcesView(gtk.DrawingArea):
       self.select(item.id)
 
   def get_y(self, item_id):
-    return self.line_height * self.rev_lines[item_id]
+    return self.line_height * self.rev_lines.get(item_id, 0)
 
   def select(self, item_id):
     if self.selected_id != item_id:

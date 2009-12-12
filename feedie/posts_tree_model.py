@@ -1,6 +1,7 @@
 import gtk
 import time
 import gobject
+from twisted.internet import reactor, defer
 
 from feedie import images
 
@@ -19,12 +20,26 @@ class PostsTreeModel(gtk.GenericTreeModel):
     return [x[0] for x in clas.columns].index(name)
 
   def __init__(self, feed):
-    self.feed = feed
     gtk.GenericTreeModel.__init__(self)
-    docs = feed.post_summaries()
-    self.docs = dict(((doc['id'], doc) for doc in docs))
-    self.order = [x['id'] for x in docs]
-    self.refs = dict(((self.order[i], i) for i in range(len(self.order))))
+    self.feed = feed
+    self.docs = {}
+    self.order = []
+    self.refs = {}
+    self.load()
+
+  def insert_doc(self, doc):
+    id = doc['id']
+    n = len(self.order)
+    self.order.append(id)
+    self.docs[id] = doc
+    self.refs[id] = n
+    self.row_inserted(n, self.get_iter(n))
+
+  @defer.inlineCallbacks
+  def load(self):
+    posts = yield self.feed.post_summaries()
+    for doc in posts:
+      self.insert_doc(doc)
 
   def column_title(self, doc):
     return doc.get('title', '(unknown title)')

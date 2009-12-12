@@ -1,7 +1,5 @@
 import couchdb
 
-from feedie import conn
-
 DOC_ID = '_design/feedie'
 
 SUMMARY_MAP = '''
@@ -65,11 +63,10 @@ def view(map, reduce=None):
   if reduce: d['reduce'] = reduce
   return d
 
-def add_views():
-  db = conn.database.db # raw couchdb
+def add_views(db):
   modified = False
   try:
-    ddoc = db[DOC_ID]
+    ddoc = db.couchdb[DOC_ID]
   except couchdb.client.ResourceNotFound:
     ddoc = {'_id': DOC_ID}
     modified = True
@@ -86,4 +83,4 @@ def add_views():
     views['feed_post'] = view(FEED_POST_MAP)
     modified = True
   if modified:
-    db[DOC_ID] = ddoc
+    db.couchdb[DOC_ID] = ddoc

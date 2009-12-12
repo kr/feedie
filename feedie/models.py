@@ -4,7 +4,6 @@ from collections import defaultdict
 from desktopcouch.records.record import Record
 from twisted.internet import reactor, defer
 
-from feedie import conn
 from feedie import util
 from feedie.attrdict import attrdict
 
@@ -24,7 +23,8 @@ class Model(object):
       reactor.callLater(0, handler, self, name, *args, **kwargs)
 
 class AllNewsSource(Model):
-  def __init__(self):
+  def __init__(self, db):
+    self.db = db
     self.sources = None
     self.update_summary()
 
@@ -58,11 +58,12 @@ class AllNewsSource(Model):
   def id(self):
     return 'all-news'
 
+  @defer.inlineCallbacks
   def post_summaries(self):
     print 'keys', self.sources.feed_ids
-    rows = conn.database.db.view('feedie/feed_post',
+    rows = yield self.db.view('feedie/feed_post',
         keys=self.sources.feed_ids)
-    return [Post(row.value, self) for row in rows]
+    defer.returnValue([Post(row['value'], self) for row in rows])
 
   @property
   def title(self):
@@ -95,17 +96,18 @@ class Sources(Model):
     self.feeds = {}
     self.max_pos = 0
 
-  #@defer.inlineCallbacks
+  @defer.inlineCallbacks
   def load(self):
-    rows = conn.database.db.view('feedie/feed')
+    rows = yield self.db.view('feedie/feed')
 
     summaries = {}
-    for id, summ in Feed.get_summaries(keys=[r.id for r in rows]):
+    summary_rows = yield Feed.load_summaries(self.db,
+                                             keys=[r['id'] for r in rows])
+    for id, summ in summary_rows:
       summaries[id] = summ
 
     for row in rows:
-      feed = Feed(self.db, row.value,
-          summaries.get(row.id, dict(total=0, read=0)))
+      feed = Feed(self.db, row['value'], summaries.get(row['id'], None))
       feed.connect('deleted', self.feed_deleted)
       self.add_feed(feed)
 
@@ -156,8 +158,8 @@ class Sources(Model):
     now = int(time.time())
     doc = yield self.db.modify_doc(uri, modify)
 
-    summary = Feed.get_feed_summary(key=uri)
-    feed = Feed(self.db, doc, summary)
+    feed = Feed(self.db, doc)
+    yield feed.update_summary()
     feed.connect('deleted', self.feed_deleted)
     feed = self.add_feed(feed)
     defer.returnValue(feed)
@@ -166,26 +168,24 @@ class Sources(Model):
     self.remove_feed(feed)
 
 class Feed(Model):
-  def __init__(self, db, doc, summary):
+  def __init__(self, db, doc, summary=None):
     self.db = db
     self.doc = doc
-    self.summary = summary
+    self.summary = summary or dict(total=0, read=0)
 
   # Return a list of (uri, summary) pairs. Each summary is a small dictionary.
   @staticmethod
-  def get_summaries(**kwargs):
-    rows = conn.database.db.view('feedie/summary', group=True, **kwargs)
-    return [(x.key, x.value) for x in rows]
-
-  @staticmethod
-  def get_feed_summary(**kwargs):
-    rows = conn.database.db.view('feedie/summary', **kwargs)
-    for x in rows:
-      return x.value
-    return dict(total=0, read=0)
+  @defer.inlineCallbacks
+  def load_summaries(db, **kwargs):
+    rows = yield db.view('feedie/summary', group='true', **kwargs)
+    defer.returnValue([(x['key'], x['value']) for x in rows])
 
   @defer.inlineCallbacks
-  def get_summary(self):
+  def update_summary(self):
+    self.summary = yield self.load_summary()
+
+  @defer.inlineCallbacks
+  def load_summary(self):
     rows = yield self.db.view('feedie/summary', key=self.id)
     for x in rows:
       defer.returnValue(x['value'])
@@ -213,16 +213,17 @@ class Feed(Model):
     doc = yield self.db.modify_doc(post_id, modify)
 
     self.emit('post-added', post_id)
-    self.summary = yield self.get_summary()
+    yield self.update_summary()
     self.emit('summary-changed')
 
   @property
   def id(self):
     return self.doc['_id']
 
+  @defer.inlineCallbacks
   def post_summaries(self):
-    rows = conn.database.db.view('feedie/feed_post', key=self.id)
-    return [Post(row.value, self) for row in rows]
+    rows = yield self.db.view('feedie/feed_post', key=self.id)
+    defer.returnValue([Post(row['value'], self) for row in rows])
 
   @property
   def title(self):

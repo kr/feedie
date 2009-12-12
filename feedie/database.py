@@ -33,7 +33,7 @@ def classify_error(doc):
 class AsyncCouch:
   def __init__(self, couchdb, oauth_tokens):
     self.couchdb = couchdb
-    uri = urlparse.urlsplit(couchdb.db.resource.uri, 'http')
+    uri = urlparse.urlsplit(couchdb.resource.uri, 'http')
     self.host = uri.hostname
     self.port = uri.port
     self.base_path = uri.path + '/'
