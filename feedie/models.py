@@ -145,7 +145,6 @@ class Sources(Model):
   @defer.inlineCallbacks
   def subscribe(self, uri, ifeed):
     now = int(time.time())
-    rec = None
     try:
       self.max_pos += 1
       doc = {}
@@ -155,21 +154,11 @@ class Sources(Model):
       doc['subtitle'] = ifeed.subtitle
       doc['subscribed_at'] = now
       doc['_id'] = uri
-      #conn.database.db[uri] = doc
       doc = yield self.db.save_doc(doc)
     except couchdb.client.ResourceConflict:
-      print '@@@@@@'
-      print 'okay, getting previous version'
       doc = yield self.db.load_doc(uri)
-      print 'HOORAY, made progress'
-      #rec = conn.database.db[uri]
       doc['subscribed_at'] = now
-      #conn.database.db[uri] = rec
-      print '######'
-      print 'okay, saving again'
       doc = yield self.db.save_doc(doc)
-      #rec = None
-    #rec = conn.database.db[uri]
     summary = Feed.get_summary(key=uri)
     feed = Feed(doc, summary)
     feed.connect('deleted', self.feed_deleted)
