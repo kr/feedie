@@ -102,11 +102,8 @@ class Sources(Model):
   def load(self):
     rows = yield self.db.view('feedie/feed')
 
-    summaries = {}
-    summary_rows = yield Feed.load_summaries(self.db,
-                                             keys=[r['id'] for r in rows])
-    for id, summ in summary_rows:
-      summaries[id] = summ
+    summary_rows = yield Feed.load_summaries(self.db, [r['id'] for r in rows])
+    summaries = dict(summary_rows)
 
     for row in rows:
       feed = self.add_feed(row['value'], summaries.get(row['id'], None))
@@ -178,8 +175,8 @@ class Feed(Model):
   # Return a list of (uri, summary) pairs. Each summary is a small dictionary.
   @staticmethod
   @defer.inlineCallbacks
-  def load_summaries(db, **kwargs):
-    rows = yield db.view('feedie/summary', group='true', **kwargs)
+  def load_summaries(db, keys):
+    rows = yield db.view('feedie/summary', group='true', keys=keys)
     defer.returnValue([(x['key'], x['value']) for x in rows])
 
   @defer.inlineCallbacks
@@ -188,9 +185,9 @@ class Feed(Model):
 
   @defer.inlineCallbacks
   def load_summary(self):
-    rows = yield self.db.view('feedie/summary', key=self.id)
-    for x in rows:
-      defer.returnValue(x['value'])
+    summaries = yield Feed.load_summaries(self.db, [self.id])
+    for x in summaries:
+      defer.returnValue(x[1])
     defer.returnValue(dict(total=0, read=0))
 
   def add_post(self, doc):
