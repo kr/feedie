@@ -156,7 +156,7 @@ class Sources(Model):
     now = int(time.time())
     doc = yield self.db.modify_doc(uri, modify)
 
-    summary = Feed.get_summary(key=uri)
+    summary = Feed.get_feed_summary(key=uri)
     feed = Feed(self.db, doc, summary)
     feed.connect('deleted', self.feed_deleted)
     feed = self.add_feed(feed)
@@ -178,11 +178,18 @@ class Feed(Model):
     return [(x.key, x.value) for x in rows]
 
   @staticmethod
-  def get_summary(**kwargs):
+  def get_feed_summary(**kwargs):
     rows = conn.database.db.view('feedie/summary', **kwargs)
     for x in rows:
       return x.value
     return dict(total=0, read=0)
+
+  @defer.inlineCallbacks
+  def get_summary(self):
+    rows = yield self.db.view('feedie/summary', key=self.id)
+    for x in rows:
+      defer.returnValue(x['value'])
+    defer.returnValue(dict(total=0, read=0))
 
   @defer.inlineCallbacks
   def save_posts(self, ifeed):
@@ -206,7 +213,7 @@ class Feed(Model):
     doc = yield self.db.modify_doc(post_id, modify)
 
     self.emit('post-added', post_id)
-    self.summary = Feed.get_summary(key=self.id)
+    self.summary = yield self.get_summary()
     self.emit('summary-changed')
 
   @property

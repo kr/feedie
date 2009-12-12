@@ -22,7 +22,8 @@ def encode_params(params):
   for key in JSON_PARAMS:
     if key in params:
       params[key] = json.dumps(params[key])
-  return urllib.urlencode(params)
+  if not params: return ''
+  return '?' + urllib.urlencode(params)
 
 def classify_error(doc):
   if u'error' in doc and doc[u'error'] == u'conflict':
@@ -92,6 +93,14 @@ class AsyncCouch:
 
   def put(self, path, success_status=201, body=None, **params):
     return self.interact('PUT', path, success_status, params, body=body)
+
+  @defer.inlineCallbacks
+  def view(self, name, **params):
+    design_doc_name, view_name = name.split('/')
+    path = '_design/%s/_view/%s' % (urllib.quote_plus(design_doc_name),
+                                    urllib.quote_plus(view_name))
+    response = yield self.get(path, **params)
+    defer.returnValue(response['rows'])
 
   def load_doc(self, doc_id):
     return self.get(urllib.quote_plus(doc_id))
