@@ -26,6 +26,7 @@ class AllNewsSource(Model):
   def __init__(self, db):
     self.db = db
     self.sources = None
+    self.post_cache = None
     self.update_summary()
 
   def added_to(self, sources):
@@ -60,10 +61,11 @@ class AllNewsSource(Model):
 
   @defer.inlineCallbacks
   def post_summaries(self):
-    print 'keys', self.sources.feed_ids
-    rows = yield self.db.view('feedie/feed_post',
-        keys=self.sources.feed_ids)
-    defer.returnValue([Post(row['value'], self) for row in rows])
+    if not self.post_cache:
+      rows = yield self.db.view('feedie/feed_post',
+          keys=self.sources.feed_ids)
+      self.post_cache = [Post(row['value'], self) for row in rows]
+    defer.returnValue(self.post_cache)
 
   @property
   def title(self):
@@ -171,6 +173,7 @@ class Feed(Model):
   def __init__(self, db, doc, summary=None):
     self.db = db
     self.doc = doc
+    self.post_cache = None
     self.summary = summary or dict(total=0, read=0)
 
   # Return a list of (uri, summary) pairs. Each summary is a small dictionary.
@@ -222,8 +225,10 @@ class Feed(Model):
 
   @defer.inlineCallbacks
   def post_summaries(self):
-    rows = yield self.db.view('feedie/feed_post', key=self.id)
-    defer.returnValue([Post(row['value'], self) for row in rows])
+    if not self.post_cache:
+      rows = yield self.db.view('feedie/feed_post', key=self.id)
+      self.post_cache = [Post(row['value'], self) for row in rows]
+    defer.returnValue(self.post_cache)
 
   @property
   def title(self):
