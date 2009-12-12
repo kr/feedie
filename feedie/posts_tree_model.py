@@ -13,6 +13,8 @@ class PostsTreeModel(gtk.GenericTreeModel):
       ('star',        gtk.gdk.Pixbuf),
       ('read',        gtk.gdk.Pixbuf),
       ('weight',      int),
+      ('post_id',     str),
+      ('feed_id',     str),
   )
 
   @classmethod
@@ -67,6 +69,12 @@ class PostsTreeModel(gtk.GenericTreeModel):
 
   def column_weight(self, doc):
     return (700, 400)[doc.get('read', False)]
+
+  def column_post_id(self, doc):
+    return doc._id
+
+  def column_feed_id(self, doc):
+    return doc.feed_id
 
   def on_get_flags(self):
     return gtk.TREE_MODEL_LIST_ONLY|gtk.TREE_MODEL_ITERS_PERSIST

@@ -148,13 +148,56 @@ class FeedieWindow(gtk.Window):
         self.builder.get_object('sources-scrolledwindow').add_with_viewport(self.sources_view)
 
         self.web = webkit.WebView()
-        #self.web.open('http://xph.us/nopage')
-        self.web.open('file:/home/kr/src/xph.us/_site/index.html')
         self.web.show()
         self.builder.get_object('scrolledwindow1').add(self.web)
 
+        self.current_post_ids = None
+
+        @defer.inlineCallbacks
+        def update_web_view():
+          def preferred_content(item):
+            if 'html' in item['type']: return 0
+            if item['type'] == 'text/plain': return 1
+            return 2
+
+          if self.current_post_ids:
+            feed_id, post_id = self.current_post_ids
+            feed = sources.get_feed(feed_id)
+            post = yield feed.get_post(post_id)
+            content = yield post.get_content()
+            if content:
+              item = min(content, key=preferred_content)
+              value, type = item['value'], item['type']
+            else:
+              content = yield post.get_summary()
+              value, type = content, 'text/plain'
+            if type == 'text/html':
+              html = value
+            else:
+              html = 'some funky ' + type
+          else:
+            html = ''
+          self.web.load_html_string(html, 'file:///')
+
+        post_id_colnum = PostsTreeModel.colnum('post_id')
+        feed_id_colnum = PostsTreeModel.colnum('feed_id')
+        def treeview_selection_changed(treeviewsel):
+          if treeviewsel.count_selected_rows() == 1:
+            model, (path,) = treeviewsel.get_selected_rows()
+            iter = model.get_iter(path)
+            self.current_post_ids = (model.get_value(iter, feed_id_colnum),
+                                     model.get_value(iter, post_id_colnum))
+          else:
+            self.current_post_ids = None
+          update_web_view()
+
         treeview = self.builder.get_object('posts-treeview')
         treeview.set_property('rules-hint', True)
+        treeviewsel = treeview.get_selection()
+        treeviewsel.set_mode(gtk.SELECTION_MULTIPLE)
+        treeviewsel.connect('changed', treeview_selection_changed)
+        update_web_view()
+
         treeview_heading_widgets = []
 
         def style_set(widget, previous_style):

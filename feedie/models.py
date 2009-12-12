@@ -128,6 +128,9 @@ class Sources(Model):
     self.max_pos = max(self.max_pos, feed.pos)
     return feed
 
+  def get_feed(self, feed_id):
+    return self.feeds[feed_id]
+
   def can_remove(self, source):
     return source.id in self.feeds
 
@@ -168,6 +171,11 @@ class Feed(Model):
     self.doc = doc
     self.posts = {}
     self.summary = summary or dict(total=0, read=0)
+
+  @defer.inlineCallbacks
+  def get_post(self, post_id):
+    yield self.check_posts_loaded()
+    defer.returnValue(self.posts[post_id])
 
   def added_to(self, sources):
     pass
@@ -225,10 +233,14 @@ class Feed(Model):
     return self.doc['_id']
 
   @defer.inlineCallbacks
-  def post_summaries(self):
+  def check_posts_loaded(self):
     if not self.posts:
       rows = yield self.db.view('feedie/feed_post', key=self.id)
       self.posts = dict([(row['id'], Post(row['value'], self)) for row in rows])
+
+  @defer.inlineCallbacks
+  def post_summaries(self):
+    yield self.check_posts_loaded()
     defer.returnValue(self.posts.values())
 
   @property
@@ -283,11 +295,12 @@ class Feed(Model):
     self.emit('deleted')
 
 class Post(Model):
-  __slots__ = 'doc source'.split()
+  __slots__ = 'doc source complete'.split()
 
-  def __init__(self, doc, source):
+  def __init__(self, doc, source, complete=False):
     self.doc = attrdict(doc)
     self.source = source
+    self.complete = complete
 
   def __getitem__(self, name):
     return self.doc[name]
@@ -305,6 +318,25 @@ class Post(Model):
     if name in self.__slots__:
       return Model.__setattr__(self, name, value)
     setattr(self.doc, name, value)
+
+  @defer.inlineCallbacks
+  def load_doc(self):
+    if self.complete: return
+    doc = yield self.source.db.load_doc(self._id)
+    self.doc = attrdict(doc)
+    self.complete = True
+
+  @defer.inlineCallbacks
+  def get_content(self):
+    if 'content' not in self:
+      yield self.load_doc()
+    defer.returnValue(self.get('content', []))
+
+  @defer.inlineCallbacks
+  def get_summary(self):
+    if 'summary' not in self:
+      yield self.load_doc()
+    defer.returnValue(self.get('summary', []))
 
   @defer.inlineCallbacks
   def modify(self, modify):
