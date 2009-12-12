@@ -59,9 +59,8 @@ class PostsTreeModel(gtk.GenericTreeModel):
     return -doc.updated_at
 
   def column_read(self, doc):
-    return str(doc.get('read', False))
     read = doc.get('read', False)
-    return images.get_pixbuf(('blank', 'blank')[read])
+    return images.get_pixbuf(('dot', 'blank')[read])
 
   def column_star(self, doc):
     starred = doc.get('starred', False)
