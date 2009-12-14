@@ -1,0 +1,47 @@
+#from cgi import escape as h
+<!doctype html>
+<html>
+<head>
+<title>$post.title</title>
+</head>
+
+<body>
+
+<div class=meta>
+<h1 class=title><a href='$h($post.link)'>$h($post.title)</a></h1>
+
+#if $post.author_info
+  <div class=author>
+    #if $post.author_info.email
+      <a href='$h($post.author_info.email)'>$h($post.author_info.name)</a>
+    #else
+      $h($post.author_info.name)
+    #end if
+  </div>
+#end if
+
+</ul class=contributors>
+##$post.contributors
+</ul>
+
+</ul class=tags>
+##$post.tags
+</ul>
+</div>
+
+#if $post.summary_html
+<div class=summary>
+$post.summary_html
+</div>
+#end if
+
+<div class=content>
+$post.content_html
+</div>
+
+<ul class=comments>
+##$post.comments
+</ul>
+
+</body>
+</html>

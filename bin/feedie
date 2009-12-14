@@ -14,6 +14,7 @@ import feedparser
 import couchdb
 import desktopcouch
 from desktopcouch.records.server import CouchDatabase
+from Cheetah.Template import Template
 
 from twisted.internet import gtk2reactor
 gtk2reactor.install()
@@ -51,6 +52,8 @@ MAX_FEED_DOC_SIZE = 1000000
 from feedie import design_doc
 
 sources = None
+
+post_template = Template(file=getdatapath() + '/templates/post.html')
 
 def subscribe(uri, more=()):
     promise = util.EventEmitter()
@@ -186,7 +189,9 @@ class FeedieWindow(gtk.Window):
             feed_id, post_id = self.current_post_ids
             feed = sources.get_feed(feed_id)
             post = yield feed.get_post(post_id)
-            html = yield post.get_display()
+            yield post.load_doc()
+            post_template.post = post
+            html = str(post_template)
             base = post.base()
           else:
             html, base = '', ''

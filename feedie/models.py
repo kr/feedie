@@ -9,6 +9,19 @@ from twisted.internet import reactor, defer
 from feedie import util
 from feedie.attrdict import attrdict
 
+preferred=('text/html', 'application/xhtml+xml', 'text/plain')
+
+def preference_score(item):
+  try:
+    return preferred[::-1].index(item['type'])
+  except ValueError:
+    return -1
+
+def detail_html(item):
+  if item['type'] in ('text/html', 'application/xhtml+xml'):
+    return item['value']
+  return cgi.escape(item['value'])
+
 class Model(object):
   def __model_init(self):
     self.handlers = getattr(self, 'handlers', defaultdict(list))
@@ -63,11 +76,17 @@ class AllNewsSource(Model):
 
   @defer.inlineCallbacks
   def post_summaries(self):
+    def row_to_entry(row):
+      doc = row['value']
+      return row['id'], Post(doc, self.get_feed(doc['feed_id']))
     if not self.posts:
       rows = yield self.db.view('feedie/feed_post',
           keys=self.sources.feed_ids)
-      self.posts = dict([(row['id'], Post(row['value'], self)) for row in rows])
+      self.posts = dict(map(row_to_entry, rows))
     defer.returnValue(self.posts.values())
+
+  def get_feed(self, feed_id):
+    self.sources.get_feed(feed_id)
 
   @property
   def title(self):
@@ -151,6 +170,7 @@ class Sources(Model):
       doc['link'] = ifeed.link
       doc['pos'] = self.max_pos
       doc['subtitle'] = ifeed.subtitle
+      doc['author_detail'] = ifeed.author_detail
       doc['subscribed_at'] = now
 
     self.max_pos += 1
@@ -221,6 +241,7 @@ class Feed(Model):
       doc['link'] = ipost.link
       doc['summary_detail'] = ipost.summary_detail
       doc['content'] = ipost.content # TODO use less-sanitized
+      doc['author_detail'] = ipost.author_detail
       if 'published' in ipost: doc['published_at'] = ipost.published
 
     if not ipost.has_useful_updated_at: return
@@ -279,6 +300,10 @@ class Feed(Model):
     return self.doc.get('pos', 0)
 
   @property
+  def author_detail(self):
+    return self.doc['author_detail']
+
+  @property
   def x_deleted_at(self):
     return self.doc.get('deleted_at', 0)
 
@@ -302,11 +327,11 @@ class Feed(Model):
     self.emit('deleted')
 
 class Post(Model):
-  __slots__ = 'doc source complete'.split()
+  __slots__ = 'doc feed complete'.split()
 
-  def __init__(self, doc, source, complete=False):
+  def __init__(self, doc, feed, complete=False):
     self.doc = attrdict(doc)
-    self.source = source
+    self.feed = feed
     self.complete = complete
 
   def __getitem__(self, name):
@@ -328,53 +353,33 @@ class Post(Model):
 
   def base(self):
     post_domain = urlparse.urlsplit(self.link).netloc
-    feed_domain = urlparse.urlsplit(self.source.link).netloc
+    feed_domain = urlparse.urlsplit(self.feed.link).netloc
     if post_domain == feed_domain:
       return self.link
-    return self.source.link
+    return self.feed.link
 
   @defer.inlineCallbacks
   def load_doc(self):
     if self.complete: return
-    doc = yield self.source.db.load_doc(self._id)
+    doc = yield self.feed.db.load_doc(self._id)
     self.doc = attrdict(doc)
     self.complete = True
 
-  @defer.inlineCallbacks
-  def get_content(self):
-    if 'content' not in self:
-      yield self.load_doc()
-    defer.returnValue(self.get('content', []))
+  @property
+  def summary_html(self):
+    if self.summary_detail:
+      return detail_html(self.summary_detail)
+    return None
 
-  @defer.inlineCallbacks
-  def get_summary_detail(self):
-    if 'summary_detail' not in self:
-      yield self.load_doc()
-    defer.returnValue(self.get('summary_detail', None))
+  @property
+  def content_html(self):
+    if self.content:
+      return detail_html(max(self.content, key=preference_score))
+    return None
 
-  @defer.inlineCallbacks
-  def get_display(self, preferred=('text/html',
-                                   'application/xhtml+xml',
-                                   'text/plain')):
-    def preference_score(item):
-      try:
-        return preferred[::-1].index(item['type'])
-      except ValueError:
-        print 'index error', item['type']
-        return -1
-
-    content = yield self.get_content()
-    if content:
-      item = max(content, key=preference_score)
-      if item['type'] in ('text/html', 'application/xhtml+xml'):
-        defer.returnValue(item['value'])
-      defer.returnValue(cgi.escape(item['value']))
-    item = yield self.get_summary_detail()
-    if item:
-      if item['type'] in ('text/html', 'application/xhtml+xml'):
-        defer.returnValue(item['value'])
-      defer.returnValue(cgi.escape(item['value']))
-    defer.returnValue('')
+  @property
+  def author_info(self):
+    return self['author_detail'] or self.feed.author_detail
 
   @defer.inlineCallbacks
   def modify(self, modify):

@@ -25,6 +25,10 @@ class Feed:
     return self.get('subtitle', '')
 
   @property
+  def author_detail(self):
+    return self.get('author_detail', None)
+
+  @property
   def posts(self):
     for entry in self.parsed.entries:
       yield Post(entry)
@@ -76,6 +80,10 @@ class Post:
   def summary_detail(self):
     if 'summary_detail' in self: return self['summary_detail']
     return None
+
+  @property
+  def author_detail(self):
+    return self.get('author_detail', None)
 
   @property
   def content(self):
