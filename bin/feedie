@@ -309,6 +309,7 @@ class FeedieWindow(gtk.Window):
         self.builder.get_object('subscribe-box').modify_bg(gtk.STATE_NORMAL, blue)
 
         self.sources_view.connect('selection-changed', self.select_feed)
+        self.select_feed(self.sources_view, None)
 
         d = self.finish_initializing_async_part()
 
@@ -323,6 +324,7 @@ class FeedieWindow(gtk.Window):
         treeview = self.builder.get_object('posts-treeview')
         treeview.set_model(model)
         treeview.get_column(2).get_widget().set_text(title)
+        self.builder.get_object('scrolledwindow2').hide()
       else:
         def show(x):
           model = gtk.TreeModelSort(raw_model)
@@ -333,6 +335,7 @@ class FeedieWindow(gtk.Window):
           treeview = self.builder.get_object('posts-treeview')
           treeview.set_model(model)
           treeview.get_column(2).get_widget().set_text(title)
+          self.builder.get_object('scrolledwindow2').show()
 
         raw_model = PostsTreeModel(source)
         d = raw_model.load()
@@ -445,7 +448,6 @@ class FeedieWindow(gtk.Window):
         sel.delete()
 
     def refresh(self, widget, data=None):
-      #self.builder.get_object('scrolledwindow1').hide()
       global dummy_counter
       dummy_counter += 1
       dummy_counter %= 2
