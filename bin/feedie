@@ -343,6 +343,8 @@ class FeedieWindow(gtk.Window):
           self.builder.get_object('scrolledwindow2').show()
 
         raw_model = PostsTreeModel(source)
+        source.connect('post-added', raw_model.post_added)
+        source.connect('post-removed', raw_model.post_removed)
         d = raw_model.load()
         d.addCallback(show)
 

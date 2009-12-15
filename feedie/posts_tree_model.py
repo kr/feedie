@@ -36,11 +36,22 @@ class PostsTreeModel(gtk.GenericTreeModel):
     self.refs[id] = n
     self.row_inserted(n, self.get_iter(n))
 
+  def post_added(self, feed, event_name, post_id):
+    self.load_by_post_id(post_id)
+
+  def post_removed(self, *args):
+    print 'post removed', args
+
   @defer.inlineCallbacks
   def load(self):
     posts = yield self.feed.post_summaries()
     for doc in posts:
       self.insert_doc(doc)
+
+  @defer.inlineCallbacks
+  def load_by_post_id(self, post_id):
+    post = yield self.feed.get_post(post_id)
+    self.insert_doc(post)
 
   def column_title(self, doc):
     return doc.get('title', '(unknown title)')
