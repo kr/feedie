@@ -30,6 +30,7 @@ class PostsTreeModel(gtk.GenericTreeModel):
 
   def insert_doc(self, doc):
     id = doc._id
+    if id in self.docs: return
     n = len(self.order)
     self.order.append(id)
     self.docs[id] = doc
