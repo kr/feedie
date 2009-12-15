@@ -71,10 +71,6 @@ class AsyncCouch:
     headers = {}
     headers['Accept'] = 'application/json'
 
-    if 'keys' in params:
-      body = {'keys': params['keys']}
-      del params['keys']
-
     if body:
       request = self.request(verb, request_path, headers, body=json.dumps(body))
     else:
@@ -99,7 +95,12 @@ class AsyncCouch:
     design_doc_name, view_name = name.split('/')
     path = '_design/%s/_view/%s' % (urllib.quote_plus(design_doc_name),
                                     urllib.quote_plus(view_name))
-    response = yield self.get(path, **params)
+    if 'keys' in params:
+      keys = params.pop('keys')
+      body = {'keys': keys}
+      response = yield self.post(path, success_status=200, body=body, **params)
+    else:
+      response = yield self.get(path, **params)
     defer.returnValue(response['rows'])
 
   def load_doc(self, doc_id):
