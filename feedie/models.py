@@ -217,8 +217,9 @@ class Feed(Model):
   @defer.inlineCallbacks
   def load_summary(self):
     summaries = yield Feed.load_summaries(self.db, [self.id])
-    for x in summaries:
-      defer.returnValue(x[1])
+    for id, summary in summaries:
+      if id == self.id:
+        defer.returnValue(summary)
     defer.returnValue(dict(total=0, read=0))
 
   def add_post(self, doc):
