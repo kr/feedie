@@ -475,6 +475,7 @@ def NewFeedieWindow():
     builder = gtk.Builder()
     builder.add_from_file(ui_filename)
     window = builder.get_object("feedie_window")
+    window.set_icon_from_file(getdatapath() + '/media/logo.png')
     window.finish_initializing(builder)
     return window
 
