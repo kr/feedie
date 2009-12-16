@@ -94,3 +94,7 @@ class Post:
   def link(self):
     if 'link' in self: return self['link']
     return ''
+
+  @property
+  def contributors(self):
+    return self.get('contributors', [])

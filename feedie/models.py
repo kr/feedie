@@ -257,6 +257,7 @@ class Feed(Model):
       doc['content'] = ipost.content # TODO use less-sanitized
       doc['author_detail'] = ipost.author_detail
       if 'published' in ipost: doc['published_at'] = ipost.published
+      doc['contributors'] = ipost.contributors
 
     by_id = {}
     for ipost in iposts:
@@ -426,3 +427,8 @@ class Post(Model):
   @property
   def starred(self):
     return self.doc.get('starred', False)
+
+  @property
+  def contributors(self):
+    print 'contributors', self.doc.contributors
+    return self.doc.contributors
