@@ -258,6 +258,7 @@ class Feed(Model):
       doc['author_detail'] = ipost.author_detail
       if 'published' in ipost: doc['published_at'] = ipost.published
       doc['contributors'] = ipost.contributors
+      doc['tags'] = ipost.tags
 
     by_id = {}
     for ipost in iposts:

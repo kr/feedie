@@ -98,3 +98,8 @@ class Post:
   @property
   def contributors(self):
     return self.get('contributors', [])
+
+  @property
+  def tags(self):
+    return self.get('tags', [])
+
