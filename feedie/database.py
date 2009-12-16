@@ -92,9 +92,12 @@ class AsyncCouch:
 
   @defer.inlineCallbacks
   def view(self, name, **params):
-    design_doc_name, view_name = name.split('/')
-    path = '_design/%s/_view/%s' % (urllib.quote_plus(design_doc_name),
-                                    urllib.quote_plus(view_name))
+    if '/' in name:
+      design_doc_name, view_name = name.split('/')
+      path = '_design/%s/_view/%s' % (urllib.quote_plus(design_doc_name),
+                                      urllib.quote_plus(view_name))
+    else:
+      path = name
     if 'keys' in params:
       keys = params.pop('keys')
       body = {'keys': keys}
@@ -127,6 +130,17 @@ class AsyncCouch:
 
     return promise
 
+  # returns a list of documents (maybe with fewer than doc_ids)
+  @defer.inlineCallbacks
+  def load_docs(self, doc_ids):
+    rows = yield self.view('_all_docs', include_docs='true', keys=doc_ids)
+    defer.returnValue([row['doc'] for row in rows])
+
+  # returns a list of responses as documented in
+  # http://wiki.apache.org/couchdb/HTTP_Bulk_Document_API
+  def save_docs(self, docs):
+    return self.post('_bulk_docs', body=dict(docs=docs))
+
   @defer.inlineCallbacks
   def modify_doc(self, doc_id, f, load_first=False, doc=None):
     while True:
@@ -143,6 +157,46 @@ class AsyncCouch:
         defer.returnValue(doc)
       except couchdb.client.ResourceConflict:
         load_first, doc = True, None
+
+  # f may signal that it doesn't want to modify a doc by removing all entries
+  # from the document.
+  # TODO: return a list of promises, not just one
+  @defer.inlineCallbacks
+  def modify_docs(self, doc_ids, f, load_first=False, docs=None):
+    if docs is None:
+      if load_first:
+        docs = yield self.load_docs(doc_ids)
+      else:
+        docs = [{'_id': doc_id} for doc_id in doc_ids]
+
+    for doc in docs:
+      f(doc)
+
+    docs = filter(None, docs) # leave out ones they don't want to modify
+
+    rev = dict([(doc['_id'], doc) for doc in docs])
+
+    rows = yield self.save_docs(docs)
+    conflict_ids = []
+    successes = {}
+    for row in rows:
+      if 'error' in row:
+        if row['error'] == 'conflict':
+          conflict_ids.append(row['id'])
+        else:
+          raise classify_error(row)
+      else:
+        doc = rev[row['id']]
+        doc['_id'] = row['id']
+        doc['_rev'] = row['rev']
+        successes[row['id']] = doc
+
+    if conflict_ids:
+      inner_docs = yield self.modify_docs(conflict_ids, f, True)
+      for inner_doc in inner_docs:
+        successes[inner_doc['_id']] = inner_doc
+
+    defer.returnValue([successes[id] for id in doc_ids if id in successes])
 
   def make_oauth_headers(self, verb, full_http_url):
     consumer = oauth.OAuthConsumer(self.oauth_tokens['consumer_key'],

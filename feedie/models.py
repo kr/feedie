@@ -233,13 +233,9 @@ class Feed(Model):
     self.emit('posts-added', [post])
 
   @defer.inlineCallbacks
-  def save_posts(self, posts):
-    for post in posts:
-      yield self.save_post(post)
-
-  @defer.inlineCallbacks
-  def save_post(self, ipost):
+  def save_posts(self, iposts):
     def modify(doc):
+      ipost = by_id[doc['_id']]
       doc['type'] = 'post'
       doc['title'] = ipost.get('title', '(unknown title)')
       doc['updated_at'] = ipost.updated_at
@@ -250,11 +246,17 @@ class Feed(Model):
       doc['author_detail'] = ipost.author_detail
       if 'published' in ipost: doc['published_at'] = ipost.published
 
-    if not ipost.has_useful_updated_at: return
-    post_id = '%s %s' % (self.id, ipost.id)
-    doc = yield self.db.modify_doc(post_id, modify)
+    by_id = {}
+    for ipost in iposts:
+      if not ipost.has_useful_updated_at: continue
+      post_id = '%s %s' % (self.id, ipost.id)
+      by_id[post_id] = ipost
 
-    self.add_post(attrdict(doc))
+    docs = yield self.db.modify_docs(by_id.keys(), modify)
+
+    for doc in docs:
+      self.add_post(attrdict(doc))
+
     yield self.update_summary()
     self.emit('summary-changed')
 
