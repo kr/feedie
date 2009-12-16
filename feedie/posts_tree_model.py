@@ -29,8 +29,6 @@ class PostsTreeModel(gtk.GenericTreeModel):
     self.refs = {}
 
   def insert_docs(self, docs):
-    start = len(self.order)
-
     for doc in docs:
       id = doc._id
       if id in self.docs: continue
@@ -38,9 +36,7 @@ class PostsTreeModel(gtk.GenericTreeModel):
       self.order.append(id)
       self.docs[id] = doc
       self.refs[id] = n
-
-    for i in range(start, len(self.order)):
-      self.row_inserted(i, self.get_iter(i))
+      self.row_inserted(n, self.get_iter(n))
 
   def posts_added(self, feed, event_name, posts):
     self.insert_docs(posts)
