@@ -5,10 +5,13 @@ import cairo
 import pango
 import gobject
 import time
+from collections import namedtuple
 
 from feedie.feedieconfig import *
 from feedie.util import *
 from feedie import graphics
+
+Layout = namedtuple('Layout', 'items rev')
 
 class SourcesView(gtk.DrawingArea):
   __gsignals__ = dict(selection_changed=(gobject.SIGNAL_RUN_LAST,
@@ -20,8 +23,6 @@ class SourcesView(gtk.DrawingArea):
     self.connect('expose_event', self.expose)
     self.connect('button_press_event', self.button_press)
     self.add_events(gtk.gdk.BUTTON_PRESS_MASK)
-    self.lines = {}
-    self.rev_lines = {}
     self.selected_id = None
     self.sources = sources
     self.sources.connect('source-added', self.source_added)
@@ -53,6 +54,7 @@ class SourcesView(gtk.DrawingArea):
   def update(self):
     self.update_heading_order()
     self.update_heading_items()
+    del self.layout
     self.set_size_request(-1, self.height_request)
     if self.selected_id not in self.items:
       self.select(None)
@@ -60,7 +62,7 @@ class SourcesView(gtk.DrawingArea):
 
   @property
   def height_request(self):
-    return self.line_height * len(self.lines)
+    return self.line_height * len(self.layout.items)
 
   def update_heading_order(self):
     names = set()
@@ -79,12 +81,34 @@ class SourcesView(gtk.DrawingArea):
 
   def button_press(self, widget, event):
     line = int(event.y / self.line_height)
-    item = self.lines.get(line, None)
-    if item:
-      self.select(item.id)
+    if line >= 0 and line < len(self.layout.items):
+      item = self.layout.items[line]
+      if hasattr(item, 'id'):
+        self.select(item.id)
+
+  @property
+  def layout(self):
+    if not hasattr(self, '_layout'):
+      items, rev = self._layout = Layout([], {})
+
+      for heading_name in self.heading_order:
+        heading_items = self.heading_items[heading_name]
+        items.append(HeadingItem(self, heading_name))
+        for item in heading_items:
+          if hasattr(item, 'id'):
+            rev[item.id] = len(items)
+          items.append(item)
+        #items.append(BlankItem())
+
+    return self._layout
+
+  @layout.deleter
+  def layout(self):
+    if hasattr(self, '_layout'):
+      del self._layout
 
   def get_y(self, item_id):
-    return self.line_height * self.rev_lines.get(item_id, 0)
+    return self.line_height * self.layout.rev.get(item_id, 0)
 
   def select(self, item_id):
     if self.selected_id != item_id:
@@ -138,10 +162,6 @@ class SourcesView(gtk.DrawingArea):
         cairo_context.restore()
 
     rect = self.get_allocation()
-    x = rect.x + rect.width / 2
-    y = rect.y + rect.height / 2
-
-    radius = min(rect.width / 2, rect.height / 2) - 5
 
     # background
     #cairo_context.set_source_rgb(0.82, 0.85, 0.90)
@@ -149,20 +169,9 @@ class SourcesView(gtk.DrawingArea):
     cairo_context.rectangle(0, 0, rect.width, rect.height)
     cairo_context.fill()
 
-    line = 0
-    self.lines = {}
-    self.rev_lines = {}
-    for heading_name in self.heading_order:
-      items = self.heading_items[heading_name]
-      draw_line(line, draw_heading, self, cairo_context, heading_name)
-      line += 1
-      for item in items:
-        if item.is_selectable():
-          self.lines[line] = item
-          self.rev_lines[item.id] = line
-        draw_line(line, item.draw, cairo_context)
-        line += 1
-      line += 1 # margin
+    for line in range(len(self.layout.items)):
+      item = self.layout.items[line]
+      draw_line(line, item.draw, cairo_context)
 
   def flash(self, item_id):
     if item_id not in self.items: return
@@ -201,19 +210,25 @@ def draw_text(font_desc, cairo_context, text, rgba, width, height, dx, dy):
   cairo_context.move_to(dx, leading(height, text_height) / 2 + dy)
   cairo_context.show_layout(layout)
 
-def draw_heading(sourceview, cairo_context, text):
-  baseline = 5
-  text = text.upper()
+class HeadingItem:
+  def __init__(self, sourceview, label):
+    self.label = label
+    self.sourceview = sourceview
 
-  label_width = sourceview.width - 10
+  def draw(self, cairo_context):
+    baseline = 5
+    text = self.label.upper()
+    sourceview = self.sourceview
 
-  fd = sourceview.font_desc.copy()
-  fd.set_weight(700)
-  draw_text(fd, cairo_context, text, (1, 1, 1, 0.5),
-      label_width, sourceview.line_height, 10, 1)
+    label_width = sourceview.width - 10
 
-  draw_text(fd, cairo_context, text, (0.447, 0.498, 0.584, 1),
-      label_width, sourceview.line_height, 10, 0)
+    fd = sourceview.font_desc.copy()
+    fd.set_weight(700)
+    draw_text(fd, cairo_context, text, (1, 1, 1, 0.5),
+        label_width, sourceview.line_height, 10, 1)
+
+    draw_text(fd, cairo_context, text, (0.447, 0.498, 0.584, 1),
+        label_width, sourceview.line_height, 10, 0)
 
 class SourceSeparatorItem:
   def __init__(self, heading):
