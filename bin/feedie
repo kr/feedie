@@ -299,12 +299,14 @@ class FeedieWindow(gtk.Window):
         update_sources_status()
 
         def sources_pane_resized(sv, rect):
-          if status_paned.get_position() != rect.width:
-            status_paned.set_position(rect.width)
+          new_pos = main_area.get_position()
+          if status_paned.get_position() != new_pos:
+            status_paned.set_position(new_pos)
 
         def status_paned_resized(sp, rect):
-          if main_area.get_position() != rect.width:
-            main_area.set_position(rect.width)
+          new_pos = status_paned.get_position()
+          if main_area.get_position() != new_pos:
+            main_area.set_position(new_pos)
 
         self.sources_view.connect('size-allocate', sources_pane_resized)
         sources_status.connect('size-allocate', status_paned_resized)
