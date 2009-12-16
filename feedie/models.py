@@ -197,8 +197,13 @@ class Feed(Model):
 
   @defer.inlineCallbacks
   def get_post(self, post_id):
+    x = yield self.get_posts([post_id])
+    defer.returnValue(x[0])
+
+  @defer.inlineCallbacks
+  def get_posts(self, post_ids):
     yield self.check_posts_loaded()
-    defer.returnValue(self.posts[post_id])
+    defer.returnValue([self.posts[id] for id in post_ids])
 
   def added_to(self, sources):
     pass
@@ -225,7 +230,7 @@ class Feed(Model):
   def add_post(self, doc):
     post = self.posts.setdefault(doc['_id'], Post(doc, self))
     post.doc = doc
-    self.emit('post-added', post._id)
+    self.emit('posts-added', [post._id])
 
   @defer.inlineCallbacks
   def save_posts(self, ifeed):

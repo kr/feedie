@@ -28,31 +28,35 @@ class PostsTreeModel(gtk.GenericTreeModel):
     self.order = []
     self.refs = {}
 
-  def insert_doc(self, doc):
-    id = doc._id
-    if id in self.docs: return
-    n = len(self.order)
-    self.order.append(id)
-    self.docs[id] = doc
-    self.refs[id] = n
-    self.row_inserted(n, self.get_iter(n))
+  def insert_docs(self, docs):
+    start = len(self.order)
 
-  def post_added(self, feed, event_name, post_id):
-    self.load_by_post_id(post_id)
+    for doc in docs:
+      id = doc._id
+      if id in self.docs: continue
+      n = len(self.order)
+      self.order.append(id)
+      self.docs[id] = doc
+      self.refs[id] = n
 
-  def post_removed(self, *args):
+    for i in range(start, len(self.order)):
+      self.row_inserted(i, self.get_iter(i))
+
+  def posts_added(self, feed, event_name, post_ids):
+    self.load_by_post_ids(post_ids)
+
+  def posts_removed(self, *args):
     print 'post removed', args
 
   @defer.inlineCallbacks
   def load(self):
     posts = yield self.feed.post_summaries()
-    for doc in posts:
-      self.insert_doc(doc)
+    self.insert_docs(posts)
 
   @defer.inlineCallbacks
-  def load_by_post_id(self, post_id):
-    post = yield self.feed.get_post(post_id)
-    self.insert_doc(post)
+  def load_by_post_ids(self, post_ids):
+    posts = yield self.feed.get_posts(post_ids)
+    self.insert_docs(posts)
 
   def column_title(self, doc):
     return doc.get('title', '(unknown title)')
