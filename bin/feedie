@@ -167,6 +167,7 @@ class FeedieWindow(gtk.Window):
             decision.use()
           else:
             # TODO open with gnome url handler
+            print 'URL', request.get_uri()
             decision.ignore()
           return True
 
