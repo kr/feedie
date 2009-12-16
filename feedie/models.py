@@ -244,6 +244,10 @@ class Feed(Model):
   def save_posts(self, iposts):
     def modify(doc):
       ipost = by_id[doc['_id']]
+      if doc.get('updated_at', 0) >= ipost.updated_at:
+        doc.clear() # don't bother saving a new version of this
+        return
+
       doc['type'] = 'post'
       doc['title'] = ipost.get('title', '(unknown title)')
       doc['updated_at'] = ipost.updated_at
