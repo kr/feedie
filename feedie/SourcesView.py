@@ -58,7 +58,7 @@ class SourcesView(gtk.DrawingArea):
     self.set_size_request(-1, self.height_request)
     if self.selected_id not in self.items:
       self.select(None)
-    self.invalidate()
+    self.queue_draw()
 
   @property
   def height_request(self):
@@ -114,8 +114,8 @@ class SourcesView(gtk.DrawingArea):
     if self.selected_id != item_id:
       prev = self.selected_view
       self.selected_id = item_id
-      if prev: prev.invalidate()
-      if self.selected_view: self.selected_view.invalidate()
+      if prev: prev.queue_draw()
+      if self.selected_view: self.selected_view.queue_draw()
       self.emit('selection-changed', self.selected_id)
 
   def expose(self, widget, event):
@@ -187,19 +187,9 @@ class SourcesView(gtk.DrawingArea):
     # TODO functionalize
     for item in self.items.values():
       if item.is_flashing():
-        item.invalidate()
+        item.queue_draw()
         ret = True
     return ret
-
-  def invalidate_rect(self, x, y, width, height):
-    rect = gtk.gdk.Rectangle(x, y, width, height)
-    if self.window:
-      # TODO investigate queue_draw_area
-      self.window.invalidate_rect(rect, True)
-
-  def invalidate(self):
-    alloc = self.get_allocation()
-    self.invalidate_rect(0, 0, alloc.width, alloc.height)
 
 def draw_text(font_desc, cairo_context, text, rgba, width, height, dx, dy):
   if width < 1: return
@@ -293,13 +283,13 @@ class SourceItem:
     return self.sourceview.line_height
 
   def summary_changed(self, source, event):
-    self.invalidate()
+    self.queue_draw()
 
-  def invalidate_rect(self, x, y, width, height):
-    self.sourceview.invalidate_rect(self.x + x, self.y + y, width, height)
+  def queue_draw_area(self, x, y, width, height):
+    self.sourceview.queue_draw_area(self.x + x, self.y + y, width, height)
 
-  def invalidate(self):
-    self.invalidate_rect(0, 0, self.width, self.height)
+  def queue_draw(self):
+    self.queue_draw_area(0, 0, self.width, self.height)
 
   def is_selectable(self):
     return True
