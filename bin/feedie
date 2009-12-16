@@ -146,6 +146,8 @@ class FeedieWindow(gtk.Window):
         self.sources_view.show()
 
         self.builder.get_object('sources-scrolledwindow').add_with_viewport(self.sources_view)
+        vp = self.builder.get_object('sources-scrolledwindow').get_child()
+        vp.set_shadow_type(gtk.SHADOW_NONE)
 
         def poppop(webview, menu):
           def blah_blah(item):
