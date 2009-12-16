@@ -181,7 +181,11 @@ class FeedieWindow(gtk.Window):
         self.web.connect('populate-popup', poppop)
         self.web.connect('navigation-policy-decision-requested', nav_policy)
         self.web.connect('resource-request-starting', request_starting)
+        websettings = self.web.get_settings()
+        websettings.set_property('user-stylesheet-uri',
+            'file://' + getdatapath() + '/css/Default.css')
         self.web.show()
+
         self.builder.get_object('scrolledwindow1').add(self.web)
 
         self.current_post_ids = None
