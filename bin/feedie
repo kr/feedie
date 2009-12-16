@@ -497,6 +497,14 @@ if __name__ == "__main__":
         logging.basicConfig(level=logging.DEBUG)
         logging.debug('logging enabled')
 
+    gtk.rc_parse_string('''
+style "feedie-scrolledwindow"
+{
+  GtkScrolledWindow::scrollbar-spacing = 0
+}
+class "GtkWidget" style "feedie-scrolledwindow"
+    ''')
+
     #run the application
     gtk.gdk.threads_init()
     window = NewFeedieWindow()
