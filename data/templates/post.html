@@ -23,30 +23,34 @@
       </div>
     #end if
 
-    </ul class=contributors>
-    #for $contributor in $post.contributors
-      <li class=contributor>
-      #if 'href' in $contributor
-        <a href="$h($contributor.href)">$h($contributor.name)</a>
-      #else if 'email' in $contributor
-        <a href="mailto:$h($contributor.email)">$h($contributor.name)</a>
-      #else
-        $h($contributor.name)
-      #end if
-      </li>
-    #end for
-    </ul>
+    #if $post.contributors
+      <ul class=contributors>
+        #for $contributor in $post.contributors
+          <li class=contributor>
+          #if 'href' in $contributor
+            <a href="$h($contributor.href)">$h($contributor.name)</a>
+          #else if 'email' in $contributor
+            <a href="mailto:$h($contributor.email)">$h($contributor.name)</a>
+          #else
+            $h($contributor.name)
+          #end if
+          </li>
+        #end for
+      </ul>
+    #end if
   </div>
 
-  </ul class=tags>
-    #for $tag in $post.tags
-      #set $label = $tag.label
-      #if not $label
-        #set $label = $tag.term
-      #end if
-      <li>$h($label)</li>
-    #end for
-  </ul>
+  #if $post.tags
+    <ul class=tags>
+      #for $tag in $post.tags
+        #set $label = $tag.label
+        #if not $label
+          #set $label = $tag.term
+        #end if
+        <li>$h($label)</li>
+      #end for
+    </ul>
+  #end if
 
   #if $post.comments
     <div class=comments>

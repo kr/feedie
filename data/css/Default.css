@@ -1,3 +1,80 @@
 :root {
-  font-family: serif;
+    color: #333;
+    font-family:
+        "Lucida Grande",
+        "Lucida Sans",
+        "Verdana",
+        "Droid Sans",
+        "DejaVu Sans",
+        sans-serif;
+    font-size: 12px;
+}
+
+html, body {
+    margin: 0;
+}
+
+body > .meta {
+    background: #eee;
+    border-bottom: 1px solid #bbb;
+    margin-bottom: 18px;
+    overflow: auto;
+}
+
+body > .meta a {
+    text-decoration: none;
+}
+
+body > .meta > h1.title {
+    font-size: 20px;
+    font-weight: bold;
+    line-height: 20px;
+    padding: 5px 0;
+}
+
+body > .meta .author,
+body > .meta .contributors {
+    padding: 5px 0;
+}
+
+body > .meta .author {
+    float: right;
+}
+
+body > .meta .author:before {
+    content: "By ";
+}
+
+body > .meta .contributors:before {
+    content: "With ";
+}
+
+body > .meta > ul.tags {
+    padding: 5px 0;
+}
+
+body > .meta > ul.tags:before {
+    content: "Filed Under: ";
+}
+
+body > .meta > ul.tags > li {
+    display: inline;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-weight: normal;
+}
+
+p {
+}
+
+body > .meta > .title,
+body > .meta > .author-info,
+body > .meta > .tags,
+body > .meta > .comments,
+body > .summary,
+body > .content {
+    margin: 0 30px;
+    max-width: 550px;
+    line-height: 18px;
 }
