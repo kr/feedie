@@ -50,7 +50,7 @@ class PostsTreeModel(gtk.GenericTreeModel):
     self.insert_docs(posts)
 
   def column_title(self, doc):
-    return doc.get('title', '(unknown title)')
+    return doc.title
 
   def column_pretty_date(self, doc):
     now = time.time()
@@ -66,15 +66,15 @@ class PostsTreeModel(gtk.GenericTreeModel):
     return -doc.updated_at
 
   def column_read(self, doc):
-    read = doc.get('read', False)
+    read = doc.read
     return images.get_pixbuf(('dot', 'blank')[read])
 
   def column_star(self, doc):
-    starred = doc.get('starred', False)
+    starred = doc.starred
     return images.get_pixbuf(('hollow-star', 'star')[starred])
 
   def column_weight(self, doc):
-    return (700, 400)[doc.get('read', False)]
+    return (700, 400)[doc.read]
 
   def column_post_id(self, doc):
     return doc._id

@@ -24,7 +24,8 @@ def detail_html(item):
 
 class Model(object):
   def __model_init(self):
-    self.handlers = getattr(self, 'handlers', defaultdict(list))
+    if not hasattr(self, 'handlers'):
+      self.handlers = defaultdict(list)
 
   def connect(self, name, handler):
     assert callable(handler)
@@ -261,7 +262,7 @@ class Feed(Model):
 
     docs = yield self.db.modify_docs(by_id.keys(), modify)
 
-    self.set_posts([attrdict(doc) for doc in docs])
+    self.set_posts(docs)
 
     yield self.update_summary()
     self.emit('summary-changed')
@@ -341,10 +342,8 @@ class Feed(Model):
     self.emit('deleted')
 
 class Post(Model):
-  __slots__ = 'doc feed complete'.split()
-
   def __init__(self, doc, feed, complete=False):
-    self.doc = attrdict(doc)
+    self.doc = doc
     self.feed = feed
     self.complete = complete
 
@@ -358,12 +357,23 @@ class Post(Model):
     return name in self.doc
 
   def __getattr__(self, name):
+    if name == '_doc': raise AttributeError(name)
     return getattr(self.doc, name)
 
-  def __setattr__(self, name, value):
-    if name in self.__slots__:
-      return Model.__setattr__(self, name, value)
-    setattr(self.doc, name, value)
+  @property
+  def doc(self):
+    return self._doc
+
+  @doc.setter
+  def doc(self, new):
+    if not hasattr(self, '_doc'):
+      self._doc = attrdict(new)
+      return
+
+    old = self._doc
+    if old != new:
+      self._doc = attrdict(new)
+      self.emit('changed')
 
   def base(self):
     post_domain = urlparse.urlsplit(self.link).netloc
@@ -376,10 +386,9 @@ class Post(Model):
   def load_doc(self):
     if self.complete: return
     doc = yield self.feed.db.load_doc(self._id)
-    self.doc = attrdict(doc)
+    self.doc = doc
     self.complete = True
 
-  @property
   def summary_html(self):
     if self.summary_detail:
       return detail_html(self.summary_detail)
@@ -398,7 +407,6 @@ class Post(Model):
   @defer.inlineCallbacks
   def modify(self, modify):
     self.doc = yield self.db.modify_doc(self._id, modify, doc=self.doc)
-    self.emit('changed')
 
   @defer.inlineCallbacks
   def set_read(self, is_read):
@@ -406,3 +414,11 @@ class Post(Model):
       doc['read'] = is_read
 
     yield self.modify(modify)
+
+  @property
+  def read(self):
+    return self.doc.get('read', False)
+
+  @property
+  def starred(self):
+    return self.doc.get('starred', False)
