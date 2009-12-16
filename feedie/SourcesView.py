@@ -126,7 +126,7 @@ class SourcesView(gtk.DrawingArea):
                            event.area.width, event.area.height)
     cairo_context.clip()
 
-    self.draw(cairo_context)
+    self.draw(cairo_context, event.area)
     return False
 
   @property
@@ -152,7 +152,7 @@ class SourcesView(gtk.DrawingArea):
     rect = self.get_allocation()
     return rect.width
 
-  def draw(self, cairo_context):
+  def draw(self, cairo_context, area):
     def draw_line(line, f, *args, **kwargs):
       cairo_context.save()
       try:
@@ -163,13 +163,20 @@ class SourcesView(gtk.DrawingArea):
 
     rect = self.get_allocation()
 
+    if rect.width < 1 or rect.height < 1: return # can't happen
+
+    top = len(self.layout.items)
+
+    start_line = min(max(int(area.y / self.line_height), 0), top)
+    stop_line = min(max(int((area.y + area.height) / self.line_height), 0), top)
+
     # background
     #cairo_context.set_source_rgb(0.82, 0.85, 0.90)
     cairo_context.set_source_rgb(0xd7/255.0, 0xdd/255.0, 0xe6/255.0) # copy
     cairo_context.rectangle(0, 0, rect.width, rect.height)
     cairo_context.fill()
 
-    for line in range(len(self.layout.items)):
+    for line in range(start_line, stop_line):
       item = self.layout.items[line]
       draw_line(line, item.draw, cairo_context)
 
