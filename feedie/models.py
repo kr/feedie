@@ -230,7 +230,7 @@ class Feed(Model):
   def add_post(self, doc):
     post = self.posts.setdefault(doc['_id'], Post(doc, self))
     post.doc = doc
-    self.emit('posts-added', [post._id])
+    self.emit('posts-added', [post])
 
   @defer.inlineCallbacks
   def save_posts(self, ifeed):

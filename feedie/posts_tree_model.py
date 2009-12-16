@@ -42,8 +42,8 @@ class PostsTreeModel(gtk.GenericTreeModel):
     for i in range(start, len(self.order)):
       self.row_inserted(i, self.get_iter(i))
 
-  def posts_added(self, feed, event_name, post_ids):
-    self.load_by_post_ids(post_ids)
+  def posts_added(self, feed, event_name, posts):
+    self.insert_docs(posts)
 
   def posts_removed(self, *args):
     print 'post removed', args
@@ -51,11 +51,6 @@ class PostsTreeModel(gtk.GenericTreeModel):
   @defer.inlineCallbacks
   def load(self):
     posts = yield self.feed.post_summaries()
-    self.insert_docs(posts)
-
-  @defer.inlineCallbacks
-  def load_by_post_ids(self, post_ids):
-    posts = yield self.feed.get_posts(post_ids)
     self.insert_docs(posts)
 
   def column_title(self, doc):
