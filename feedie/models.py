@@ -427,8 +427,3 @@ class Post(Model):
   @property
   def starred(self):
     return self.doc.get('starred', False)
-
-  @property
-  def contributors(self):
-    print 'contributors', self.doc.contributors
-    return self.doc.contributors
