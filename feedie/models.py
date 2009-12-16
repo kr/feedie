@@ -227,7 +227,7 @@ class Feed(Model):
         defer.returnValue(summary)
     defer.returnValue(dict(total=0, read=0))
 
-  def add_posts(self, docs):
+  def set_posts(self, docs):
     inserted = []
     for doc in docs:
       doc_id = doc['_id']
@@ -261,7 +261,7 @@ class Feed(Model):
 
     docs = yield self.db.modify_docs(by_id.keys(), modify)
 
-    self.add_posts([attrdict(doc) for doc in docs])
+    self.set_posts([attrdict(doc) for doc in docs])
 
     yield self.update_summary()
     self.emit('summary-changed')
