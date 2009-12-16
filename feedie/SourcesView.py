@@ -153,17 +153,15 @@ class SourcesView(gtk.DrawingArea):
     return rect.width
 
   def draw(self, cairo_context, area):
-    def draw_line(line, f, *args, **kwargs):
+    def draw_line(line, item, *args, **kwargs):
       cairo_context.save()
       try:
         cairo_context.translate(0, line * self.line_height)
-        return f(*args, **kwargs)
+        return item.draw(*args, **kwargs)
       finally:
         cairo_context.restore()
 
-    rect = self.get_allocation()
-
-    if rect.width < 1 or rect.height < 1: return # can't happen
+    if area.width < 1 or area.height < 1: return # can't happen
 
     top = len(self.layout.items)
 
@@ -171,14 +169,13 @@ class SourcesView(gtk.DrawingArea):
     stop_line = min(max(int((area.y + area.height) / self.line_height), 0), top)
 
     # background
-    #cairo_context.set_source_rgb(0.82, 0.85, 0.90)
+    cairo_context.set_source_rgb(0.82, 0.85, 0.90)
     cairo_context.set_source_rgb(0xd7/255.0, 0xdd/255.0, 0xe6/255.0) # copy
-    cairo_context.rectangle(0, 0, rect.width, rect.height)
+    cairo_context.rectangle(area.x, area.y, area.width, area.height)
     cairo_context.fill()
 
     for line in range(start_line, stop_line):
-      item = self.layout.items[line]
-      draw_line(line, item.draw, cairo_context)
+      draw_line(line, self.layout.items[line], cairo_context)
 
   def flash(self, item_id):
     if item_id not in self.items: return
