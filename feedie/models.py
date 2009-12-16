@@ -259,6 +259,7 @@ class Feed(Model):
       if 'published' in ipost: doc['published_at'] = ipost.published
       doc['contributors'] = ipost.contributors
       doc['tags'] = ipost.tags
+      doc['comments'] = ipost.comments
 
     by_id = {}
     for ipost in iposts:

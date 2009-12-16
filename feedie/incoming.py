@@ -103,3 +103,7 @@ class Post:
   def tags(self):
     return self.get('tags', [])
 
+  @property
+  def comments(self):
+    return self.get('comments', None)
+

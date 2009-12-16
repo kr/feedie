@@ -47,6 +47,12 @@
       <li>$h($label)</li>
     #end for
   </ul>
+
+  #if $post.comments
+    <div class=comments>
+      <a class=comments-link href="$h($post.comments)">Comments</a>
+    </div>
+  #end if
 </div>
 
 #if $post.summary_html
@@ -58,10 +64,6 @@ $post.summary_html
 <div class=content>
 $post.content_html
 </div>
-
-<ul class=comments>
-##$post.comments
-</ul>
 
 </body>
 </html>
