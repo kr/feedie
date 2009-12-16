@@ -116,7 +116,6 @@
         <child>
           <object class="GtkToolbar" id="toolbar1">
             <property name="visible">True</property>
-            <property name="border_width">3</property>
             <child>
               <object class="GtkToolButton" id="toolbutton1">
                 <property name="visible">True</property>
@@ -213,8 +212,8 @@
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="receives_default">True</property>
-                        <property name="related_action">action-subscribe</property>
                         <property name="use_action_appearance">True</property>
+                        <property name="related_action">action-subscribe</property>
                       </object>
                       <packing>
                         <property name="expand">False</property>
@@ -227,8 +226,8 @@
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="receives_default">True</property>
-                        <property name="related_action">action-cancel-subscribe</property>
                         <property name="use_action_appearance">True</property>
+                        <property name="related_action">action-cancel-subscribe</property>
                         <property name="use_stock">True</property>
                       </object>
                       <packing>
