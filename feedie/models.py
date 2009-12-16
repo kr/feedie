@@ -233,12 +233,12 @@ class Feed(Model):
     self.emit('posts-added', [post])
 
   @defer.inlineCallbacks
-  def save_posts(self, ifeed):
-    for post in ifeed.posts:
+  def save_posts(self, posts):
+    for post in posts:
       yield self.save_post(post)
 
   @defer.inlineCallbacks
-  def save_post(self, ipost, doc=None):
+  def save_post(self, ipost):
     def modify(doc):
       doc['type'] = 'post'
       doc['title'] = ipost.get('title', '(unknown title)')
