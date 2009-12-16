@@ -228,12 +228,16 @@ class Feed(Model):
     defer.returnValue(dict(total=0, read=0))
 
   def add_posts(self, docs):
-    posts = []
+    inserted = []
     for doc in docs:
-      post = self.posts.setdefault(doc['_id'], Post(doc, self))
-      post.doc = doc
-      posts.append(post)
-    self.emit('posts-added', posts)
+      doc_id = doc['_id']
+      if doc_id in self.posts:
+        post = self.posts[doc['_id']]
+        post.doc = doc
+      else:
+        post = self.posts[doc_id] = Post(doc, self)
+        inserted.append(post)
+    self.emit('posts-added', inserted)
 
   @defer.inlineCallbacks
   def save_posts(self, iposts):
