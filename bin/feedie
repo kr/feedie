@@ -234,7 +234,8 @@ class FeedieWindow(gtk.Window):
                 modify_all(child, fd)
 
           fd = widget.get_style().font_desc.copy()
-          fd.set_size(int(fd.get_size() / 1.2))
+          if fd.get_size() > (9 * pango.SCALE):
+            fd.set_size(int(fd.get_size() / 1.2))
           self.sources_view.modify_font(fd)
           treeview.modify_font(fd)
           for col in treeview.get_columns():
