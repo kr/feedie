@@ -188,6 +188,7 @@ class FeedieWindow(gtk.Window):
 
         self.web = webkit.WebView()
         self.web.set_maintains_back_forward_list(False)
+        self.web.set_custom_encoding('UTF-8')
         self.web.connect('populate-popup', poppop)
         self.web.connect('navigation-policy-decision-requested', nav_policy)
         self.web.connect('resource-request-starting', request_starting)
