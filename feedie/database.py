@@ -28,6 +28,8 @@ def encode_params(params):
 def classify_error(doc):
   if u'error' in doc and doc[u'error'] == u'conflict':
     return couchdb.client.ResourceConflict(doc)
+  if u'error' in doc and doc[u'error'] == u'not_found':
+    return couchdb.client.ResourceNotFound(doc)
   return ResponseError(doc)
 
 class AsyncCouch:
