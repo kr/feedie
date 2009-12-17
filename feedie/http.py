@@ -18,9 +18,9 @@ class HTTPProtocol(http.HTTPClient):
 
   def connectionMade(self):
     self.promise.emit('connected')
-    self.sendCommand(self.request.method, self.request.path.encode())
+    self.sendCommand(self.request.method, str(self.request.path))
     for k, v in self.request.headers.items():
-      self.sendHeader(k, v)
+      self.sendHeader(str(k), str(v))
     self.endHeaders()
     if self.request.body is not None:
       self.sendBody(self.request.body)
