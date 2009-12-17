@@ -65,6 +65,13 @@ def subscribe(uri, more=()):
     def got_all(result):
       doc = result.body
 
+      if result.status.code in (301, 302, 303, 307):
+        next_uri = result.headers['location']
+        d = subscribe(next_uri)
+        d.chainDeferred(promise)
+        d.chainEvents(promise)
+        return
+
       try:
           xml = feedparser.parse(doc)
           if xml.version: # feedparser thinks this is a feed
