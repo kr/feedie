@@ -8,7 +8,7 @@ from feedie import images
 class PostsTreeModel(gtk.GenericTreeModel):
   columns = (
       ('title',       str),
-      ('age',         int),
+      ('age',         str),
       ('pretty_date', str),
       ('star',        gtk.gdk.Pixbuf),
       ('read',        gtk.gdk.Pixbuf),
@@ -67,8 +67,9 @@ class PostsTreeModel(gtk.GenericTreeModel):
       return time.strftime('%d %b', t)
     return time.strftime('%I:%M %p', t)
 
+  # Sort first by age, then by id, so at least it's a total order.
   def column_age(self, doc):
-    return -doc.updated_at
+    return '%.20d %s' % (-doc.updated_at, doc._id)
 
   def column_read(self, doc):
     read = doc.read
