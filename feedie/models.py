@@ -79,7 +79,7 @@ class AllNewsSource(Model):
   def post_summaries(self):
     def row_to_entry(row):
       doc = row['value']
-      return row['id'], Post(doc, self.get_feed(doc['feed_id']))
+      return row['id'], self.get_feed(doc['feed_id']).post(doc)
     if not self.posts:
       rows = yield self.db.view('feedie/feed_post',
           keys=self.sources.feed_ids)
@@ -87,7 +87,7 @@ class AllNewsSource(Model):
     defer.returnValue(self.posts.values())
 
   def get_feed(self, feed_id):
-    self.sources.get_feed(feed_id)
+    return self.sources.get_feed(feed_id)
 
   @property
   def title(self):
@@ -228,14 +228,17 @@ class Feed(Model):
         defer.returnValue(summary)
     defer.returnValue(dict(total=0, read=0))
 
-  def set_post(self, doc):
-    doc_id = doc['_id']
-    if doc_id in self.posts:
-      post = self.posts[doc['_id']]
-      post.doc = doc
-    else:
-      post = self.posts[doc_id] = Post(doc, self)
+  # Retrieves the post. If it does not exist, creates one using default_doc.
+  def post(self, default_doc):
+    post_id = default_doc['_id']
+    if post_id not in self.posts:
+      post = self.posts[post_id] = Post(default_doc, self)
       self.emit('post-added', post)
+    return self.posts[post_id]
+
+  def update_post(self, doc):
+    post = self.post(doc)
+    post.doc = doc
 
   @defer.inlineCallbacks
   def save_posts(self, iposts):
@@ -268,7 +271,7 @@ class Feed(Model):
     docs = yield self.db.modify_docs(by_id.keys(), modify)
 
     for doc in docs:
-      self.set_post(doc)
+      self.update_post(doc)
 
     yield self.update_summary()
     self.emit('summary-changed')
@@ -281,7 +284,7 @@ class Feed(Model):
   def check_posts_loaded(self):
     if not self.posts:
       rows = yield self.db.view('feedie/feed_post', key=self.id)
-      self.posts = dict([(row['id'], Post(row['value'], self)) for row in rows])
+      self.posts = dict([(row['id'], self.post(row['value'])) for row in rows])
 
   @defer.inlineCallbacks
   def post_summaries(self):
