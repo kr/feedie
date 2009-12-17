@@ -176,11 +176,18 @@ class FeedieWindow(gtk.Window):
           if uri.startswith('res:'):
             pass
 
+        posts_status = self.builder.get_object('posts-status')
+        posts_status.set_text('')
+        def web_hovering_over_link(view, title, uri):
+          message = uri if uri else ''
+          posts_status.set_text(message)
+
         self.web = webkit.WebView()
         self.web.set_maintains_back_forward_list(False)
         self.web.connect('populate-popup', poppop)
         self.web.connect('navigation-policy-decision-requested', nav_policy)
         self.web.connect('resource-request-starting', request_starting)
+        self.web.connect('hovering-over-link', web_hovering_over_link)
         websettings = self.web.get_settings()
         websettings.set_property('user-stylesheet-uri',
             'file://' + getdatapath() + '/css/Default.css')
