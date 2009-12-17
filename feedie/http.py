@@ -82,7 +82,7 @@ class Client:
     headers.setdefault('Connection', 'close')
     if body is not None:
       body = body.encode()
-      headers.setdefault('Content-Length', len(body))
+      headers.setdefault('Content-Length', str(len(body)))
 
     request = Request(method, path, headers, body)
     clientCreator = protocol.ClientCreator(reactor, HTTPProtocol, request,
