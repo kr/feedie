@@ -13,6 +13,7 @@ import webkit
 import feedparser
 import couchdb
 import desktopcouch
+import webbrowser
 from desktopcouch.records.server import CouchDatabase
 from Cheetah.Template import Template
 
@@ -166,8 +167,7 @@ class FeedieWindow(gtk.Window):
           if reason == webkit.WEB_NAVIGATION_REASON_OTHER:
             decision.use()
           else:
-            # TODO open with gnome url handler
-            print 'URL', request.get_uri()
+            webbrowser.open_new(request.get_uri())
             decision.ignore()
           return True
 
