@@ -201,15 +201,25 @@ class FeedieWindow(gtk.Window):
 
         self.current_post_ids = None
 
+        to_cancel = []
         @defer.inlineCallbacks
         def update_web_view():
           def loaded(view, progress, post):
+            okay_to_mark_read = [True]
+            def set_read_at():
+              if okay_to_mark_read[0]:
+                post.set_read_at()
+
+            def cancel():
+              okay_to_mark_read[0] = False
+
             frame = self.web.get_main_frame()
             status = frame.get_property('load-status')
             if status in (webkit.LOAD_FIRST_VISUALLY_NON_EMPTY_LAYOUT,
                           webkit.LOAD_FINISHED):
               self.web.disconnect(handler_id)
-              post.set_read_at()
+              reactor.callLater(1.0, set_read_at)
+              to_cancel.append(cancel)
 
           if self.current_post_ids:
             feed_id, post_id = self.current_post_ids
@@ -219,6 +229,8 @@ class FeedieWindow(gtk.Window):
             post_template.post = post
             html = str(post_template)
             base = post.base()
+            while to_cancel:
+              to_cancel.pop()()
             handler_id = self.web.connect('load-progress-changed', loaded, post)
           else:
             html, base = '', ''
