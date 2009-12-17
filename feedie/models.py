@@ -2,6 +2,7 @@ import cgi
 import time
 import couchdb
 import urlparse
+import hashlib
 from collections import defaultdict
 from desktopcouch.records.record import Record
 from twisted.internet import reactor, defer
@@ -21,6 +22,10 @@ def detail_html(item):
   if item['type'] in ('text/html', 'application/xhtml+xml'):
     return item['value']
   return cgi.escape(item['value'])
+
+# Never change this.
+def short_hash(s):
+  return hashlib.sha1(s).hexdigest()[:16]
 
 class Model(object):
   def __model_init(self):
@@ -168,6 +173,7 @@ class Sources(Model):
     def modify(doc):
       doc['type'] = 'feed'
       doc['title'] = ifeed.title
+      doc['source'] = uri
       doc['link'] = ifeed.link
       doc['pos'] = self.max_pos
       doc['subtitle'] = ifeed.subtitle
@@ -176,7 +182,7 @@ class Sources(Model):
 
     self.max_pos += 1
     now = int(time.time())
-    doc = yield self.db.modify_doc(uri, modify)
+    doc = yield self.db.modify_doc(short_hash(uri), modify)
 
     feed = self.add_feed(doc)
     feed.connect('deleted', self.feed_deleted)
@@ -272,7 +278,7 @@ class Feed(Model):
     by_id = {}
     for ipost in iposts:
       if not ipost.has_useful_updated_at: continue
-      post_id = '%s %s' % (self.id, ipost.id)
+      post_id = short_hash('%s %s' % (self.id, ipost.id))
       by_id[post_id] = ipost
 
     docs = yield self.db.modify_docs(by_id.keys(), modify)
