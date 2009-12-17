@@ -260,6 +260,7 @@ class Feed(Model):
       doc['contributors'] = ipost.contributors
       doc['tags'] = ipost.tags
       doc['comments'] = ipost.comments
+      doc['read_at'] = 0
 
     by_id = {}
     for ipost in iposts:
@@ -416,17 +417,23 @@ class Post(Model):
     self.doc = yield self.feed.db.modify_doc(self._id, modify, doc=self.doc)
 
   @defer.inlineCallbacks
-  def set_read(self, is_read):
+  def set_read_at(self, when=None):
     def modify(doc):
-      doc['read'] = is_read
+      doc['read_at'] = when
 
-    if self.read != is_read:
-      yield self.modify(modify)
+    if when is None:
+      when = int(time.time())
+    was_read = self.read
+    yield self.modify(modify)
+    now_read = self.read
+
+    if was_read != now_read:
       self.emit('changed')
 
   @property
   def read(self):
-    return self.doc.get('read', False)
+    return self.read_at > self.updated_at
+    #return self.doc.get('read', False)
 
   @property
   def starred(self):

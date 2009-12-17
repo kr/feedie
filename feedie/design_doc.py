@@ -49,7 +49,7 @@ function (doc) {
         feed_id: doc.feed_id,
         title: doc.title,
         starred: doc.starred,
-        read: doc.read,
+        read_at: doc.read_at,
         updated_at: doc.updated_at,
       };
       emit(doc.feed_id, info);
