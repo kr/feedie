@@ -38,7 +38,7 @@ class PostsTreeModel(gtk.GenericTreeModel):
     self.row_inserted(n, self.get_iter(n))
     doc.connect('changed', self.post_changed)
 
-  def post_changed(self, post, event_name):
+  def post_changed(self, post, event_name, field_name=None):
     n = self.on_get_path(post._id)
     self.row_changed(n, self.get_iter(n))
 

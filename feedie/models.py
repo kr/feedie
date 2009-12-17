@@ -219,6 +219,7 @@ class Feed(Model):
   @defer.inlineCallbacks
   def update_summary(self):
     self.summary = yield self.load_summary()
+    self.emit('summary-changed')
 
   @defer.inlineCallbacks
   def load_summary(self):
@@ -228,11 +229,16 @@ class Feed(Model):
         defer.returnValue(summary)
     defer.returnValue(dict(total=0, read=0))
 
+  def post_changed(self, post, event_name, field_name=None):
+    if field_name == 'read':
+      self.update_summary()
+
   # Retrieves the post. If it does not exist, creates one using default_doc.
   def post(self, default_doc):
     post_id = default_doc['_id']
     if post_id not in self.posts:
       post = self.posts[post_id] = Post(default_doc, self)
+      post.connect('changed', self.post_changed)
       self.emit('post-added', post)
     return self.posts[post_id]
 
@@ -274,7 +280,6 @@ class Feed(Model):
       self.update_post(doc)
 
     yield self.update_summary()
-    self.emit('summary-changed')
 
   @property
   def id(self):
@@ -382,7 +387,7 @@ class Post(Model):
     old = self._doc
     if old != new:
       self._doc = attrdict(new)
-      self.emit('changed')
+      self.emit('changed', None)
 
   def base(self):
     post_domain = urlparse.urlsplit(self.link).netloc
@@ -429,7 +434,7 @@ class Post(Model):
     now_read = self.read
 
     if was_read != now_read:
-      self.emit('changed')
+      self.emit('changed', 'read')
 
   @property
   def read(self):
