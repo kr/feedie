@@ -25,6 +25,10 @@ from twisted.web import client
 
 webkit.WEB_NAVIGATION_REASON_OTHER = 5
 
+webkit.LOAD_COMMITTED = 1
+webkit.LOAD_FINISHED = 2
+webkit.LOAD_FIRST_VISUALLY_NON_EMPTY_LAYOUT = 3
+
 # Check if we are working in the source tree or from the installed 
 # package and mangle the python path accordingly
 if os.path.dirname(sys.argv[0]) != ".":
@@ -199,6 +203,14 @@ class FeedieWindow(gtk.Window):
 
         @defer.inlineCallbacks
         def update_web_view():
+          def loaded(view, progress, post):
+            frame = self.web.get_main_frame()
+            status = frame.get_property('load-status')
+            if status in (webkit.LOAD_FIRST_VISUALLY_NON_EMPTY_LAYOUT,
+                          webkit.LOAD_FINISHED):
+              self.web.disconnect(handler_id)
+              print post._id
+
           if self.current_post_ids:
             feed_id, post_id = self.current_post_ids
             feed = sources.get_feed(feed_id)
@@ -207,6 +219,7 @@ class FeedieWindow(gtk.Window):
             post_template.post = post
             html = str(post_template)
             base = post.base()
+            handler_id = self.web.connect('load-progress-changed', loaded, post)
           else:
             html, base = '', ''
 
@@ -218,11 +231,15 @@ class FeedieWindow(gtk.Window):
           if treeviewsel.count_selected_rows() == 1:
             model, (path,) = treeviewsel.get_selected_rows()
             iter = model.get_iter(path)
-            self.current_post_ids = (model.get_value(iter, feed_id_colnum),
+            new_post_ids = (model.get_value(iter, feed_id_colnum),
                                      model.get_value(iter, post_id_colnum))
           else:
-            self.current_post_ids = None
-          update_web_view()
+            new_post_ids = None
+
+
+          if new_post_ids != self.current_post_ids:
+            self.current_post_ids = new_post_ids
+            update_web_view()
 
         treeview = self.builder.get_object('posts-treeview')
         treeview.set_property('rules-hint', True)
