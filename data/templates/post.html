@@ -59,15 +59,15 @@
   #end if
 </div>
 
-#if $post.summary_html
-<div class=summary>
-$post.summary_html
-</div>
+#if $post.content_html
+  <div class=content>
+  $post.content_html
+  </div>
+#else if $post.summary_html
+  <div class=summary>
+  $post.summary_html
+  </div>
 #end if
-
-<div class=content>
-$post.content_html
-</div>
 
 </body>
 </html>
