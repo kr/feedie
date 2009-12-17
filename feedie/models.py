@@ -268,7 +268,6 @@ class Feed(Model):
       doc['contributors'] = ipost.contributors
       doc['tags'] = ipost.tags
       doc['comments'] = ipost.comments
-      doc['read_at'] = 0
 
     by_id = {}
     for ipost in iposts:
@@ -439,9 +438,12 @@ class Post(Model):
       self.emit('changed', 'read')
 
   @property
+  def read_at(self):
+    return self.doc.get('read_at', 0)
+
+  @property
   def read(self):
     return self.read_at > self.updated_at
-    #return self.doc.get('read', False)
 
   @property
   def starred(self):
