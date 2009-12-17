@@ -11,7 +11,7 @@
   <h1 class=title><a href='$h($post.link)'>$h($post.title)</a></h1>
 
   <div class=author-info>
-    #if $post.author_info
+    #if $post.author_info and $post.author_info.name
       <div class=author>
         #if 'href' in $post.author_info
           <a href='$h($post.author_info.href)'>$h($post.author_info.name)</a>
