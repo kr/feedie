@@ -7,10 +7,8 @@
 import sys
 import os
 import gtk
-import gio
 import pango
 import webkit
-import feedparser
 import couchdb
 import desktopcouch
 import webbrowser
@@ -44,7 +42,6 @@ from feedie import AboutFeedieDialog, PreferencesFeedieDialog
 from feedie.SourcesView import SourcesView
 from feedie.posts_tree_model import PostsTreeModel
 from feedie import models
-from feedie import fetcher
 from feedie.feedieconfig import getdatapath
 from feedie import images
 from feedie import incoming
@@ -59,53 +56,6 @@ from feedie import design_doc
 sources = None
 
 post_template = Template(file=getdatapath() + '/templates/post.html')
-
-def subscribe(uri, more=()):
-    promise = util.EventEmitter()
-    def got_all(result):
-      doc = result.body
-
-      if result.status.code in (301, 302, 303, 307):
-        next_uri = result.headers['location']
-        d = subscribe(next_uri)
-        d.chainDeferred(promise)
-        d.chainEvents(promise)
-        return
-
-      try:
-          xml = feedparser.parse(doc)
-          if xml.version: # feedparser thinks this is a feed
-            ifeed = incoming.Feed(xml)
-
-            def success(feed):
-              promise.callback((feed, ifeed))
-
-            d = sources.subscribe(uri, ifeed)
-            d.addCallback(success)
-            d.addErrback(promise.errback)
-            #promise.callback((sources.subscribe(uri, ifeed), ifeed))
-            return
-
-          if 'links' in xml.feed:
-            uris = [x.href for x in xml.feed.links if x.rel == 'alternate']
-            d = subscribe(uris[0], uris[1:])
-            d.chainDeferred(promise)
-            d.chainEvents(promise)
-            return
-
-          promise.errback(RuntimeError('Sorry, could not find a feed at ' + uri))
-          return
-      except Exception, ex:
-          raise
-          promise.errback(ex)
-          return
-
-    # TODO cancel ability
-    d = fetcher.fetch(uri)
-    d.addCallback(got_all)
-    d.addErrback(promise.errback)
-    d.chainEvents(promise)
-    return promise
 
 class FeedieWindow(gtk.Window):
     __gtype_name__ = "FeedieWindow"
@@ -433,67 +383,36 @@ class FeedieWindow(gtk.Window):
         reactor.stop()
 
     def show_subscribe(self, widget, data=None):
-        self.show_subscribe_box()
+        self.builder.get_object('subscribe-box').show()
+        self.builder.get_object('subscribe-entry').grab_focus()
 
     def cancel_subscribe(self, widget, data=None):
         self.hide_subscribe_box()
 
     def start_subscribe(self):
-        def success((feed, ifeed)):
-          self.hide_subscribe_box()
+        def success(feed):
           self.sources_view.select(feed.id)
           self.sources_view.flash(feed.id)
-          feed.save_posts(ifeed.posts)
 
-        def error(reason):
-          self.show_subscribe_box()
+        # This should never happen. If it does, just dump out a stack trace.
+        # It's best for debugging, and we can't help the user anyway.
+        def failure(reason):
+          raise reason
 
-          message = str(reason)
+        uri = self.hide_subscribe_box()
 
-          dialog = gtk.MessageDialog(
-              parent=self,
-              flags=gtk.DIALOG_MODAL|gtk.DIALOG_DESTROY_WITH_PARENT,
-              type=gtk.MESSAGE_WARNING,
-              buttons=gtk.BUTTONS_CLOSE,
-              message_format=message)
-          dialog.connect('response', lambda *x: dialog.destroy())
-          dialog.show()
-
-        def begun(event):
-          self.subscribe_progress(0.04)
-
-        def progress(event, got, outof):
-          if not outof: return
-          #print 'progress', event, got, outof
-          frac = 1.0 * got / outof
-          #print 'frac', frac
-          self.subscribe_progress(frac)
-
-        self.subscribe_progress(0.02)
-        self.builder.get_object('subscribe-button').set_sensitive(False)
-        uri = self.builder.get_object('subscribe-entry').get_text()
-        d = subscribe(uri)
-        d.addListener('body', progress)
-        d.addListener('begin', begun)
+        d = sources.subscribe(uri)
         d.addCallback(success)
-        d.addErrback(error)
+        d.addErrback(failure)
 
     def subscribe_cb(self, widget, data=None):
         self.start_subscribe()
 
-    def subscribe_progress(self, x):
-      self.builder.get_object('subscribe-entry').set_progress_fraction(x)
-
-    def show_subscribe_box(self):
-        self.builder.get_object('subscribe-box').show()
-        self.builder.get_object('subscribe-entry').grab_focus()
-        self.subscribe_progress(0)
-        self.builder.get_object('subscribe-button').set_sensitive(True)
-
     def hide_subscribe_box(self):
         self.builder.get_object('subscribe-box').hide()
+        text = self.builder.get_object('subscribe-entry').get_text()
         self.builder.get_object('subscribe-entry').set_text('')
-        self.builder.get_object('subscribe-button').set_sensitive(True)
+        return text
 
     def subscribe_entry_keypress(self, widget, data=None):
         key = gtk.gdk.keyval_name(data.keyval)

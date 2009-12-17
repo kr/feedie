@@ -3,11 +3,14 @@ import time
 import couchdb
 import urlparse
 import hashlib
+import feedparser
 from collections import defaultdict
 from desktopcouch.records.record import Record
 from twisted.internet import reactor, defer
 
 from feedie import util
+from feedie import fetcher
+from feedie import incoming
 from feedie.attrdict import attrdict
 
 preferred=('text/html', 'application/xhtml+xml', 'text/plain')
@@ -133,7 +136,8 @@ class Sources(Model):
     summaries = dict(summary_rows)
 
     for row in rows:
-      self.add_feed(row['value'], summaries.get(row['id'], None))
+      summary = summaries.get(row['id'], None)
+      self.feed(row['value'], summary=summary)
 
   @property
   def feed_ids(self):
@@ -145,15 +149,18 @@ class Sources(Model):
     self.emit('builtin-added', source)
     self.emit('source-added', source)
 
-  def add_feed(self, doc, summary=None):
-    feed = self.feeds.setdefault(doc['_id'], Feed(self.db, doc, summary))
-    feed.doc = doc
-    feed.added_to(self)
-    self.emit('feed-added', feed)
-    self.emit('source-added', feed)
-    self.max_pos = max(self.max_pos, feed.pos)
-    feed.connect('deleted', self.feed_deleted)
-    return feed
+  # Retrieves the feed. If it does not exist, creates one using default_doc.
+  def feed(self, default_doc, summary=None):
+    feed_id = default_doc['_id']
+    if feed_id not in self.feeds:
+      feed = self.feeds[feed_id] = Feed(self.db, default_doc, summary)
+      feed.added_to(self)
+      self.emit('feed-added', feed)
+      self.emit('source-added', feed)
+      self.max_pos = max(self.max_pos, feed.pos)
+      feed.connect('deleted', self.feed_deleted)
+
+    return self.feeds[feed_id]
 
   def get_feed(self, feed_id):
     return self.feeds[feed_id]
@@ -169,23 +176,21 @@ class Sources(Model):
     return self.builtins[id]
 
   @defer.inlineCallbacks
-  def subscribe(self, uri, ifeed):
-    def modify(doc):
-      doc['type'] = 'feed'
-      doc['title'] = ifeed.title
-      doc['source'] = uri
-      doc['link'] = ifeed.link
-      doc['pos'] = self.max_pos
-      doc['subtitle'] = ifeed.subtitle
-      doc['author_detail'] = ifeed.author_detail
-      doc['subscribed_at'] = now
-
-    self.max_pos += 1
+  def subscribe(self, uri):
     now = int(time.time())
-    doc = yield self.db.modify_doc(short_hash(uri), modify)
-
-    feed = self.add_feed(doc)
-    yield feed.update_summary()
+    feed = self.feed(dict(
+      _id = short_hash(uri),
+      source_uri = uri,
+      title = uri,
+      subscribed_at = now,
+      pos = self.max_pos,
+    ))
+    yield feed.refresh()
+    if feed.type == 'page' and feed.link:
+      yield feed.delete()
+      feed2 = yield self.subscribe(feed.link)
+      defer.returnValue(feed2)
+    feed.set_subscribed_at(now)
     defer.returnValue(feed)
 
   def feed_deleted(self, feed, event):
@@ -236,6 +241,82 @@ class Feed(Model):
         defer.returnValue(summary)
     defer.returnValue(dict(total=0, read=0))
 
+  @property
+  def transfers(self):
+    self._transfers = getattr(self, '_transfers', [])
+    return self._transfers
+
+  @property
+  def progress(self):
+    return 0
+
+  @defer.inlineCallbacks
+  def fetch(self):
+    def on_fetch(*args):
+      print args
+    def on_connected(*args):
+      print args
+    def on_status(*args):
+      print args
+    def on_headers(*args):
+      print args
+    def on_body(*args):
+      print args
+
+    uri = self.doc['source_uri']
+    d = fetcher.fetch(uri)
+    d.addListener('fetch', on_fetch)
+    d.addListener('connected', on_connected)
+    d.addListener('status', on_status)
+    d.addListener('headers', on_headers)
+    d.addListener('body', on_body)
+    defer.returnValue((yield d))
+
+  @defer.inlineCallbacks
+  def modify(self, modify):
+    self.doc = yield self.db.modify_doc(self.id, modify, doc=self.doc)
+
+  @defer.inlineCallbacks
+  def save_ifeed(self, ifeed):
+    def modify(doc):
+      doc['type'] = 'feed'
+      doc['link'] = ifeed.link
+      doc['title'] = ifeed.title
+      doc['subtitle'] = ifeed.subtitle
+      doc['author_detail'] = ifeed.author_detail
+
+    yield self.modify(modify)
+    yield self.save_iposts(ifeed.posts)
+    defer.returnValue(None)
+
+  @defer.inlineCallbacks
+  def ready_for_refresh(self):
+    return True
+
+  @defer.inlineCallbacks
+  def refresh(self):
+    if not self.ready_for_refresh: defer.returnValue(None)
+
+    response = yield self.fetch()
+
+    if response.status.code in (301, 302, 303, 307):
+      self.doc['type'] = 'page'
+      self.doc['link'] = response.headers['location']
+      defer.returnValue(None)
+
+    parsed = feedparser.parse(response.body)
+
+    if not parsed.version: # not a feed
+      self.doc['type'] = 'page'
+      if 'links' in parsed.feed:
+        uris = [x.href for x in parsed.feed.links if x.rel == 'alternate']
+        self.doc['link'] = uris[0]
+      defer.returnValue(None)
+
+    ifeed = incoming.Feed(parsed)
+    yield self.save_ifeed(ifeed)
+    defer.returnValue(None)
+
   def post_changed(self, post, event_name, field_name=None):
     if field_name == 'read':
       self.update_summary()
@@ -254,7 +335,7 @@ class Feed(Model):
     post.doc = doc
 
   @defer.inlineCallbacks
-  def save_posts(self, iposts):
+  def save_iposts(self, iposts):
     def modify(doc):
       ipost = by_id[doc['_id']]
       if doc.get('updated_at', 0) >= ipost.updated_at:
@@ -291,6 +372,10 @@ class Feed(Model):
   def id(self):
     return self.doc['_id']
 
+  @property
+  def type(self):
+    return self.doc['type']
+
   @defer.inlineCallbacks
   def check_posts_loaded(self):
     if not self.posts:
@@ -312,7 +397,7 @@ class Feed(Model):
 
   @property
   def link(self):
-    return self.doc.get('link', 'about:blank')
+    return self.doc.get('link', '')
 
   @property
   def category(self):
@@ -346,19 +431,41 @@ class Feed(Model):
   def x_subscribed_at(self):
     return self.doc.get('subscribed_at', 0)
 
+  @defer.inlineCallbacks
+  def set_subscribed_at(self, when=None):
+    def modify(doc):
+      doc['subscribed_at'] = when
+
+    if when is None:
+      when = int(time.time())
+
+    if self.x_subscribed_at == when:
+      return
+
+    #was = self.x_subscribed_at
+    yield self.modify(modify)
+    #now = self.x_subscribed_at
+    #if was != now:
+    #  self.emit('changed', 'subscribed_at')
+
   @property
   def is_deleted(self):
     delat = self.x_deleted_at
     subat = self.x_subscribed_at
     return delat > subat
 
+  @property
+  def stored(self):
+    return '_rev' in self.doc
+
   @defer.inlineCallbacks
   def delete(self):
-    def modify(doc):
-      doc['deleted_at'] = now
+    if self.stored:
+      def modify(doc):
+        doc['deleted_at'] = now
 
-    now = int(time.time())
-    self.doc = yield self.db.modify_doc(self.id, modify, doc=self.doc)
+      now = int(time.time())
+      self.doc = yield self.db.modify_doc(self.id, modify, doc=self.doc)
     self.emit('deleted')
 
 class Post(Model):
