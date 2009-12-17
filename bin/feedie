@@ -257,6 +257,8 @@ class FeedieWindow(gtk.Window):
           else:
             new_post_ids = None
 
+          while to_cancel:
+            to_cancel.pop()()
 
           if new_post_ids != self.current_post_ids:
             self.current_post_ids = new_post_ids
