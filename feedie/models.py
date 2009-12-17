@@ -312,8 +312,10 @@ class Feed(Model):
     if not parsed.version: # not a feed
       self.doc['type'] = 'page'
       if 'links' in parsed.feed:
-        uris = [x.href for x in parsed.feed.links if x.rel == 'alternate']
-        self.doc['link'] = uris[0]
+        links = [x for x in parsed.feed.links if x.rel == 'alternate']
+        self.doc['link'] = links[0].href
+        if 'title' in links[0] and links[0].title:
+          self.doc['title'] = links[0].title
       defer.returnValue(None)
 
     ifeed = incoming.Feed(parsed)
