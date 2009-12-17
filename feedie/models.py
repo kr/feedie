@@ -218,8 +218,10 @@ class Feed(Model):
 
   @defer.inlineCallbacks
   def update_summary(self):
+    old = self.summary
     self.summary = yield self.load_summary()
-    self.emit('summary-changed')
+    if self.summary != old:
+      self.emit('summary-changed')
 
   @defer.inlineCallbacks
   def load_summary(self):
