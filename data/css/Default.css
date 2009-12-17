@@ -1,3 +1,5 @@
+@charset "UTF-8";
+
 :root {
     color: #333;
     font-family:
@@ -15,21 +17,27 @@ html, body {
 }
 
 body > .meta {
-    background: #eee;
-    border-bottom: 1px solid #bbb;
+    background: #444;
+    color: #eee;
     margin-bottom: 18px;
     overflow: auto;
 }
 
-body > .meta a {
+body > .meta a:link {
+    color: #78A5D6;
     text-decoration: none;
 }
 
 body > .meta > h1.title {
     font-size: 20px;
     font-weight: bold;
+    letter-spacing: -0.5px; /* no effect in webkit :( */
     line-height: 20px;
     padding: 10px 0;
+}
+
+body > .meta > h1.title a:link {
+    color: #eee;
 }
 
 body > .meta .author,
@@ -52,13 +60,6 @@ body > .meta > ul.tags {
     display: none;
 }
 
-h1, h2, h3, h4, h5, h6 {
-    font-weight: normal;
-}
-
-p {
-}
-
 body > .meta > .title,
 body > .meta > .author-info,
 body > .meta > .tags,
@@ -68,4 +69,15 @@ body > .content {
     margin: 0 30px;
     max-width: 550px;
     line-height: 18px;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-weight: normal;
+}
+
+p {
+}
+
+a:link, a:visited {
+    color: #1d5b9f;
 }
