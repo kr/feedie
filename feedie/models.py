@@ -228,17 +228,14 @@ class Feed(Model):
         defer.returnValue(summary)
     defer.returnValue(dict(total=0, read=0))
 
-  def set_posts(self, docs):
-    inserted = []
-    for doc in docs:
-      doc_id = doc['_id']
-      if doc_id in self.posts:
-        post = self.posts[doc['_id']]
-        post.doc = doc
-      else:
-        post = self.posts[doc_id] = Post(doc, self)
-        inserted.append(post)
-    self.emit('posts-added', inserted)
+  def set_post(self, doc):
+    doc_id = doc['_id']
+    if doc_id in self.posts:
+      post = self.posts[doc['_id']]
+      post.doc = doc
+    else:
+      post = self.posts[doc_id] = Post(doc, self)
+      self.emit('post-added', post)
 
   @defer.inlineCallbacks
   def save_posts(self, iposts):
@@ -270,7 +267,8 @@ class Feed(Model):
 
     docs = yield self.db.modify_docs(by_id.keys(), modify)
 
-    self.set_posts(docs)
+    for doc in docs:
+      self.set_post(doc)
 
     yield self.update_summary()
     self.emit('summary-changed')
