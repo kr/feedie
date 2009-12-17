@@ -133,8 +133,7 @@ class Sources(Model):
     summaries = dict(summary_rows)
 
     for row in rows:
-      feed = self.add_feed(row['value'], summaries.get(row['id'], None))
-      feed.connect('deleted', self.feed_deleted)
+      self.add_feed(row['value'], summaries.get(row['id'], None))
 
   @property
   def feed_ids(self):
@@ -153,6 +152,7 @@ class Sources(Model):
     self.emit('feed-added', feed)
     self.emit('source-added', feed)
     self.max_pos = max(self.max_pos, feed.pos)
+    feed.connect('deleted', self.feed_deleted)
     return feed
 
   def get_feed(self, feed_id):
@@ -185,7 +185,6 @@ class Sources(Model):
     doc = yield self.db.modify_doc(short_hash(uri), modify)
 
     feed = self.add_feed(doc)
-    feed.connect('deleted', self.feed_deleted)
     yield feed.update_summary()
     defer.returnValue(feed)
 
