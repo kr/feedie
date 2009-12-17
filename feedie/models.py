@@ -176,19 +176,22 @@ class Sources(Model):
     return self.builtins[id]
 
   @defer.inlineCallbacks
-  def subscribe(self, uri):
+  def subscribe(self, uri, defaults={}):
     now = int(time.time())
-    feed = self.feed(dict(
+    doc = dict(
+      title = uri,
+      pos = self.max_pos,
+    )
+    doc.update(defaults,
       _id = short_hash(uri),
       source_uri = uri,
-      title = uri,
       subscribed_at = now,
-      pos = self.max_pos,
-    ))
+    )
+    feed = self.feed(doc)
     yield feed.refresh()
     if feed.type == 'page' and feed.link:
       yield feed.delete()
-      feed2 = yield self.subscribe(feed.link)
+      feed2 = yield self.subscribe(feed.link, defaults=dict(title=feed.title))
       defer.returnValue(feed2)
     feed.set_subscribed_at(now)
     defer.returnValue(feed)
