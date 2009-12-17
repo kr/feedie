@@ -413,14 +413,16 @@ class Post(Model):
 
   @defer.inlineCallbacks
   def modify(self, modify):
-    self.doc = yield self.db.modify_doc(self._id, modify, doc=self.doc)
+    self.doc = yield self.feed.db.modify_doc(self._id, modify, doc=self.doc)
 
   @defer.inlineCallbacks
   def set_read(self, is_read):
     def modify(doc):
       doc['read'] = is_read
 
-    yield self.modify(modify)
+    if self.read != is_read:
+      yield self.modify(modify)
+      self.emit('changed')
 
   @property
   def read(self):

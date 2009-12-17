@@ -209,7 +209,7 @@ class FeedieWindow(gtk.Window):
             if status in (webkit.LOAD_FIRST_VISUALLY_NON_EMPTY_LAYOUT,
                           webkit.LOAD_FINISHED):
               self.web.disconnect(handler_id)
-              print post._id
+              post.set_read(True)
 
           if self.current_post_ids:
             feed_id, post_id = self.current_post_ids
