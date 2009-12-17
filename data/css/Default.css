@@ -40,12 +40,24 @@ body > .meta > h1.title a:link {
     color: #eee;
 }
 
-body > .meta .author,
-body > .meta .contributors {
+body > .meta .secondary > * {
     padding: 0 0 5px;
 }
 
+body > .meta .feed {
+    display: inline-block;
+}
+
+body > .meta .feed:before {
+    content: "From ";
+}
+
+body > .meta .author-info {
+    display: inline-block;
+}
+
 body > .meta .author {
+    display: inline-block;
 }
 
 body > .meta .author:before {
@@ -56,14 +68,12 @@ body > .meta .contributors:before {
     content: "With ";
 }
 
-body > .meta > ul.tags {
+body > .meta ul.tags {
     display: none;
 }
 
 body > .meta > .title,
-body > .meta > .author-info,
-body > .meta > .tags,
-body > .meta > .comments,
+body > .meta > .secondary,
 body > .summary,
 body > .content {
     margin: 0 30px;

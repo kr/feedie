@@ -10,53 +10,67 @@
 <div class=meta>
   <h1 class=title><a href='$h($post.link)'>$h($post.title)</a></h1>
 
-  <div class=author-info>
-    #if $post.author_info and $post.author_info.name
-      <div class=author>
-        #if 'href' in $post.author_info
-          <a href='$h($post.author_info.href)'>$h($post.author_info.name)</a>
-        #else if 'email' in $post.author_info
-          <a href='mailto:$h($post.author_info.email)'>$h($post.author_info.name)</a>
-        #else
-          $h($post.author_info.name)
+  <div class=secondary>
+    #if $display_feed
+    <div class=feed>
+      #if $post.feed.link
+        <a href="$h($post.feed.link)">$h($post.feed.title)</a>
+      #else
+        $h($post.feed.title)
+      #end if
+    </div>
+    #end if
+
+    #if ($post.author_info and $post.author_info.name) or ($post.contributors)
+      <div class=author-info>
+        #if $post.author_info and $post.author_info.name
+          <div class=author>
+            #if 'href' in $post.author_info
+              <a href='$h($post.author_info.href)'>$h($post.author_info.name)</a>
+            #else if 'email' in $post.author_info
+              <a href='mailto:$h($post.author_info.email)'>$h($post.author_info.name)</a>
+            #else
+              $h($post.author_info.name)
+            #end if
+          </div>
+        #end if
+
+        #if $post.contributors
+          <ul class=contributors>
+            #for $contributor in $post.contributors
+              <li class=contributor>
+              #if 'href' in $contributor
+                <a href="$h($contributor.href)">$h($contributor.name)</a>
+              #else if 'email' in $contributor
+                <a href="mailto:$h($contributor.email)">$h($contributor.name)</a>
+              #else
+                $h($contributor.name)
+              #end if
+              </li>
+            #end for
+          </ul>
         #end if
       </div>
     #end if
 
-    #if $post.contributors
-      <ul class=contributors>
-        #for $contributor in $post.contributors
-          <li class=contributor>
-          #if 'href' in $contributor
-            <a href="$h($contributor.href)">$h($contributor.name)</a>
-          #else if 'email' in $contributor
-            <a href="mailto:$h($contributor.email)">$h($contributor.name)</a>
-          #else
-            $h($contributor.name)
+    #if $post.tags
+      <ul class=tags>
+        #for $tag in $post.tags
+          #set $label = $tag.label
+          #if not $label
+            #set $label = $tag.term
           #end if
-          </li>
+          <li>$h($label)</li>
         #end for
       </ul>
     #end if
+
+    #if $post.comments
+      <div class=comments>
+        <a class=comments-link href="$h($post.comments)">Comments</a>
+      </div>
+    #end if
   </div>
-
-  #if $post.tags
-    <ul class=tags>
-      #for $tag in $post.tags
-        #set $label = $tag.label
-        #if not $label
-          #set $label = $tag.term
-        #end if
-        <li>$h($label)</li>
-      #end for
-    </ul>
-  #end if
-
-  #if $post.comments
-    <div class=comments>
-      <a class=comments-link href="$h($post.comments)">Comments</a>
-    </div>
-  #end if
 </div>
 
 #if $post.content_html
