@@ -29,16 +29,15 @@ body > .meta > h1.title {
     font-size: 20px;
     font-weight: bold;
     line-height: 20px;
-    padding: 5px 0;
+    padding: 10px 0;
 }
 
 body > .meta .author,
 body > .meta .contributors {
-    padding: 5px 0;
+    padding: 0 0 5px;
 }
 
 body > .meta .author {
-    float: right;
 }
 
 body > .meta .author:before {
@@ -50,15 +49,7 @@ body > .meta .contributors:before {
 }
 
 body > .meta > ul.tags {
-    padding: 5px 0;
-}
-
-body > .meta > ul.tags:before {
-    content: "Filed Under: ";
-}
-
-body > .meta > ul.tags > li {
-    display: inline;
+    display: none;
 }
 
 h1, h2, h3, h4, h5, h6 {
