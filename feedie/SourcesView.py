@@ -384,7 +384,10 @@ class SourceItem:
       text_width, text_height = layout.get_pixel_size()
 
       if text_width >= self.width - dx: return lr_margin
-      pill_width = text_width + 2 * padding
+      pill_height = self.height - 2 * tb_margin
+      pill_width = max(text_width + 2 * padding, int(1.5 * pill_height))
+
+      text_offset = (pill_width - text_width) * 0.5
 
       if self.is_selected:
         cairo_context.set_source_rgb(1, 1, 1)
@@ -393,14 +396,14 @@ class SourceItem:
         #cairo_context.set_source_rgb(0x8f/255.0, 0xac/255.0, 0xe0/255.0)
         cairo_context.set_source_rgb(0x76/255.0, 0x96/255.0, 0xd0/255.0)
       graphics.rounded_rect(cairo_context, self.width - pill_width - lr_margin, tb_margin,
-          pill_width, self.height - 2 * tb_margin, 1000)
+          pill_width, pill_height, 1000)
       cairo_context.fill()
 
       if self.is_selected:
         cairo_context.set_source_rgb(0.35, 0.35, 0.35)
       else:
         cairo_context.set_source_rgb(1, 1, 1)
-      cairo_context.move_to(self.width - text_width - padding - lr_margin,
+      cairo_context.move_to(self.width - text_width - text_offset - lr_margin,
           leading(self.height, text_height) * 0.5)
       cairo_context.show_layout(layout)
 
