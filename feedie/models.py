@@ -335,8 +335,12 @@ class Feed(Model):
 
     uri = self.doc['source_uri']
     headers = {}
-    if 'http' in self.doc and 'last-modified' in self.doc['http']:
-      headers['if-modified-since'] = self.doc['http']['last-modified']
+    if 'http' in self.doc:
+      http = self.doc['http']
+      if 'last-modified' in http:
+        headers['if-modified-since'] = http['last-modified']
+      if 'etag' in http:
+        headers['if-none-match'] = http['etag']
     d = fetcher.fetch(uri, headers=headers)
     d.addListener('fetch', on_fetch)
     d.addListener('connected', on_connected)
