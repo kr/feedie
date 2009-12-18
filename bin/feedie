@@ -160,6 +160,9 @@ class FeedieWindow(gtk.Window):
 
         self.current_post_ids = None
 
+        post_id_colnum = PostsTreeModel.colnum('post_id')
+        feed_id_colnum = PostsTreeModel.colnum('feed_id')
+
         to_cancel = []
         @defer.inlineCallbacks
         def update_web_view():
@@ -167,7 +170,13 @@ class FeedieWindow(gtk.Window):
             okay_to_mark_read = [True]
             def set_read_at():
               if okay_to_mark_read[0]:
-                post.set_read_at()
+                treeviewsel = treeview.get_selection()
+                if treeviewsel.count_selected_rows() == 1:
+                  model, (path,) = treeviewsel.get_selected_rows()
+                  iter = model.get_iter(path)
+                  post_id = model.get_value(iter, post_id_colnum)
+                  if post._id == post_id:
+                    post.set_read_at()
 
             def cancel():
               okay_to_mark_read[0] = False
@@ -197,8 +206,6 @@ class FeedieWindow(gtk.Window):
 
           self.web.load_html_string(html, base)
 
-        post_id_colnum = PostsTreeModel.colnum('post_id')
-        feed_id_colnum = PostsTreeModel.colnum('feed_id')
         def treeview_selection_changed(treeviewsel):
           if treeviewsel.count_selected_rows() == 1:
             model, (path,) = treeviewsel.get_selected_rows()
