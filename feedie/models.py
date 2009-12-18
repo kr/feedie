@@ -265,7 +265,7 @@ class Sources(Model):
 
     yield self.put_feed_at_front_of_order(feed.id)
 
-    yield feed.refresh()
+    yield feed.refresh(force=True)
     if feed.error == 'redirect' and feed.link:
       yield feed.delete()
       feed2 = yield self.subscribe(feed.link, defaults=dict(title=feed.title))
@@ -378,7 +378,7 @@ class Feed(Model):
     return None
 
   @staticmethod
-  def modify_http(doc, response, min_max_age):
+  def modify_http(doc, response):
     now = int(time.time())
     http = doc.setdefault('http', {})
     if 'last-modified' in response.headers:
@@ -396,7 +396,7 @@ class Feed(Model):
       doc['expires_at'] = now
 
     # wait at least 30 min
-    doc['expires_at'] = max(doc['expires_at'], now + min_max_age)
+    doc['expires_at'] = max(doc['expires_at'], now + 1800)
 
   @defer.inlineCallbacks
   def save_ifeed(self, ifeed, response):
@@ -406,7 +406,7 @@ class Feed(Model):
       doc['subtitle'] = ifeed.subtitle
       doc['author_detail'] = ifeed.author_detail
       doc['updated_at'] = ifeed.updated_at
-      self.modify_http(doc, response, 1800)
+      self.modify_http(doc, response)
 
     yield self.modify(modify)
     yield self.save_iposts(ifeed.posts)
@@ -415,7 +415,7 @@ class Feed(Model):
   @defer.inlineCallbacks
   def save_headers(self, response):
     def modify(doc):
-      self.modify_http(doc, response, 0)
+      self.modify_http(doc, response)
 
     yield self.modify(modify)
     defer.returnValue(None)
@@ -430,8 +430,8 @@ class Feed(Model):
     return now > self.expires_at
 
   @defer.inlineCallbacks
-  def refresh(self):
-    if not self.ready_for_refresh: return
+  def refresh(self, force=False):
+    if not (force or self.ready_for_refresh): return
 
     response = yield self.fetch()
 
