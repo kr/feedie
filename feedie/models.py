@@ -652,6 +652,9 @@ class Feed(Model):
     if not self.ready_for_refresh_favicon: return
 
     for uri, headers in self.doc['icons'].items():
+      if headers.get('reject', False):
+        continue
+
       response = yield self.fetch_favicon(uri, headers)
 
       if response.status.code in (301, 302, 303, 307):
@@ -689,6 +692,28 @@ class Feed(Model):
     if 'favicon_data' not in att: return
     self.favicon_data = yield self.db.get_attachment(self.id, 'favicon_data')
     self.emit('favicon-changed')
+
+  @defer.inlineCallbacks
+  def reject_favicon(self):
+    def modify(doc):
+      icons = doc.setdefault('icons', {})
+      for uri, http in icons.items():
+        if http.get('used', False):
+          del http['used']
+          http['reject'] = True
+
+    yield self.modify(modify)
+    while True:
+      try:
+        rev = self.doc['_rev']
+        yield self.db.delete_attachment(self.id, 'favicon_data', rev)
+        break
+      except couchdb.client.ResourceConflict:
+        self.doc = yield self.db.load_doc(self.id)
+    self.doc = yield self.db.load_doc(self.id)
+    self.favicon_data = None
+    self.emit('favicon-changed')
+
 
   @property
   def can_refresh(self):

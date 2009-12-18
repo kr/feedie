@@ -351,12 +351,15 @@ class SourceItem:
     height = self.sourceview.line_height
 
     if not self.icon:
-      if hasattr(self.source, 'favicon_data'):
-        loader = gtk.gdk.PixbufLoader()
-        loader.set_size(16, 16)
-        loader.write(self.source.favicon_data)
-        loader.close()
-        self.icon = loader.get_pixbuf()
+      if hasattr(self.source, 'favicon_data') and self.source.favicon_data:
+        try:
+          loader = gtk.gdk.PixbufLoader()
+          loader.set_size(16, 16)
+          loader.write(self.source.favicon_data)
+          loader.close()
+          self.icon = loader.get_pixbuf()
+        except glib.GError:
+          self.source.reject_favicon()
 
     if not self.icon and self.source.icon:
       try:
