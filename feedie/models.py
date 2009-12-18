@@ -461,7 +461,7 @@ class Feed(Model):
       yield self.save_headers(response) # update last-modified, etag, etc
       return
 
-    del self.doc['error']
+    if 'error' in self.doc: del self.doc['error']
     ifeed = incoming.Feed(parsed)
     yield self.save_ifeed(ifeed, response)
     return
