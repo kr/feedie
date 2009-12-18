@@ -29,6 +29,10 @@ class Feed:
     return self.get('author_detail', None)
 
   @property
+  def updated_at(self):
+    return int(calendar.timegm(self.updated_parsed))
+
+  @property
   def posts(self):
     for entry in self.parsed.entries:
       yield Post(entry)

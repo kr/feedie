@@ -4,6 +4,7 @@ import couchdb
 import urlparse
 import hashlib
 import feedparser
+import calendar
 from collections import defaultdict
 from desktopcouch.records.record import Record
 from twisted.internet import reactor, defer
@@ -29,6 +30,9 @@ def detail_html(item):
 # Never change this.
 def short_hash(s):
   return hashlib.sha1(s).hexdigest()[:16]
+
+def parse_date(s):
+  return int(calendar.timegm(feedparser._parse_date(s)))
 
 class Model(object):
   def __model_init(self):
@@ -346,13 +350,18 @@ class Feed(Model):
     self.doc = yield self.db.modify_doc(self.id, modify, doc=self.doc)
 
   @defer.inlineCallbacks
-  def save_ifeed(self, ifeed):
+  def save_ifeed(self, ifeed, response):
     def modify(doc):
       doc['type'] = 'feed'
       doc['link'] = ifeed.link
       doc['title'] = ifeed.title
       doc['subtitle'] = ifeed.subtitle
       doc['author_detail'] = ifeed.author_detail
+      doc['updated_at'] = ifeed.updated_at
+      doc['http'] = dict(
+        last_modified = parse_date(response.headers['last-modified']),
+        etag = response.headers['etag'],
+      )
 
     yield self.modify(modify)
     yield self.save_iposts(ifeed.posts)
@@ -385,7 +394,7 @@ class Feed(Model):
       return
 
     ifeed = incoming.Feed(parsed)
-    yield self.save_ifeed(ifeed)
+    yield self.save_ifeed(ifeed, response)
     return
 
   def post_changed(self, post, event_name, field_name=None):
