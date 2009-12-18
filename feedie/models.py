@@ -5,7 +5,7 @@ import urlparse
 import hashlib
 import feedparser
 import calendar
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from desktopcouch.records.record import Record
 from twisted.internet import reactor, defer
 
@@ -14,6 +14,13 @@ from feedie import util
 from feedie import fetcher
 from feedie import incoming
 from feedie.attrdict import attrdict
+
+class Transfer(object):
+  __slots__ = 'progress total'.split()
+
+  def __init__(self, progress=0, total=0):
+    self.progress = progress
+    self.total = total
 
 preferred=('text/html', 'application/xhtml+xml', 'text/plain')
 
@@ -95,6 +102,13 @@ class AllNewsSource(Model):
   @property
   def can_refresh(self):
     return False # TODO change this
+
+  # 0 means no transfers,
+  # -1 means indeterminate state,
+  # 1-100 mean percentage
+  @property
+  def progress(self):
+    return 0
 
   @defer.inlineCallbacks
   def post_summaries(self):
@@ -334,22 +348,49 @@ class Feed(Model):
     self._transfers = getattr(self, '_transfers', [])
     return self._transfers
 
+  # 0 means no transfers,
+  # -1 means indeterminate state,
+  # 1-100 mean percentage
   @property
   def progress(self):
-    return 0
+    if not self.transfers: return 0
+    progress, total = 0, 0
+    for t in self.transfers:
+      if not t.total: return -1
+      progress += t.progress
+      total += t.total
+    return 100 * progress / total
 
   @defer.inlineCallbacks
   def fetch(self):
     def on_fetch(*args):
-      print args
+      transfer.progress = 0
+      transfer.total = 0
+      self.emit('summary-changed')
     def on_connected(*args):
-      print args
+      transfer.progress = 0
+      transfer.total = 0
+      self.emit('summary-changed')
     def on_status(*args):
-      print args
+      transfer.progress = 0
+      transfer.total = 0
+      self.emit('summary-changed')
     def on_headers(*args):
-      print args
-    def on_body(*args):
-      print args
+      transfer.progress = 0
+      transfer.total = 0
+      self.emit('summary-changed')
+    def on_body(event_name, progress, total):
+      transfer.progress = progress
+      transfer.total = total
+      self.emit('summary-changed')
+
+    def on_complete(x):
+      try:
+        self.transfers.remove(transfer)
+        self.emit('summary-changed')
+      except:
+        pass
+      return x
 
     uri = self.doc['source_uri']
     headers = {}
@@ -360,11 +401,14 @@ class Feed(Model):
       if 'etag' in http:
         headers['if-none-match'] = http['etag']
     d = fetcher.fetch(uri, headers=headers)
+    transfer = Transfer(progress=0, total=0)
+    self.transfers.append(transfer)
     d.addListener('fetch', on_fetch)
     d.addListener('connected', on_connected)
     d.addListener('status', on_status)
     d.addListener('headers', on_headers)
     d.addListener('body', on_body)
+    d.addCallback(on_complete)
     defer.returnValue((yield d))
 
   @defer.inlineCallbacks

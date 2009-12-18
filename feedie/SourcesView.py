@@ -5,6 +5,7 @@ import cairo
 import pango
 import gobject
 import time
+from math import pi
 from collections import namedtuple
 
 from feedie.feedieconfig import *
@@ -350,10 +351,38 @@ class SourceItem:
       icon = None
 
     shift = 0
-    if icon:
+
+    if self.source.progress > 0:
+      shift = 20 # icon width + 4
+      if self.is_selected:
+        pie_color = (1, 1, 1)
+      else:
+        pie_color = (0.2, 0.2, 0.2)
+
+      cairo_context.set_source_rgb(*pie_color)
+      cairo_context.new_sub_path()
+      cairo_context.arc(20 + 8, height * 0.5, 8, 0, 2*pi)
+      cairo_context.stroke()
+
+      cairo_context.set_source_rgb(*pie_color)
+      cairo_context.move_to(20 + 8, height * 0.5)
+      cairo_context.arc(20 + 8, height * 0.5, 8, -pi/2,
+          (2 * pi * self.source.progress / 100) - (pi/2))
+      cairo_context.line_to(20 + 8, height * 0.5)
+      cairo_context.fill()
+
+    elif self.source.progress < 0:
+      shift = 20 # icon width + 4
+      cairo_context.set_source_pixbuf(icon, 20, leading(height, 16) / 2)
+      mask = cairo.SolidPattern(0, 0, 0, 0.5)
+      cairo_context.mask(mask)
+      #cairo_context.paint()
+
+    elif icon:
+      shift = 20 # icon width + 4
       cairo_context.set_source_pixbuf(icon, 20, leading(height, 16) / 2)
       cairo_context.paint()
-      shift = 20 # icon width + 4
+
     return shift
 
   def leading(self, height):
