@@ -3,10 +3,7 @@
 :root {
     color: #333;
     font-family:
-        "Lucida Grande",
-        "Lucida Sans",
         "Verdana",
-        "Droid Sans",
         "DejaVu Sans",
         sans-serif;
     font-size: 12px;
@@ -30,7 +27,6 @@ body > .meta a:link {
 
 body > .meta > h1.title {
     font-size: 20px;
-    font-weight: bold;
     letter-spacing: -0.5px; /* no effect in webkit :( */
     line-height: 20px;
     padding: 10px 0;
