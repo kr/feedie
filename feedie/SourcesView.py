@@ -374,7 +374,7 @@ class SourceItem:
     elif self.source.progress < 0:
       shift = 20 # icon width + 4
       cairo_context.set_source_pixbuf(icon, 20, leading(height, 16) / 2)
-      mask = cairo.SolidPattern(0, 0, 0, 0.5)
+      mask = cairo.SolidPattern(0, 0, 0, 0.3)
       cairo_context.mask(mask)
       #cairo_context.paint()
 
