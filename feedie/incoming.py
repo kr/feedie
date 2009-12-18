@@ -29,8 +29,13 @@ class Feed:
     return self.get('author_detail', None)
 
   @property
-  def updated_at(self):
+  def updated_int(self):
     return int(calendar.timegm(self.updated_parsed))
+
+  @property
+  def updated_at(self):
+    if 'updated_parsed' in self: return self.updated_int
+    return 0
 
   @property
   def posts(self):
