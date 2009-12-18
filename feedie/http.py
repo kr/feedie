@@ -15,6 +15,7 @@ class HTTPProtocol(http.HTTPClient):
     self.content_length, self.content_progress = 0, 0
     self.headers = {}
     self.chunks = []
+    self.status = None
 
   def connectionMade(self):
     self.promise.emit('connected')
@@ -81,7 +82,7 @@ class Client:
     headers.setdefault('User-Agent', 'Feedie')
     headers.setdefault('Connection', 'close')
     if body is not None:
-      body = body.encode()
+      body = str(body)
       headers.setdefault('Content-Length', str(len(body)))
 
     request = Request(method, path, headers, body)

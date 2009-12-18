@@ -253,7 +253,9 @@ class SourceItem:
     self.sourceview = sourceview
     self.flash_go = False
     self.flash_start = 0
+    self.icon = None
     source.connect('summary-changed', self.summary_changed)
+    source.connect('favicon-changed', self.favicon_changed)
 
   @property
   def id(self):
@@ -284,6 +286,10 @@ class SourceItem:
     return self.sourceview.line_height
 
   def summary_changed(self, source, event):
+    self.queue_draw()
+
+  def favicon_changed(self, source, event):
+    self.icon = None
     self.queue_draw()
 
   def queue_draw_area(self, x, y, width, height):
@@ -343,12 +349,21 @@ class SourceItem:
 
   def draw_icon(self, cairo_context):
     height = self.sourceview.line_height
-    #icon = cairo.ImageSurface.create_from_png(self.source.icon_path)
-    theme = gtk.icon_theme_get_default()
-    try:
-      icon = theme.load_icon(self.source.icon, 16, 0)
-    except:
-      icon = None
+
+    if not self.icon:
+      if hasattr(self.source, 'favicon_data'):
+        loader = gtk.gdk.PixbufLoader()
+        loader.set_size(16, 16)
+        loader.write(self.source.favicon_data)
+        loader.close()
+        self.icon = loader.get_pixbuf()
+
+    if not self.icon and self.source.show_icon:
+      try:
+        theme = gtk.icon_theme_get_default()
+        self.icon = theme.load_icon('cancel', 16, 0)
+      except:
+        pass
 
     shift = 0
 
@@ -373,14 +388,14 @@ class SourceItem:
 
     elif self.source.progress < 0:
       shift = 20 # icon width + 4
-      cairo_context.set_source_pixbuf(icon, 20, leading(height, 16) / 2)
+      cairo_context.set_source_pixbuf(self.icon, 20, leading(height, 16) / 2)
       mask = cairo.SolidPattern(0, 0, 0, 0.3)
       cairo_context.mask(mask)
       #cairo_context.paint()
 
-    elif icon:
+    elif self.icon:
       shift = 20 # icon width + 4
-      cairo_context.set_source_pixbuf(icon, 20, leading(height, 16) / 2)
+      cairo_context.set_source_pixbuf(self.icon, 20, leading(height, 16) / 2)
       cairo_context.paint()
 
     return shift

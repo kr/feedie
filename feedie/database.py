@@ -132,6 +132,28 @@ class AsyncCouch:
 
     return promise
 
+  @defer.inlineCallbacks
+  def get_attachment(self, doc_id, name):
+    path = '%s/%s' % (doc_id, name)
+    request_path = self.base_path + path
+    response = yield self.request('GET', request_path, {})
+    if (not response.status) or response.status.code == 200:
+      defer.returnValue(response.body)
+    if not response.body:
+      raise couchdb.client.ResourceNotFound({})
+    value = json.loads(response.body)
+    raise classify_error(value)
+
+  @defer.inlineCallbacks
+  def put_attachment(self, doc_id, name, data, rev):
+    path = '%s/%s' % (doc_id, name)
+    request_path = self.base_path + path + encode_params(dict(rev=rev))
+    print 'request path', request_path
+    response = yield self.request('PUT', request_path, {}, data)
+    print 'put resopnse status', response.status
+    if response.status:
+      print 'put resopnse status code', response.status.code
+
   # returns a list of documents (maybe with fewer than doc_ids)
   @defer.inlineCallbacks
   def load_docs(self, doc_ids):

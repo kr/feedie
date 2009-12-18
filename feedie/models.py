@@ -138,8 +138,8 @@ class AllNewsSource(Model):
     return 'All News'
 
   @property
-  def icon(self):
-    return None
+  def show_icon(self):
+    return False
 
   @property
   def category(self):
@@ -323,6 +323,7 @@ class Feed(Model):
     self.doc = doc
     self.posts = {}
     self.summary = summary or dict(total=0, read=0)
+    self.load_favicon()
 
   @defer.inlineCallbacks
   def get_post(self, post_id):
@@ -428,6 +429,55 @@ class Feed(Model):
     defer.returnValue((yield d))
 
   @defer.inlineCallbacks
+  def fetch_favicon(self, uri, http):
+    def on_fetch(*args):
+      transfer.progress = 0
+      transfer.total = 0
+      self.emit('summary-changed')
+    def on_connected(*args):
+      transfer.progress = 0
+      transfer.total = 0
+      self.emit('summary-changed')
+    def on_status(*args):
+      transfer.progress = 0
+      transfer.total = 0
+      self.emit('summary-changed')
+    def on_headers(*args):
+      transfer.progress = 0
+      transfer.total = 0
+      self.emit('summary-changed')
+    def on_body(event_name, progress, total):
+      transfer.progress = progress
+      transfer.total = total
+      self.emit('summary-changed')
+
+    def on_complete(x):
+      try:
+        self.transfers.remove(transfer)
+        self.emit('summary-changed')
+      except:
+        pass
+      return x
+
+    headers = {}
+    if 'last-modified' in http:
+      headers['if-modified-since'] = http['last-modified']
+    if 'etag' in http:
+      headers['if-none-match'] = http['etag']
+    d = fetcher.fetch(uri, headers=headers)
+    transfer = Transfer(progress=0, total=0)
+    self.transfers.append(transfer)
+    d.addListener('fetch', on_fetch)
+    d.addListener('connected', on_connected)
+    d.addListener('status', on_status)
+    d.addListener('headers', on_headers)
+    d.addListener('body', on_body)
+    d.addCallback(on_complete)
+    defer.returnValue((yield d))
+
+
+
+  @defer.inlineCallbacks
   def modify(self, modify):
     self.doc = yield self.db.modify_doc(self.id, modify, doc=self.doc)
 
@@ -442,9 +492,8 @@ class Feed(Model):
     return None
 
   @staticmethod
-  def modify_http(doc, response):
+  def modify_http(http, response):
     now = int(time.time())
-    http = doc.setdefault('http', {})
     if 'last-modified' in response.headers:
       http['last-modified'] = response.headers['last-modified']
     if 'etag' in response.headers:
@@ -453,14 +502,14 @@ class Feed(Model):
     max_age = Feed.extract_max_age(response)
     if max_age is not None:
       req_date = parse_http_datetime(response.headers.get('date', now))
-      doc['expires_at'] = req_date + max_age
+      http['expires_at'] = req_date + max_age
     elif 'expires' in response.headers:
-      doc['expires_at'] = parse_http_datetime(response.headers['expires'])
+      http['expires_at'] = parse_http_datetime(response.headers['expires'])
     else:
-      doc['expires_at'] = now
+      http['expires_at'] = now
 
     # wait at least 30 min
-    doc['expires_at'] = max(doc['expires_at'], now + 1800)
+    http['expires_at'] = max(http['expires_at'], now + 1800)
 
   @defer.inlineCallbacks
   def save_ifeed(self, ifeed, response):
@@ -471,7 +520,7 @@ class Feed(Model):
       doc['author_detail'] = ifeed.author_detail
       doc['updated_at'] = ifeed.updated_at
       if 'error' in doc: del doc['error']
-      self.modify_http(doc, response)
+      self.modify_http(doc.setdefault('http', {}), response)
 
     yield self.modify(modify)
     yield self.save_iposts(ifeed.posts)
@@ -480,21 +529,44 @@ class Feed(Model):
   @defer.inlineCallbacks
   def save_headers(self, response, **extra):
     def modify(doc):
-      self.modify_http(doc, response)
+      self.modify_http(doc.setdefault('http', {}), response)
       for k, v in extra.items():
         doc[k] = v
 
     yield self.modify(modify)
     defer.returnValue(None)
 
+  @defer.inlineCallbacks
+  def save_favicon_headers(self, uri, response, used=False):
+    def modify(doc):
+      icons = doc.setdefault('icons', {})
+      icon = icons.setdefault(uri, {})
+      self.modify_http(icon, response)
+      if used:
+        for k, v in icons.items():
+          if 'used' in v: del v['used']
+        icon['used'] = True
+
+    yield self.modify(modify)
+
   @property
   def expires_at(self):
-    return self.doc.get('expires_at', 0)
+    return self.doc.get('http', {}).get('expires_at', 0)
 
   @property
   def ready_for_refresh(self):
     now = int(time.time())
     return now > self.expires_at
+
+  @property
+  def ready_for_refresh_favicon(self):
+    if 'icons' not in self.doc: return True
+
+    now = int(time.time())
+    for uri, http in self.doc['icons'].items():
+      if http.get('used', False):
+        return now > http.get('expires_at', 0)
+    return True
 
   @defer.inlineCallbacks
   def refresh(self, force=False):
@@ -543,6 +615,8 @@ class Feed(Model):
   def discover_favicon_uris(self, ifeed=None):
     # We already got some. Maybe some day we'll try again.
     if 'icons' in self.doc and self.doc['icons']:
+      # No yield! We don't want to wait on the result.
+      d = self.refresh_favicon()
       return
 
     uris = []
@@ -569,6 +643,52 @@ class Feed(Model):
         icons.setdefault(uri, {})
 
     yield self.modify(modify)
+
+    # No yield! We don't want to wait on the result.
+    d = self.refresh_favicon()
+
+  @defer.inlineCallbacks
+  def refresh_favicon(self):
+    if not self.ready_for_refresh_favicon: return
+
+    for uri, headers in self.doc['icons'].items():
+      response = yield self.fetch_favicon(uri, headers)
+
+      if response.status.code in (301, 302, 303, 307):
+        continue # bleh. someday I will try harder
+
+      if response.status.code == 304:
+        # update last-modified, etag, etc
+        yield self.save_favicon_headers(uri, response)
+        return
+
+      if response.status.code == 200:
+        yield self.save_favicon_headers(uri, response, used=True)
+        yield self.put_favicon(response.body)
+        return # We win! No more work to do!
+
+  @defer.inlineCallbacks
+  def put_favicon(self, favicon_data):
+    if hasattr(self, 'favicon_data') and self.favicon_data == favicon_data:
+      return
+    while True:
+      try:
+        rev = self.doc['_rev']
+        yield self.db.put_attachment(self.id, 'favicon_data', favicon_data, rev)
+        break
+      except couchdb.client.ResourceConflict:
+        self.doc = yield self.db.load_doc(self.id)
+    self.doc = yield self.db.load_doc(self.id)
+    self.favicon_data = favicon_data
+    self.emit('favicon-changed')
+
+  @defer.inlineCallbacks
+  def load_favicon(self):
+    if '_attachments' not in self.doc: return
+    att = self.doc['_attachments']
+    if 'favicon_data' not in att: return
+    self.favicon_data = yield self.db.get_attachment(self.id, 'favicon_data')
+    self.emit('favicon-changed')
 
   @property
   def can_refresh(self):
@@ -657,8 +777,8 @@ class Feed(Model):
     return self.doc.get('title', '(unknown title)')
 
   @property
-  def icon(self):
-    return 'cancel'
+  def show_icon(self):
+    return True
 
   @property
   def link(self):
