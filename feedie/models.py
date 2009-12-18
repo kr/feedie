@@ -31,9 +31,6 @@ def detail_html(item):
 def short_hash(s):
   return hashlib.sha1(s).hexdigest()[:16]
 
-def parse_date(s):
-  return int(calendar.timegm(feedparser._parse_date(s)))
-
 class Model(object):
   def __model_init(self):
     if not hasattr(self, 'handlers'):
@@ -359,7 +356,7 @@ class Feed(Model):
       doc['author_detail'] = ifeed.author_detail
       doc['updated_at'] = ifeed.updated_at
       doc['http'] = dict(
-        last_modified = parse_date(response.headers['last-modified']),
+        last_modified = response.headers['last-modified'],
         etag = response.headers['etag'],
       )
 
