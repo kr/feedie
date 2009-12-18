@@ -177,7 +177,7 @@ class FeedieWindow(gtk.Window):
             if status in (webkit.LOAD_FIRST_VISUALLY_NON_EMPTY_LAYOUT,
                           webkit.LOAD_FINISHED):
               self.web.disconnect(handler_id)
-              reactor.callLater(1.0, set_read_at)
+              reactor.callLater(0.20, set_read_at)
               to_cancel.append(cancel)
 
           if self.current_post_ids:
