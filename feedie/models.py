@@ -353,6 +353,14 @@ class Feed(Model):
   def modify(self, modify):
     self.doc = yield self.db.modify_doc(self.id, modify, doc=self.doc)
 
+  @staticmethod
+  def modify_http(doc, response):
+    http = doc.setdefault('http', {})
+    if 'last-modified' in response.headers:
+      http['last-modified'] = response.headers['last-modified']
+    if 'etag' in response.headers:
+      http['etag'] = response.headers['etag']
+
   @defer.inlineCallbacks
   def save_ifeed(self, ifeed, response):
     def modify(doc):
@@ -362,11 +370,7 @@ class Feed(Model):
       doc['subtitle'] = ifeed.subtitle
       doc['author_detail'] = ifeed.author_detail
       doc['updated_at'] = ifeed.updated_at
-      http = doc.setdefault('http', {})
-      if 'last-modified' in response.headers:
-        http['last-modified'] = response.headers['last-modified']
-      if 'etag' in response.headers:
-        http['etag'] = response.headers['etag']
+      self.modify_http(doc, response)
 
     yield self.modify(modify)
     yield self.save_iposts(ifeed.posts)
@@ -375,11 +379,7 @@ class Feed(Model):
   @defer.inlineCallbacks
   def save_headers(self, response):
     def modify(doc):
-      http = doc.setdefault('http', {})
-      if 'last-modified' in response.headers:
-        http['last-modified'] = response.headers['last-modified']
-      if 'etag' in response.headers:
-        http['etag'] = response.headers['etag']
+      self.modify_http(doc, response)
 
     yield self.modify(modify)
     defer.returnValue(None)
