@@ -378,7 +378,7 @@ class Feed(Model):
     return None
 
   @staticmethod
-  def modify_http(doc, response):
+  def modify_http(doc, response, min_max_age):
     now = int(time.time())
     http = doc.setdefault('http', {})
     if 'last-modified' in response.headers:
@@ -396,7 +396,7 @@ class Feed(Model):
       doc['expires_at'] = now
 
     # wait at least 30 min
-    doc['expires_at'] = max(doc['expires_at'], now + 1800)
+    doc['expires_at'] = max(doc['expires_at'], now + min_max_age)
 
   @defer.inlineCallbacks
   def save_ifeed(self, ifeed, response):
@@ -406,7 +406,7 @@ class Feed(Model):
       doc['subtitle'] = ifeed.subtitle
       doc['author_detail'] = ifeed.author_detail
       doc['updated_at'] = ifeed.updated_at
-      self.modify_http(doc, response)
+      self.modify_http(doc, response, 1800)
 
     yield self.modify(modify)
     yield self.save_iposts(ifeed.posts)
@@ -415,7 +415,7 @@ class Feed(Model):
   @defer.inlineCallbacks
   def save_headers(self, response):
     def modify(doc):
-      self.modify_http(doc, response)
+      self.modify_http(doc, response, 0)
 
     yield self.modify(modify)
     defer.returnValue(None)
