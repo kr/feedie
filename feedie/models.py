@@ -364,14 +364,14 @@ class Feed(Model):
 
   @defer.inlineCallbacks
   def refresh(self):
-    if not self.ready_for_refresh: defer.returnValue(None)
+    if not self.ready_for_refresh: return
 
     response = yield self.fetch()
 
     if response.status.code in (301, 302, 303, 307):
       self.doc['type'] = 'page'
       self.doc['link'] = response.headers['location']
-      defer.returnValue(None)
+      return
 
     parsed = feedparser.parse(response.body)
 
@@ -382,11 +382,11 @@ class Feed(Model):
         self.doc['link'] = links[0].href
         if 'title' in links[0] and links[0].title:
           self.doc['title'] = links[0].title
-      defer.returnValue(None)
+      return
 
     ifeed = incoming.Feed(parsed)
     yield self.save_ifeed(ifeed)
-    defer.returnValue(None)
+    return
 
   def post_changed(self, post, event_name, field_name=None):
     if field_name == 'read':
