@@ -245,8 +245,11 @@ class Sources(Model):
   def subscribe(self, uri, defaults={}):
     uri = http.normalize_uri(uri)
     now = int(time.time())
+    title = uri
+    if title.startswith('http://'):
+      title = title[7:]
     doc = dict(
-      title = uri,
+      title = title,
     )
     doc.update(defaults,
       _id = short_hash(uri),
