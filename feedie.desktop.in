@@ -3,6 +3,6 @@ Name=Feedie
 Comment=Feed Reader
 Categories=GNOME;Internet;
 Exec=feedie
-Icon=feedie
+Icon=/usr/share/feedie/media/icon.png
 Terminal=false
 Type=Application
