@@ -778,7 +778,9 @@ class Feed(Model):
 
   @property
   def icon(self):
-    return 'cancel'
+    if 'error' in self.doc:
+      return 'gtk-dialog-error'
+    return 'gtk-file'
 
   @property
   def link(self):
