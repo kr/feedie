@@ -163,25 +163,21 @@ class Sources(Model):
   def doc(self, doc):
     self._doc = doc
 
-    # remove duplicates from feed order
-    self.feed_order_set = set()
-    order = self.feed_order[:]
-    self.feed_order[:] = []
-    for id in order:
-      if id not in self.feed_order_set:
-        self.feed_order_set.add(id)
-        self.feed_order.append(id)
-
   @defer.inlineCallbacks
   def modify(self, modify):
     self.doc = yield self.db.modify_doc(self._id, modify, doc=self.doc)
 
   @defer.inlineCallbacks
-  def prepend_to_feed_order(self, source_id):
+  def put_feed_at_front_of_order(self, source_id):
     def modify(doc):
-      doc.setdefault('feed_order', []).insert(0, source_id)
-    if source_id not in self.feed_order_set:
-      yield self.modify(modify)
+      doc.setdefault('feed_order', [])
+      try:
+        doc['feed_order'].remove(source_id)
+      except ValueError:
+        # source_id isn't in the list? that's okay.
+        pass
+      doc['feed_order'].insert(0, source_id)
+    yield self.modify(modify)
 
   @defer.inlineCallbacks
   def remove_from_feed_order(self, source_id):
@@ -210,17 +206,13 @@ class Sources(Model):
 
   # Retrieves the feed. If it does not exist, creates one using default_doc.
   def feed(self, default_doc, summary=None):
-    def added(x):
-      self.emit('feed-added', feed)
-      self.emit('source-added', feed)
-      feed.connect('deleted', self.feed_deleted)
-
     feed_id = default_doc['_id']
     if feed_id not in self.feeds:
       feed = self.feeds[feed_id] = Feed(self.db, default_doc, summary)
       feed.added_to(self)
-      d = self.prepend_to_feed_order(feed_id)
-      d.addCallback(added)
+      self.emit('feed-added', feed)
+      self.emit('source-added', feed)
+      feed.connect('deleted', self.feed_deleted)
 
     return self.feeds[feed_id]
 
@@ -256,6 +248,9 @@ class Sources(Model):
       subscribed_at = now,
     )
     feed = self.feed(doc)
+
+    yield self.put_feed_at_front_of_order(feed.id)
+
     yield feed.refresh()
     if feed.type == 'page' and feed.link:
       yield feed.delete()
