@@ -478,10 +478,10 @@ class Feed(Model):
     defer.returnValue(None)
 
   @defer.inlineCallbacks
-  def save_headers(self, response, extra=None):
+  def save_headers(self, response, **extra):
     def modify(doc):
       self.modify_http(doc, response)
-      for k, v in (extra or {}).items():
+      for k, v in extra.items():
         doc[k] = v
 
     yield self.modify(modify)
@@ -503,6 +503,7 @@ class Feed(Model):
     response = yield self.fetch()
 
     if response.status.code in (301, 302, 303, 307):
+      # We don't save redirects.
       self.doc['error'] = 'redirect'
       self.doc['link'] = response.headers['location']
       return
@@ -515,19 +516,21 @@ class Feed(Model):
     parsed = feedparser.parse(BodyHeadersHack(response.body, uri))
 
     if not parsed.version: # not a feed
-      to_set = {} # fields to update in the db
-      if 'links' in parsed.feed:
-        links = [x for x in parsed.feed.links if x.rel == 'alternate']
-        if links:
-          to_set['link'] = links[0].href
-          if 'title' in links[0] and links[0].title:
-            to_set['title'] = links[0].title
-          to_set['error'] = 'redirect'
-        else:
-          to_set['error'] = 'notafeed'
-      else:
-        to_set['error'] = 'notafeed'
-      yield self.save_headers(response, to_set)
+      if 'links' not in parsed.feed:
+        yield self.save_headers(response, error='notafeed')
+        return
+
+      links = [x for x in parsed.feed.links if x.rel == 'alternate']
+
+      if not links:
+        yield self.save_headers(response, error='notafeed')
+        return
+
+      # We don't save redirects.
+      self.doc['error'] = 'redirect'
+      self.doc['link'] = links[0].href
+      if 'title' in links[0] and links[0].title:
+        self.doc['title'] = links[0].title
       return
 
     ifeed = incoming.Feed(parsed)
