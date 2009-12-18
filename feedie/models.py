@@ -177,6 +177,13 @@ class Sources(Model):
       summary = summaries.get(row['id'], None)
       self.feed(row['value'], summary=summary)
 
+    self.refresh()
+
+  def refresh(self):
+    for feed in self.feeds.values():
+      feed.refresh()
+    reactor.callLater(60, self.refresh)
+
   @property
   def doc(self):
     return self._doc
