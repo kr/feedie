@@ -332,6 +332,9 @@ class FeedieWindow(gtk.Window):
       removable = bool(source and sources.can_remove(source))
       self.builder.get_object('action-remove-feed').set_sensitive(removable)
 
+      refreshable = bool(source and source.can_refresh)
+      self.builder.get_object('action-refresh').set_sensitive(refreshable)
+
       model, title = None, ''
       if not source:
         treeview = self.builder.get_object('posts-treeview')

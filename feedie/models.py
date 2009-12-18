@@ -92,6 +92,10 @@ class AllNewsSource(Model):
   def error(self):
     return None
 
+  @property
+  def can_refresh(self):
+    return False # TODO change this
+
   @defer.inlineCallbacks
   def post_summaries(self):
     def row_to_entry(row):
@@ -465,6 +469,10 @@ class Feed(Model):
     ifeed = incoming.Feed(parsed)
     yield self.save_ifeed(ifeed, response)
     return
+
+  @property
+  def can_refresh(self):
+    return True
 
   @property
   def error(self):
