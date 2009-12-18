@@ -180,7 +180,7 @@ class SourcesView(gtk.DrawingArea):
   def flash(self, item_id):
     if item_id not in self.items: return
     self.items[item_id].flash()
-    glib.idle_add(self.update_flash_anim)
+    glib.timeout_add(17, self.update_flash_anim)
 
   def update_flash_anim(self):
     ret = False
