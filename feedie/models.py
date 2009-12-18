@@ -31,6 +31,9 @@ def detail_html(item):
 def short_hash(s):
   return hashlib.sha1(s).hexdigest()[:16]
 
+def parse_http_datetime(s):
+  return int(calendar.timegm(feedparser._parse_date(s)))
+
 class Model(object):
   def __model_init(self):
     if not hasattr(self, 'handlers'):
@@ -354,12 +357,35 @@ class Feed(Model):
     self.doc = yield self.db.modify_doc(self.id, modify, doc=self.doc)
 
   @staticmethod
+  def extract_max_age(response):
+    h = response.headers
+    if 'cache-control' not in h: return None
+    parts = [x.strip() for x in h['cache-control'].split(',')]
+    for part in parts:
+      if part.startswith('max-age='):
+        return int(part[8:])
+    return None
+
+  @staticmethod
   def modify_http(doc, response):
+    now = int(time.time())
     http = doc.setdefault('http', {})
     if 'last-modified' in response.headers:
       http['last-modified'] = response.headers['last-modified']
     if 'etag' in response.headers:
       http['etag'] = response.headers['etag']
+
+    max_age = Feed.extract_max_age(response)
+    if max_age is not None:
+      req_date = parse_http_datetime(response.headers.get('date', now))
+      doc['expires_at'] = req_date + max_age
+    elif 'expires' in response.headers:
+      doc['expires_at'] = parse_http_datetime(response.headers['expires'])
+    else:
+      doc['expires_at'] = now
+
+    # wait at least 30 min
+    doc['expires_at'] = max(doc['expires_at'], now + 1800)
 
   @defer.inlineCallbacks
   def save_ifeed(self, ifeed, response):
