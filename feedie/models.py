@@ -177,12 +177,18 @@ class Sources(Model):
         # source_id isn't in the list? that's okay.
         pass
       doc['feed_order'].insert(0, source_id)
+
+      # Remove any bogus entries
+      doc['feed_order'] = [x for x in doc['feed_order'] if x in self]
     yield self.modify(modify)
 
   @defer.inlineCallbacks
   def remove_from_feed_order(self, source_id):
     def modify(doc):
       doc['feed_order'].remove(source_id)
+
+      # Remove any bogus entries
+      doc['feed_order'] = [x for x in doc['feed_order'] if x in self]
     yield self.modify(modify)
 
   @property
@@ -219,21 +225,21 @@ class Sources(Model):
   def get_feed(self, feed_id):
     return self.feeds[feed_id]
 
-  def get_source(self, source_id):
-    if source_id in self.builtins:
-      return self.builtins[source_id]
-    if source_id in self.feeds:
-      return self.feeds[source_id]
-    raise KeyError(source_id)
-
   def can_remove(self, source):
     return source.id in self.feeds
 
   def __iter__(self):
-    return iter([self.get_source(id) for id in self.order])
+    return iter([self[id] for id in self.order if id in self])
 
   def __getitem__(self, id):
-    return self.builtins[id]
+    if id in self.builtins:
+      return self.builtins[id]
+    if id in self.feeds:
+      return self.feeds[id]
+    raise KeyError(id)
+
+  def __contains__(self, id):
+    return id in self.builtins or id in self.feeds
 
   @defer.inlineCallbacks
   def subscribe(self, uri, defaults={}):
@@ -244,6 +250,7 @@ class Sources(Model):
     )
     doc.update(defaults,
       _id = short_hash(uri),
+      type = 'feed',
       source_uri = uri,
       subscribed_at = now,
     )
@@ -252,7 +259,7 @@ class Sources(Model):
     yield self.put_feed_at_front_of_order(feed.id)
 
     yield feed.refresh()
-    if feed.type == 'page' and feed.link:
+    if feed.error == 'redirect' and feed.link:
       yield feed.delete()
       feed2 = yield self.subscribe(feed.link, defaults=dict(title=feed.title))
       defer.returnValue(feed2)
@@ -387,7 +394,6 @@ class Feed(Model):
   @defer.inlineCallbacks
   def save_ifeed(self, ifeed, response):
     def modify(doc):
-      doc['type'] = 'feed'
       doc['link'] = ifeed.link
       doc['title'] = ifeed.title
       doc['subtitle'] = ifeed.subtitle
@@ -423,7 +429,7 @@ class Feed(Model):
     response = yield self.fetch()
 
     if response.status.code in (301, 302, 303, 307):
-      self.doc['type'] = 'page'
+      self.doc['error'] = 'redirect'
       self.doc['link'] = response.headers['location']
       return
 
@@ -434,17 +440,27 @@ class Feed(Model):
     parsed = feedparser.parse(response.body)
 
     if not parsed.version: # not a feed
-      self.doc['type'] = 'page'
       if 'links' in parsed.feed:
         links = [x for x in parsed.feed.links if x.rel == 'alternate']
-        self.doc['link'] = links[0].href
-        if 'title' in links[0] and links[0].title:
-          self.doc['title'] = links[0].title
+        if links:
+          self.doc['link'] = links[0].href
+          if 'title' in links[0] and links[0].title:
+            self.doc['title'] = links[0].title
+          self.doc['error'] = 'redirect'
+        else:
+          self.doc['error'] = 'notafeed'
+      else:
+        self.doc['error'] = 'notafeed'
+      yield self.save_headers(response) # update last-modified, etag, etc
       return
 
     ifeed = incoming.Feed(parsed)
     yield self.save_ifeed(ifeed, response)
     return
+
+  @property
+  def error(self):
+    return self.doc.get('error', None)
 
   def post_changed(self, post, event_name, field_name=None):
     if field_name == 'read':
