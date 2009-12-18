@@ -1,3 +1,4 @@
+import re
 import gtk
 import time
 import gobject
@@ -6,6 +7,8 @@ from twisted.internet import reactor, defer
 from feedie import images
 
 class PostsTreeModel(gtk.GenericTreeModel):
+  strip = re.compile('<[^>]*?>')
+
   columns = (
       ('title',       str),
       ('age',         str),
@@ -55,7 +58,7 @@ class PostsTreeModel(gtk.GenericTreeModel):
       self.insert_doc(post)
 
   def column_title(self, doc):
-    return doc.title
+    return self.strip.sub('', doc.title)
 
   def column_pretty_date(self, doc):
     now = time.time()
