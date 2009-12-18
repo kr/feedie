@@ -1,5 +1,30 @@
-<p>Source... GAR!
+#from cgi import escape as h
+<!doctype html>
 
-<p>$source.title
+<html>
+<head>
+<style>
+body {
+    line-height: 18px;
+    margin: 18px 30px;
+    max-width: 550px;
+    opacity: 0.5;
+}
+</style>
+</head>
 
-<p>$source.error
+<body>
+
+<h1>$source.title</h1>
+
+#if $source.error == "notafeed"
+  <p>Feedie could not find a news feed at
+  <a href="$h($source.source_uri)">$h($source.source_uri)</a>.
+#else if $source.error
+  <p>Error: $source.error</p>
+#else
+  <p>Showing $source.unread unread posts.</p>
+#end if
+
+</body>
+</html>

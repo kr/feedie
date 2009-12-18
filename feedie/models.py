@@ -528,6 +528,10 @@ class Feed(Model):
   def type(self):
     return self.doc['type']
 
+  @property
+  def source_uri(self):
+    return self.doc['source_uri']
+
   @defer.inlineCallbacks
   def check_posts_loaded(self):
     if not self.posts:
