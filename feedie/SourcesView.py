@@ -358,10 +358,10 @@ class SourceItem:
         loader.close()
         self.icon = loader.get_pixbuf()
 
-    if not self.icon and self.source.show_icon:
+    if not self.icon and self.source.icon:
       try:
         theme = gtk.icon_theme_get_default()
-        self.icon = theme.load_icon('cancel', 16, 0)
+        self.icon = theme.load_icon(self.source.icon, 16, 0)
       except:
         pass
 

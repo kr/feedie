@@ -138,8 +138,8 @@ class AllNewsSource(Model):
     return 'All News'
 
   @property
-  def show_icon(self):
-    return False
+  def icon(self):
+    return None
 
   @property
   def category(self):
@@ -777,8 +777,8 @@ class Feed(Model):
     return self.doc.get('title', '(unknown title)')
 
   @property
-  def show_icon(self):
-    return True
+  def icon(self):
+    return 'cancel'
 
   @property
   def link(self):
