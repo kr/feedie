@@ -22,6 +22,15 @@ class Transfer(object):
     self.progress = progress
     self.total = total
 
+class BodyHeadersHack(object):
+  def __init__(self, body, url):
+    self.body = body
+    self.url = url
+    self.href = url
+
+  def read(self):
+    return self.body
+
 preferred=('text/html', 'application/xhtml+xml', 'text/plain')
 
 def preference_score(item):
@@ -461,6 +470,7 @@ class Feed(Model):
       doc['subtitle'] = ifeed.subtitle
       doc['author_detail'] = ifeed.author_detail
       doc['updated_at'] = ifeed.updated_at
+      if 'error' in doc: del doc['error']
       self.modify_http(doc, response)
 
     yield self.modify(modify)
@@ -468,9 +478,11 @@ class Feed(Model):
     defer.returnValue(None)
 
   @defer.inlineCallbacks
-  def save_headers(self, response):
+  def save_headers(self, response, extra=None):
     def modify(doc):
       self.modify_http(doc, response)
+      for k, v in (extra or {}).items():
+        doc[k] = v
 
     yield self.modify(modify)
     defer.returnValue(None)
@@ -499,24 +511,25 @@ class Feed(Model):
       yield self.save_headers(response) # update last-modified, etag, etc
       return
 
-    parsed = feedparser.parse(response.body)
+    uri = self.doc['source_uri']
+    parsed = feedparser.parse(BodyHeadersHack(response.body, uri))
 
     if not parsed.version: # not a feed
+      to_set = {} # fields to update in the db
       if 'links' in parsed.feed:
         links = [x for x in parsed.feed.links if x.rel == 'alternate']
         if links:
-          self.doc['link'] = links[0].href
+          to_set['link'] = links[0].href
           if 'title' in links[0] and links[0].title:
-            self.doc['title'] = links[0].title
-          self.doc['error'] = 'redirect'
+            to_set['title'] = links[0].title
+          to_set['error'] = 'redirect'
         else:
-          self.doc['error'] = 'notafeed'
+          to_set['error'] = 'notafeed'
       else:
-        self.doc['error'] = 'notafeed'
-      yield self.save_headers(response) # update last-modified, etag, etc
+        to_set['error'] = 'notafeed'
+      yield self.save_headers(response, to_set)
       return
 
-    if 'error' in self.doc: del self.doc['error']
     ifeed = incoming.Feed(parsed)
     yield self.save_ifeed(ifeed, response)
     return
