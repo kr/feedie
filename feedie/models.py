@@ -510,6 +510,7 @@ class Feed(Model):
 
     if response.status.code == 304:
       yield self.save_headers(response) # update last-modified, etag, etc
+      yield self.discover_favicon_uris()
       return
 
     uri = self.doc['source_uri']
@@ -535,7 +536,39 @@ class Feed(Model):
 
     ifeed = incoming.Feed(parsed)
     yield self.save_ifeed(ifeed, response)
+    yield self.discover_favicon_uris(ifeed)
     return
+
+  @defer.inlineCallbacks
+  def discover_favicon_uris(self, ifeed=None):
+    # We already got some. Maybe some day we'll try again.
+    if 'icons' in self.doc and self.doc['icons']:
+      return
+
+    uris = []
+
+    if ifeed and 'icon' in ifeed:
+      uris.append(ifeed.icon)
+
+    if self.link:
+      guess = urlparse.urljoin(self.link, '/favicon.ico')
+      uris.append(guess)
+
+      response = yield fetcher.fetch(self.link)
+
+      # Woo, let's abuse the feed parser to parse html!!!
+      parsed = feedparser.parse(BodyHeadersHack(response.body, self.link))
+
+      if 'links' in parsed.feed:
+        links = parsed.feed.links
+        uris.extend([x.href for x in links if x.rel == 'shortcut icon'])
+
+    def modify(doc):
+      icons = doc.setdefault('icons', {})
+      for uri in uris:
+        icons.setdefault(uri, {})
+
+    yield self.modify(modify)
 
   @property
   def can_refresh(self):
