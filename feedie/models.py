@@ -9,6 +9,7 @@ from collections import defaultdict
 from desktopcouch.records.record import Record
 from twisted.internet import reactor, defer
 
+from feedie import http
 from feedie import util
 from feedie import fetcher
 from feedie import incoming
@@ -244,6 +245,7 @@ class Sources(Model):
 
   @defer.inlineCallbacks
   def subscribe(self, uri, defaults={}):
+    uri = http.normalize_uri(uri)
     now = int(time.time())
     doc = dict(
       title = uri,

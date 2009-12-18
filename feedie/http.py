@@ -106,3 +106,6 @@ class Client:
   def put(self, *args, **kw):
     return self.request('PUT', *args, **kw)
 
+def normalize_uri(uri):
+  if ':' in uri: return uri
+  return 'http://' + uri
