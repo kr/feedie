@@ -88,6 +88,10 @@ class AllNewsSource(Model):
   def id(self):
     return 'all-news'
 
+  @property
+  def error(self):
+    return None
+
   @defer.inlineCallbacks
   def post_summaries(self):
     def row_to_entry(row):

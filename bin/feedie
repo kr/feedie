@@ -56,6 +56,7 @@ from feedie import design_doc
 sources = None
 
 post_template = Template(file=getdatapath() + '/templates/post.html')
+source_template = Template(file=getdatapath() + '/templates/source.html')
 
 class FeedieWindow(gtk.Window):
     __gtype_name__ = "FeedieWindow"
@@ -337,7 +338,10 @@ class FeedieWindow(gtk.Window):
         treeview.set_model(model)
         treeview.get_column(2).get_widget().set_text(title)
         self.builder.get_object('scrolledwindow2').hide()
-      else:
+        self.web.load_html_string('Welcome', 'file:///')
+        return
+
+      if not source.error:
         def show(x):
           model = gtk.TreeModelSort(raw_model)
           model.set_sort_column_id(PostsTreeModel.colnum('age'),
@@ -354,6 +358,15 @@ class FeedieWindow(gtk.Window):
         source.connect('post-removed', raw_model.post_removed)
         d = raw_model.load()
         d.addCallback(show)
+      else:
+        treeview = self.builder.get_object('posts-treeview')
+        treeview.set_model(model)
+        treeview.get_column(2).get_widget().set_text(title)
+        self.builder.get_object('scrolledwindow2').hide()
+
+      source_template.source = source
+      html = str(source_template)
+      self.web.load_html_string(html, 'file:///')
 
 
     def about(self, widget, data=None):
