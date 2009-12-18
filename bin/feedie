@@ -444,13 +444,12 @@ class FeedieWindow(gtk.Window):
         sel.delete()
 
     def refresh(self, widget, data=None):
-      global dummy_counter
-      dummy_counter += 1
-      dummy_counter %= 2
-      feedids = ['http://feeds2.feedburner.com/krarick', 'http://ranchero.com/xml/rss.xml']
-      self.sources_view.flash(feedids[dummy_counter])
-
-dummy_counter = 0
+      def success(x):
+        self.sources_view.flash(sel.id)
+      sel = self.sources_view.selected
+      if sel:
+        d = sel.refresh(force=True)
+        d.addCallback(success)
 
 def NewFeedieWindow():
     """NewFeedieWindow - returns a fully instantiated
