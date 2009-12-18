@@ -358,13 +358,26 @@ class Feed(Model):
       doc['subtitle'] = ifeed.subtitle
       doc['author_detail'] = ifeed.author_detail
       doc['updated_at'] = ifeed.updated_at
-      doc['http'] = {
-        'last-modified': response.headers['last-modified'],
-        'etag': response.headers['etag'],
-      }
+      http = doc.setdefault('http', {})
+      if 'last-modified' in response.headers:
+        http['last-modified'] = response.headers['last-modified']
+      if 'etag' in response.headers:
+        http['etag'] = response.headers['etag']
 
     yield self.modify(modify)
     yield self.save_iposts(ifeed.posts)
+    defer.returnValue(None)
+
+  @defer.inlineCallbacks
+  def save_headers(self, response):
+    def modify(doc):
+      http = doc.setdefault('http', {})
+      if 'last-modified' in response.headers:
+        http['last-modified'] = response.headers['last-modified']
+      if 'etag' in response.headers:
+        http['etag'] = response.headers['etag']
+
+    yield self.modify(modify)
     defer.returnValue(None)
 
   @defer.inlineCallbacks
@@ -380,6 +393,10 @@ class Feed(Model):
     if response.status.code in (301, 302, 303, 307):
       self.doc['type'] = 'page'
       self.doc['link'] = response.headers['location']
+      return
+
+    if response.status.code == 304:
+      yield self.save_headers(response) # update last-modified, etag, etc
       return
 
     parsed = feedparser.parse(response.body)
