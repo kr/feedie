@@ -410,9 +410,14 @@ class Feed(Model):
     yield self.modify(modify)
     defer.returnValue(None)
 
-  @defer.inlineCallbacks
+  @property
+  def expires_at(self):
+    return self.doc.get('expires_at', 0)
+
+  @property
   def ready_for_refresh(self):
-    return True
+    now = int(time.time())
+    return now > self.expires_at
 
   @defer.inlineCallbacks
   def refresh(self):
