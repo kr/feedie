@@ -231,6 +231,8 @@ class FeedieWindow(gtk.Window):
 
         treeview_heading_widgets = []
 
+        sources_status = self.builder.get_object('sources-status')
+
         def style_set(widget, previous_style):
           def modify_all(widget, fd):
             widget.modify_font(fd)
@@ -243,6 +245,8 @@ class FeedieWindow(gtk.Window):
             fd.set_size(int(fd.get_size() / 1.2))
           self.sources_view.modify_font(fd)
           treeview.modify_font(fd)
+          sources_status.modify_font(fd)
+          posts_status.modify_font(fd)
           for col in treeview.get_columns():
             w = col.get_widget()
             if w: w.modify_font(fd)
@@ -303,13 +307,14 @@ class FeedieWindow(gtk.Window):
 
         main_area = self.builder.get_object('main-area')
         status_paned = self.builder.get_object('status-paned')
-        sources_status = self.builder.get_object('sources-status')
 
-        def update_sources_status(*args):
-          sources_status.set_text('%d unread posts' % (allnews.unread,))
+        def update_unread_counts(*args):
+          message = '%d unread' % (allnews.unread,)
+          sources_status.set_text(message)
+          self.set_title('Feedie (%s)' % (message,))
 
-        allnews.connect('summary-changed', update_sources_status)
-        update_sources_status()
+        allnews.connect('summary-changed', update_unread_counts)
+        update_unread_counts()
 
         def sources_pane_resized(sv, rect):
           new_pos = main_area.get_position()
