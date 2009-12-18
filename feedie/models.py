@@ -126,10 +126,21 @@ class Sources(Model):
     self.db = db
     self.builtins = {}
     self.feeds = {}
-    self.max_pos = 0
+    self.doc = dict(_id=self._id)
+    self.builtin_order = []
+
+  @property
+  def _id(self):
+    return 'sources'
 
   @defer.inlineCallbacks
   def load(self):
+    try:
+      self.doc = yield self.db.load_doc(self._id)
+    except couchdb.client.ResourceNotFound, err:
+      # Brand new database!
+      pass
+
     rows = yield self.db.view('feedie/feed')
 
     summary_rows = yield Feed.load_summaries(self.db, [r['id'] for r in rows])
@@ -140,37 +151,89 @@ class Sources(Model):
       self.feed(row['value'], summary=summary)
 
   @property
+  def doc(self):
+    return self._doc
+
+  @doc.setter
+  def doc(self, doc):
+    self._doc = doc
+
+    # remove duplicates from feed order
+    self.feed_order_set = set()
+    order = self.feed_order[:]
+    self.feed_order[:] = []
+    for id in order:
+      if id not in self.feed_order_set:
+        self.feed_order_set.add(id)
+        self.feed_order.append(id)
+
+  @defer.inlineCallbacks
+  def modify(self, modify):
+    self.doc = yield self.db.modify_doc(self._id, modify, doc=self.doc)
+
+  @defer.inlineCallbacks
+  def prepend_to_feed_order(self, source_id):
+    def modify(doc):
+      doc.setdefault('feed_order', []).insert(0, source_id)
+    if source_id not in self.feed_order_set:
+      yield self.modify(modify)
+
+  @defer.inlineCallbacks
+  def remove_from_feed_order(self, source_id):
+    def modify(doc):
+      doc['feed_order'].remove(source_id)
+    yield self.modify(modify)
+
+  @property
+  def feed_order(self):
+    return self.doc.get('feed_order', [])
+
+  @property
+  def order(self):
+    return self.builtin_order + self.feed_order
+
+  @property
   def feed_ids(self):
     return self.feeds.keys()
 
   def add_builtin(self, source):
     self.builtins[source.id] = source
+    self.builtin_order.append(source.id)
     source.added_to(self)
     self.emit('builtin-added', source)
     self.emit('source-added', source)
 
   # Retrieves the feed. If it does not exist, creates one using default_doc.
   def feed(self, default_doc, summary=None):
+    def added(x):
+      self.emit('feed-added', feed)
+      self.emit('source-added', feed)
+      feed.connect('deleted', self.feed_deleted)
+
     feed_id = default_doc['_id']
     if feed_id not in self.feeds:
       feed = self.feeds[feed_id] = Feed(self.db, default_doc, summary)
       feed.added_to(self)
-      self.emit('feed-added', feed)
-      self.emit('source-added', feed)
-      self.max_pos = max(self.max_pos, feed.pos)
-      feed.connect('deleted', self.feed_deleted)
+      d = self.prepend_to_feed_order(feed_id)
+      d.addCallback(added)
 
     return self.feeds[feed_id]
 
   def get_feed(self, feed_id):
     return self.feeds[feed_id]
 
+  def get_source(self, source_id):
+    if source_id in self.builtins:
+      return self.builtins[source_id]
+    if source_id in self.feeds:
+      return self.feeds[source_id]
+    raise KeyError(source_id)
+
   def can_remove(self, source):
     return source.id in self.feeds
 
   def __iter__(self):
-    feeds = sorted(self.feeds.values(), key=lambda x: (-x.pos, x.title, x.id))
-    return iter(self.builtins.values() + feeds)
+    return iter([self.get_source(id) for id in self.order])
 
   def __getitem__(self, id):
     return self.builtins[id]
@@ -180,7 +243,6 @@ class Sources(Model):
     now = int(time.time())
     doc = dict(
       title = uri,
-      pos = self.max_pos,
     )
     doc.update(defaults,
       _id = short_hash(uri),
@@ -197,10 +259,14 @@ class Sources(Model):
     defer.returnValue(feed)
 
   def feed_deleted(self, feed, event):
-    if feed.id in self.feeds:
-      del self.feeds[feed.id]
+    def success(x):
       self.emit('feed-removed', feed)
       self.emit('source-removed', feed)
+
+    if feed.id in self.feeds:
+      del self.feeds[feed.id]
+      d = self.remove_from_feed_order(feed.id)
+      d.addCallback(success)
 
 class Feed(Model):
   def __init__(self, db, doc, summary=None):
@@ -419,10 +485,6 @@ class Feed(Model):
   @property
   def read(self):
     return self.summary['read']
-
-  @property
-  def pos(self):
-    return self.doc.get('pos', 0)
 
   @property
   def author_detail(self):
