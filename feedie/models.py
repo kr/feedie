@@ -334,7 +334,10 @@ class Feed(Model):
       print args
 
     uri = self.doc['source_uri']
-    d = fetcher.fetch(uri)
+    headers = {}
+    if 'http' in self.doc and 'last-modified' in self.doc['http']:
+      headers['if-modified-since'] = self.doc['http']['last-modified']
+    d = fetcher.fetch(uri, headers=headers)
     d.addListener('fetch', on_fetch)
     d.addListener('connected', on_connected)
     d.addListener('status', on_status)
@@ -355,10 +358,10 @@ class Feed(Model):
       doc['subtitle'] = ifeed.subtitle
       doc['author_detail'] = ifeed.author_detail
       doc['updated_at'] = ifeed.updated_at
-      doc['http'] = dict(
-        last_modified = response.headers['last-modified'],
-        etag = response.headers['etag'],
-      )
+      doc['http'] = {
+        'last-modified': response.headers['last-modified'],
+        'etag': response.headers['etag'],
+      }
 
     yield self.modify(modify)
     yield self.save_iposts(ifeed.posts)
