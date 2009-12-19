@@ -148,21 +148,13 @@ class AsyncCouch:
   def put_attachment(self, doc_id, name, data, rev):
     path = '%s/%s' % (doc_id, name)
     request_path = self.base_path + path + encode_params(dict(rev=rev))
-    print 'request path', request_path
-    response = yield self.request('PUT', request_path, {}, data)
-    print 'put resopnse status', response.status
-    if response.status:
-      print 'put resopnse status code', response.status.code
+    yield self.request('PUT', request_path, {}, data)
 
   @defer.inlineCallbacks
   def delete_attachment(self, doc_id, name, rev):
     path = '%s/%s' % (doc_id, name)
     request_path = self.base_path + path + encode_params(dict(rev=rev))
-    print 'request path', request_path
-    response = yield self.request('DELETE', request_path, {})
-    print 'put resopnse status', response.status
-    if response.status:
-      print 'put resopnse status code', response.status.code
+    yield self.request('DELETE', request_path, {})
 
   # returns a list of documents (maybe with fewer than doc_ids)
   @defer.inlineCallbacks
