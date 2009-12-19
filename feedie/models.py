@@ -61,7 +61,10 @@ class HandlerList(object):
   def __add__(self, other):
     return list(self) + list(other)
 
-  def append(self, item):
+  def __radd__(self, other):
+    return list(self) + list(other)
+
+  def register(self, item):
     self.list.append(item)
 
 class SignalRegistry(object):
@@ -71,19 +74,25 @@ class SignalRegistry(object):
   def __getitem__(self, name):
     return self.map.setdefault(name, HandlerList())
 
+  def register(self, name, handler):
+    self[name].register(handler)
+
+  def handlers(self, *names):
+    return sum([self[name] for name in names], [])
+
 class Model(object):
   def __model_init(self):
-    if not hasattr(self, 'handlers'):
-      self.handlers = SignalRegistry()
+    if not hasattr(self, 'registry'):
+      self.registry = SignalRegistry()
 
   def connect(self, name, handler):
     assert callable(handler)
     self.__model_init()
-    self.handlers[name].append(handler)
+    return self.registry.register(name, handler)
 
   def emit(self, name, *args, **kwargs):
     self.__model_init()
-    for handler in self.handlers[name] + self.handlers['*']:
+    for handler in self.registry.handlers(name, '*'):
       reactor.callLater(0, handler, self, name, *args, **kwargs)
 
 class UnreadNewsSource(Model):
