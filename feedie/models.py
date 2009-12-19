@@ -379,57 +379,7 @@ class Feed(Model):
     return 100 * progress / total
 
   @defer.inlineCallbacks
-  def fetch(self):
-    def on_fetch(*args):
-      transfer.progress = 0
-      transfer.total = 0
-      self.emit('summary-changed')
-    def on_connected(*args):
-      transfer.progress = 0
-      transfer.total = 0
-      self.emit('summary-changed')
-    def on_status(*args):
-      transfer.progress = 0
-      transfer.total = 0
-      self.emit('summary-changed')
-    def on_headers(*args):
-      transfer.progress = 0
-      transfer.total = 0
-      self.emit('summary-changed')
-    def on_body(event_name, progress, total):
-      transfer.progress = progress
-      transfer.total = total
-      self.emit('summary-changed')
-
-    def on_complete(x):
-      try:
-        self.transfers.remove(transfer)
-        self.emit('summary-changed')
-      except:
-        pass
-      return x
-
-    uri = self.doc['source_uri']
-    headers = {}
-    if 'http' in self.doc:
-      http = self.doc['http']
-      if 'last-modified' in http:
-        headers['if-modified-since'] = http['last-modified']
-      if 'etag' in http:
-        headers['if-none-match'] = http['etag']
-    d = fetcher.fetch(uri, headers=headers)
-    transfer = Transfer(progress=0, total=0)
-    self.transfers.append(transfer)
-    d.addListener('fetch', on_fetch)
-    d.addListener('connected', on_connected)
-    d.addListener('status', on_status)
-    d.addListener('headers', on_headers)
-    d.addListener('body', on_body)
-    d.addCallback(on_complete)
-    defer.returnValue((yield d))
-
-  @defer.inlineCallbacks
-  def fetch_favicon(self, uri, http):
+  def fetch(self, uri, http=None):
     def on_fetch(*args):
       transfer.progress = 0
       transfer.total = 0
@@ -460,6 +410,7 @@ class Feed(Model):
       return x
 
     headers = {}
+    if http is None: http = {}
     if 'last-modified' in http:
       headers['if-modified-since'] = http['last-modified']
     if 'etag' in http:
@@ -474,8 +425,6 @@ class Feed(Model):
     d.addListener('body', on_body)
     d.addCallback(on_complete)
     defer.returnValue((yield d))
-
-
 
   @defer.inlineCallbacks
   def modify(self, modify):
@@ -527,31 +476,22 @@ class Feed(Model):
     defer.returnValue(None)
 
   @defer.inlineCallbacks
-  def save_headers(self, response, **extra):
+  def save_headers(self, name, response, **extra):
     def modify(doc):
-      self.modify_http(doc.setdefault('http', {}), response)
+      self.modify_http(doc.setdefault(name, {}), response)
       for k, v in extra.items():
         doc[k] = v
 
     yield self.modify(modify)
     defer.returnValue(None)
 
-  @defer.inlineCallbacks
-  def save_favicon_headers(self, uri, response, used=False):
-    def modify(doc):
-      icons = doc.setdefault('icons', {})
-      icon = icons.setdefault(uri, {})
-      self.modify_http(icon, response)
-      if used:
-        for k, v in icons.items():
-          if 'used' in v: del v['used']
-        icon['used'] = True
-
-    yield self.modify(modify)
-
   @property
   def expires_at(self):
     return self.doc.get('http', {}).get('expires_at', 0)
+
+  @property
+  def icon_expires_at(self):
+    return self.doc.get('icon_http', {}).get('expires_at', 0)
 
   @property
   def ready_for_refresh(self):
@@ -560,19 +500,16 @@ class Feed(Model):
 
   @property
   def ready_for_refresh_favicon(self):
-    if 'icons' not in self.doc: return True
-
     now = int(time.time())
-    for uri, http in self.doc['icons'].items():
-      if http.get('used', False):
-        return now > http.get('expires_at', 0)
-    return True
+    return now > self.icon_expires_at
 
   @defer.inlineCallbacks
   def refresh(self, force=False):
     if not (force or self.ready_for_refresh): return
 
-    response = yield self.fetch()
+    uri = self.doc['source_uri']
+    http = self.doc.get('http', None)
+    response = yield self.fetch(uri, http)
 
     if response.status.code in (301, 302, 303, 307):
       # We don't save redirects.
@@ -581,8 +518,8 @@ class Feed(Model):
       return
 
     if response.status.code == 304:
-      yield self.save_headers(response) # update last-modified, etag, etc
-      yield self.discover_favicon_uris()
+      yield self.save_headers('http', response) # update last-modified, etag, etc
+      yield self.discover_favicon()
       return
 
     uri = self.doc['source_uri']
@@ -590,13 +527,13 @@ class Feed(Model):
 
     if not parsed.version: # not a feed
       if 'links' not in parsed.feed:
-        yield self.save_headers(response, error='notafeed')
+        yield self.save_headers('http', response, error='notafeed')
         return
 
       links = [x for x in parsed.feed.links if x.rel == 'alternate']
 
       if not links:
-        yield self.save_headers(response, error='notafeed')
+        yield self.save_headers('http', response, error='notafeed')
         return
 
       # We don't save redirects.
@@ -608,39 +545,22 @@ class Feed(Model):
 
     ifeed = incoming.Feed(parsed)
     yield self.save_ifeed(ifeed, response)
-    yield self.discover_favicon_uris(ifeed)
+    yield self.discover_favicon(ifeed)
     return
 
   @defer.inlineCallbacks
-  def discover_favicon_uris(self, ifeed=None):
+  def discover_favicon(self, ifeed=None):
     # We already got some. Maybe some day we'll try again.
-    if 'icons' in self.doc and self.doc['icons']:
+    if 'icon_uri' in self.doc:
       # No yield! We don't want to wait on the result.
       d = self.refresh_favicon()
       return
 
-    uris = []
-
-    if ifeed and 'icon' in ifeed:
-      uris.append(ifeed.icon)
-
-    if self.link:
-      guess = urlparse.urljoin(self.link, '/favicon.ico')
-      uris.append(guess)
-
-      response = yield fetcher.fetch(self.link)
-
-      # Woo, let's abuse the feed parser to parse html!!!
-      parsed = feedparser.parse(BodyHeadersHack(response.body, self.link))
-
-      if 'links' in parsed.feed:
-        links = parsed.feed.links
-        uris.extend([x.href for x in links if x.rel == 'shortcut icon'])
+    uri = yield self.discover_favicon_uri(ifeed)
 
     def modify(doc):
-      icons = doc.setdefault('icons', {})
-      for uri in uris:
-        icons.setdefault(uri, {})
+      doc['icon_uri'] = uri
+      doc['icon_http'] = {}
 
     yield self.modify(modify)
 
@@ -648,27 +568,59 @@ class Feed(Model):
     d = self.refresh_favicon()
 
   @defer.inlineCallbacks
+  def discover_favicon_uri(self, ifeed=None):
+    rejected = self.doc.get('rejected_icon_uris', [])
+
+    if ifeed and 'icon' in ifeed:
+      if ifeed.icon not in rejected:
+        defer.returnValue(ifeed.icon)
+
+    if self.link:
+      response = yield self.fetch(self.link)
+      # TODO save expires time for this document
+
+      # We don't care about the status code. A 404 page will do just fine.
+      if response.body:
+
+        # Woo, let's abuse the feed parser to parse html!!!
+        parsed = feedparser.parse(BodyHeadersHack(response.body, self.link))
+
+        if 'links' in parsed.feed:
+          links = parsed.feed.links
+          uris = [x.href for x in links if x.rel == 'shortcut icon']
+          if uris:
+            if uris[0] not in rejected:
+              defer.returnValue(uris[0])
+
+      guess = urlparse.urljoin(self.link, '/favicon.ico')
+      if guess not in rejected:
+        defer.returnValue(guess)
+
+    defer.returnValue('')
+
+  @defer.inlineCallbacks
   def refresh_favicon(self):
     if not self.ready_for_refresh_favicon: return
 
-    for uri, headers in self.doc['icons'].items():
-      if headers.get('reject', False):
-        continue
+    uri = self.doc.get('icon_uri', None)
+    headers = self.doc.get('icon_http', {})
 
-      response = yield self.fetch_favicon(uri, headers)
+    if not uri: return
 
-      if response.status.code in (301, 302, 303, 307):
-        continue # bleh. someday I will try harder
+    response = yield self.fetch(uri, headers)
 
-      if response.status.code == 304:
-        # update last-modified, etag, etc
-        yield self.save_favicon_headers(uri, response)
-        return
+    # update last-modified, etag, etc
+    yield self.save_headers('icon_http', response)
 
-      if response.status.code == 200:
-        yield self.save_favicon_headers(uri, response, used=True)
-        yield self.put_favicon(response.body)
-        return # We win! No more work to do!
+    if response.status.code in (301, 302, 303, 307):
+      return # bleh. someday I will try harder
+
+    if response.status.code == 304:
+      return
+
+    if response.status.code == 200:
+      yield self.put_favicon(response.body)
+      return # We win! No more work to do!
 
   @defer.inlineCallbacks
   def put_favicon(self, favicon_data):
@@ -696,13 +648,17 @@ class Feed(Model):
   @defer.inlineCallbacks
   def reject_favicon(self):
     def modify(doc):
-      icons = doc.setdefault('icons', {})
-      for uri, http in icons.items():
-        if http.get('used', False):
-          del http['used']
-          http['reject'] = True
+      if 'icon_uri' not in doc:
+        doc.clear()
+        return
+      uri = doc['icon_uri']
+      del doc['icon_uri']
+      rejected = doc.setdefault('rejected_icon_uris', [])
+      if uri not in rejected:
+        rejected.append(uri)
 
     yield self.modify(modify)
+
     while True:
       try:
         rev = self.doc['_rev']
