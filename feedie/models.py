@@ -54,15 +54,18 @@ def parse_http_datetime(s):
 class SignalRegistry(object):
   def __init__(self):
     self.map = {}
+    self.next_id = 1
 
   def __getitem__(self, name):
-    return self.map.setdefault(name, [])
+    return self.map.setdefault(name, {})
 
   def register(self, name, handler):
-    self[name].append(handler)
+    id = self.next_id
+    self.next_id += 1
+    self[name][id] = handler
 
   def handlers(self, *names):
-    return sum([self[name] for name in names], [])
+    return sum([self[name].values() for name in names], [])
 
 class Model(object):
   def __model_init(self):
