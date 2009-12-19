@@ -59,9 +59,11 @@ class SignalRegistry(object):
     return self.map.setdefault(name, {})
 
   def register(self, name, handler):
+    def unregister():
+      del self[name][id]
     id = object()
     self[name][id] = handler
-    return id
+    return unregister
 
   def handlers(self, *names):
     return sum([self[name].values() for name in names], [])
