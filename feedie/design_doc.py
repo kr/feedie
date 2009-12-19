@@ -40,23 +40,46 @@ function (doc) {
 }
 '''
 
+EMIT_SNIPPET = '''
+  function emit_snippet(doc) {
+    emit(doc.feed_id, {
+      _id: doc._id,
+      feed_id: doc.feed_id,
+      title: doc.title,
+      starred: doc.starred,
+      read_at: doc.read_at,
+      updated_at: doc.updated_at,
+    });
+  }
+'''
+
 FEED_POST_MAP = '''
 function (doc) {
+  %(EMIT_SNIPPET)s
+
   if (doc.type == 'post') {
     if (!doc.deleted_at) {
-      var info = {
-        _id: doc._id,
-        feed_id: doc.feed_id,
-        title: doc.title,
-        starred: doc.starred,
-        read_at: doc.read_at,
-        updated_at: doc.updated_at,
-      };
-      emit(doc.feed_id, info);
+      emit_snippet(doc);
     }
   }
 }
-'''
+''' % locals()
+
+UNREAD_POSTS_MAP = '''
+function (doc) {
+  %(EMIT_SNIPPET)s
+
+  if (doc.type == 'post') {
+    try {
+      if (!doc.deleted_at && !(doc.read_at >= doc.updated_at)) {
+        emit_snippet(doc);
+      }
+    } catch (e) {
+      emit_snippet(doc);
+    }
+  }
+}
+''' % locals()
 
 def view(map, reduce=None):
   d = {'map':map}
@@ -81,6 +104,9 @@ def add_views(db):
     modified = True
   if 'feed_post' not in views:
     views['feed_post'] = view(FEED_POST_MAP)
+    modified = True
+  if 'unread_posts' not in views:
+    views['unread_posts'] = view(UNREAD_POSTS_MAP)
     modified = True
   if modified:
     db.couchdb[DOC_ID] = ddoc

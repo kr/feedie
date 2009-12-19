@@ -67,24 +67,39 @@ class Model(object):
     for handler in self.handlers[name] + self.handlers['*']:
       reactor.callLater(0, handler, self, name, *args, **kwargs)
 
-class AllNewsSource(Model):
+class UnreadNewsSource(Model):
   def __init__(self, db):
     self.db = db
     self.sources = None
-    self.posts = {}
+    self.posts = None
     self.update_summary()
 
   def added_to(self, sources):
     def summary_changed(source, event):
       self.update_summary()
 
+    def post_changed(post, event_name, field_name=None):
+      if field_name == 'read':
+        if self.posts is not None:
+          if not post.read:
+            self.posts[post._id] = post
+            self.emit('post-added', post)
+          else:
+            if post._id in self.posts:
+              del self.posts[post._id]
+              self.emit('post-removed', post)
+
     def post_added(feed, event_name, post):
-      self.posts[post._id] = post
-      self.emit('post-added', post)
+      post.connect('changed', post_changed)
+      if not post.read:
+        if self.posts is not None:
+          self.posts[post._id] = post
+          self.emit('post-added', post)
 
     def post_removed(feed, event_name, post):
-      if post._id in self.posts:
-        del self.posts[post._id]
+      if self.posts is not None:
+        if post._id in self.posts:
+          del self.posts[post._id]
 
     def feed_added(sources, event, feed):
       feed.connect('summary-changed', summary_changed)
@@ -114,7 +129,7 @@ class AllNewsSource(Model):
 
   @property
   def id(self):
-    return 'all-news'
+    return 'unread-news'
 
   @property
   def error(self):
@@ -136,8 +151,8 @@ class AllNewsSource(Model):
     def row_to_entry(row):
       doc = row['value']
       return row['id'], self.get_feed(doc['feed_id']).post(doc)
-    if not self.posts:
-      rows = yield self.db.view('feedie/feed_post',
+    if self.posts is None:
+      rows = yield self.db.view('feedie/unread_posts',
           keys=self.sources.feed_ids)
       self.posts = dict(map(row_to_entry, rows))
     defer.returnValue(self.posts.values())
@@ -147,7 +162,7 @@ class AllNewsSource(Model):
 
   @property
   def title(self):
-    return 'All News'
+    return 'Unread News'
 
   @property
   def icon(self):

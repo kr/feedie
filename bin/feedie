@@ -104,8 +104,8 @@ class FeedieWindow(gtk.Window):
 
         sources = models.Sources(self.db)
         self.sources_view = SourcesView(sources)
-        allnews = models.AllNewsSource(self.db)
-        sources.add_builtin(allnews)
+        unreadnews = models.UnreadNewsSource(self.db)
+        sources.add_builtin(unreadnews)
         self.sources_view.show()
 
         self.builder.get_object('sources-scrolledwindow').add_with_viewport(self.sources_view)
@@ -309,11 +309,11 @@ class FeedieWindow(gtk.Window):
         status_paned = self.builder.get_object('status-paned')
 
         def update_unread_counts(*args):
-          message = '%d unread' % (allnews.unread,)
+          message = '%d unread' % (unreadnews.unread,)
           sources_status.set_text(message)
           self.set_title('Feedie (%s)' % (message,))
 
-        allnews.connect('summary-changed', update_unread_counts)
+        unreadnews.connect('summary-changed', update_unread_counts)
         update_unread_counts()
 
         def sources_pane_resized(sv, rect):
