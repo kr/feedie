@@ -333,12 +333,14 @@ class FeedieWindow(gtk.Window):
         blue = gtk.gdk.color_parse('#7db6ff')
         self.builder.get_object('subscribe-box').modify_bg(gtk.STATE_NORMAL, blue)
 
-        self.sources_view.connect('selection-changed', self.select_feed)
-        self.select_feed(self.sources_view, None)
+        selected_source_to_remove = []
+        self.sources_view.connect('selection-changed', self.select_feed,
+            selected_source_to_remove)
+        self.select_feed(self.sources_view, None, selected_source_to_remove)
 
         d = self.finish_initializing_async_part()
 
-    def select_feed(self, widget, selected_id):
+    def select_feed(self, widget, selected_id, to_remove):
       source = widget.selected
 
       removable = bool(source and sources.can_remove(source))
@@ -374,8 +376,11 @@ class FeedieWindow(gtk.Window):
           self.builder.get_object('scrolledwindow2').show()
 
         raw_model = PostsTreeModel(source)
-        source.connect('post-added', raw_model.post_added)
-        source.connect('post-removed', raw_model.post_removed)
+        for disconnecter in to_remove:
+          disconnecter()
+        to_remove[:] = []
+        to_remove.append(source.connect('post-added', raw_model.post_added))
+        to_remove.append(source.connect('post-removed', raw_model.post_removed))
         d = raw_model.load()
         d.addCallback(show, source)
       else:
