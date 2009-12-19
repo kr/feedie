@@ -347,36 +347,41 @@ class FeedieWindow(gtk.Window):
       refreshable = bool(source and source.can_refresh)
       self.builder.get_object('action-refresh').set_sensitive(refreshable)
 
-      model, title = None, ''
       if not source:
         treeview = self.builder.get_object('posts-treeview')
-        treeview.set_model(model)
-        treeview.get_column(2).get_widget().set_text(title)
+        treeview.set_model(None)
+        treeview.get_column(2).get_widget().set_text('')
         self.builder.get_object('scrolledwindow2').hide()
         self.web.load_html_string('Welcome', 'file:///')
         return
 
       if not source.error:
-        def show(x):
+        def show(x, source):
+          def update_title(model, path, iter):
+            title = u'%s \u2013 %d posts' % (source.title, len(model))
+            treeview.get_column(2).get_widget().set_text(title)
+
           model = gtk.TreeModelSort(raw_model)
           model.set_sort_column_id(PostsTreeModel.colnum('age'),
               gtk.SORT_ASCENDING)
           model.set_default_sort_func(None)
-          title = u'%s \u2013 %d posts' % (source.title, len(model))
+
           treeview = self.builder.get_object('posts-treeview')
           treeview.set_model(model)
-          treeview.get_column(2).get_widget().set_text(title)
+          model.connect('row-inserted', update_title)
+          model.connect('row-deleted', update_title)
+          update_title(model, None, None)
           self.builder.get_object('scrolledwindow2').show()
 
         raw_model = PostsTreeModel(source)
         source.connect('post-added', raw_model.post_added)
         source.connect('post-removed', raw_model.post_removed)
         d = raw_model.load()
-        d.addCallback(show)
+        d.addCallback(show, source)
       else:
         treeview = self.builder.get_object('posts-treeview')
-        treeview.set_model(model)
-        treeview.get_column(2).get_widget().set_text(title)
+        treeview.set_model(None)
+        treeview.get_column(2).get_widget().set_text('')
         self.builder.get_object('scrolledwindow2').hide()
 
       source_template.source = source

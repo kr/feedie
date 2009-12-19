@@ -78,8 +78,18 @@ class AllNewsSource(Model):
     def summary_changed(source, event):
       self.update_summary()
 
+    def post_added(feed, event_name, post):
+      self.posts[post._id] = post
+      self.emit('post-added', post)
+
+    def post_removed(feed, event_name, post):
+      if post._id in self.posts:
+        del self.posts[post._id]
+
     def feed_added(sources, event, feed):
       feed.connect('summary-changed', summary_changed)
+      feed.connect('post-added', post_added)
+      feed.connect('post-removed', post_removed)
       self.update_summary()
 
     def feed_removed(sources, event, feed):
@@ -90,6 +100,8 @@ class AllNewsSource(Model):
     sources.connect('feed-removed', feed_removed)
     for feed in sources.feeds.values():
       feed.connect('summary-changed', summary_changed)
+      feed.connect('post-added', post_added)
+      feed.connect('post-removed', post_removed)
     self.update_summary()
 
   def update_summary(self):
