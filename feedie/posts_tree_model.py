@@ -49,7 +49,9 @@ class PostsTreeModel(gtk.GenericTreeModel):
     self.insert_doc(post)
 
   def post_removed(self, *args):
-    print 'post removed', args
+    # Don't remove the post now -- it's jarring. When the tree-model gets
+    # created next time, the post will be absent.
+    pass
 
   @defer.inlineCallbacks
   def load(self):
