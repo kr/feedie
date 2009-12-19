@@ -51,23 +51,35 @@ def short_hash(s):
 def parse_http_datetime(s):
   return int(calendar.timegm(feedparser._parse_date(s)))
 
-class Handlers(object):
+class HandlerList(object):
+  def __init__(self):
+    self.list = []
+
+  def __iter__(self):
+    return iter(self.list)
+
+  def __add__(self, other):
+    return list(self) + list(other)
+
+  def append(self, item):
+    self.list.append(item)
+
+class SignalRegistry(object):
   def __init__(self):
     self.map = {}
 
   def __getitem__(self, name):
-    return self.map.setdefault(name, [])
+    return self.map.setdefault(name, HandlerList())
 
 class Model(object):
   def __model_init(self):
     if not hasattr(self, 'handlers'):
-      self.handlers = Handlers()
+      self.handlers = SignalRegistry()
 
   def connect(self, name, handler):
     assert callable(handler)
     self.__model_init()
     self.handlers[name].append(handler)
-    return self
 
   def emit(self, name, *args, **kwargs):
     self.__model_init()
