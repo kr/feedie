@@ -51,31 +51,15 @@ def short_hash(s):
 def parse_http_datetime(s):
   return int(calendar.timegm(feedparser._parse_date(s)))
 
-class HandlerList(object):
-  def __init__(self):
-    self.list = []
-
-  def __iter__(self):
-    return iter(self.list)
-
-  def __add__(self, other):
-    return list(self) + list(other)
-
-  def __radd__(self, other):
-    return list(self) + list(other)
-
-  def register(self, item):
-    self.list.append(item)
-
 class SignalRegistry(object):
   def __init__(self):
     self.map = {}
 
   def __getitem__(self, name):
-    return self.map.setdefault(name, HandlerList())
+    return self.map.setdefault(name, [])
 
   def register(self, name, handler):
-    self[name].register(handler)
+    self[name].append(handler)
 
   def handlers(self, *names):
     return sum([self[name] for name in names], [])
