@@ -51,10 +51,17 @@ def short_hash(s):
 def parse_http_datetime(s):
   return int(calendar.timegm(feedparser._parse_date(s)))
 
+class Handlers(object):
+  def __init__(self):
+    self.map = {}
+
+  def __getitem__(self, name):
+    return self.map.setdefault(name, [])
+
 class Model(object):
   def __model_init(self):
     if not hasattr(self, 'handlers'):
-      self.handlers = defaultdict(list)
+      self.handlers = Handlers()
 
   def connect(self, name, handler):
     assert callable(handler)
