@@ -353,9 +353,11 @@ class FeedieWindow(gtk.Window):
         self.builder.get_object('scrolledwindow2').connect('size-allocate',
           vpaned_resized)
         pos = gconf_client.get_int('/apps/feedie/geometry/posts-pane-position')
+        if not pos: pos = 200
         vpaned1.set_position(pos)
 
         pos = gconf_client.get_int('/apps/feedie/geometry/main-pane-position')
+        if not pos: pos = 225
         main_area.set_position(pos)
         status_paned.set_position(pos)
         blue = gtk.gdk.color_parse('#7db6ff')
