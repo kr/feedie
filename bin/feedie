@@ -168,7 +168,7 @@ class FeedieWindow(gtk.Window):
         def update_web_view():
           def loaded(view, progress, post):
             okay_to_mark_read = [True]
-            def set_read_at():
+            def set_read_updated_at():
               if okay_to_mark_read[0]:
                 treeviewsel = treeview.get_selection()
                 if treeviewsel.count_selected_rows() == 1:
@@ -176,7 +176,7 @@ class FeedieWindow(gtk.Window):
                   iter = model.get_iter(path)
                   post_id = model.get_value(iter, post_id_colnum)
                   if post._id == post_id:
-                    post.set_read_at()
+                    post.set_read_updated_at()
 
             def cancel():
               okay_to_mark_read[0] = False
@@ -186,7 +186,7 @@ class FeedieWindow(gtk.Window):
             if status in (webkit.LOAD_FIRST_VISUALLY_NON_EMPTY_LAYOUT,
                           webkit.LOAD_FINISHED):
               self.web.disconnect(handler_id)
-              reactor.callLater(0.20, set_read_at)
+              reactor.callLater(0.20, set_read_updated_at)
               to_cancel.append(cancel)
 
           if self.current_post_ids:

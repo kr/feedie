@@ -944,12 +944,12 @@ class Post(Model):
     self.doc = yield self.feed.db.modify_doc(self._id, modify, doc=self.doc)
 
   @defer.inlineCallbacks
-  def set_read_at(self, when=None):
+  def set_read_updated_at(self, when=None):
     def modify(doc):
-      doc['read_at'] = when
+      doc['read_updated_at'] = when
 
     if when is None:
-      when = int(time.time())
+      when = self.updated_at
     was_read = self.read
     yield self.modify(modify)
     now_read = self.read
@@ -958,12 +958,12 @@ class Post(Model):
       self.emit('changed', 'read')
 
   @property
-  def read_at(self):
-    return self.doc.get('read_at', 0)
+  def read_updated_at(self):
+    return self.doc.get('read_updated_at', 0)
 
   @property
   def read(self):
-    return self.read_at > self.updated_at
+    return self.read_updated_at >= self.updated_at
 
   @property
   def starred(self):

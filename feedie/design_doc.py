@@ -6,7 +6,7 @@ SUMMARY_MAP = '''
 function (doc) {
   if (doc.type == 'post') {
     try {
-      if (doc.read_at > doc.updated_at) {
+      if (doc.read_updated_at > doc.updated_at) {
         emit(doc.feed_id, {total:1, read:1});
       } else {
         emit(doc.feed_id, {total:1, read:0});
@@ -47,7 +47,7 @@ EMIT_SNIPPET = '''
       feed_id: doc.feed_id,
       title: doc.title,
       starred: doc.starred,
-      read_at: doc.read_at,
+      read_updated_at: doc.read_updated_at,
       updated_at: doc.updated_at,
     });
   }
@@ -71,7 +71,7 @@ function (doc) {
 
   if (doc.type == 'post') {
     try {
-      if (!doc.deleted_at && !(doc.read_at >= doc.updated_at)) {
+      if (!doc.deleted_at && !(doc.read_updated_at >= doc.updated_at)) {
         emit_snippet(doc);
       }
     } catch (e) {
