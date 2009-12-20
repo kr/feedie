@@ -6,7 +6,7 @@ SUMMARY_MAP = '''
 function (doc) {
   if (doc.type == 'post') {
     try {
-      if (doc.read_updated_at > doc.updated_at) {
+      if (doc.read_updated_at >= doc.updated_at) {
         emit(doc.feed_id, {total:1, read:1});
       } else {
         emit(doc.feed_id, {total:1, read:0});
