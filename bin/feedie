@@ -59,6 +59,8 @@ sources = None
 post_template = Template(file=getdatapath() + '/templates/post.html')
 source_template = Template(file=getdatapath() + '/templates/source.html')
 
+gconf_client = gconf.client_get_default()
+
 class FeedieWindow(gtk.Window):
     __gtype_name__ = "FeedieWindow"
 
@@ -105,7 +107,7 @@ class FeedieWindow(gtk.Window):
 
         def configure_event(window, event):
           gconf_client.set_pair(
-              '/applications/feedie/window-size',
+              '/apps/feedie/geometry/window-size',
               'GCONF_VALUE_INT',
               'GCONF_VALUE_INT',
               event.width,
@@ -331,16 +333,20 @@ class FeedieWindow(gtk.Window):
           new_pos = main_area.get_position()
           if status_paned.get_position() != new_pos:
             status_paned.set_position(new_pos)
+          gconf_client.set_int('/apps/feedie/geometry/main-pane-position', new_pos)
 
         def status_paned_resized(sp, rect):
           new_pos = status_paned.get_position()
           if main_area.get_position() != new_pos:
             main_area.set_position(new_pos)
+          gconf_client.set_int('/apps/feedie/geometry/main-pane-position', new_pos)
 
         self.sources_view.connect('size-allocate', sources_pane_resized)
         sources_status.connect('size-allocate', status_paned_resized)
         self.builder.get_object('vpaned1').set_position(200)
-        main_area.set_position(225)
+        pos = gconf_client.get_int('/apps/feedie/geometry/main-pane-position')
+        main_area.set_position(pos)
+        status_paned.set_position(pos)
         blue = gtk.gdk.color_parse('#7db6ff')
         self.builder.get_object('subscribe-box').modify_bg(gtk.STATE_NORMAL, blue)
 
@@ -528,8 +534,7 @@ class "GtkWidget" style "feedie-scrolledwindow"
     #run the application
     gtk.gdk.threads_init()
     window = NewFeedieWindow()
-    gconf_client = gconf.client_get_default()
-    width, height = gconf_client.get_pair('/applications/feedie/window-size',
+    width, height = gconf_client.get_pair('/apps/feedie/geometry/window-size',
         'GCONF_VALUE_INT',
         'GCONF_VALUE_INT')
     if not width: width = 800
