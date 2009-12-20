@@ -484,7 +484,7 @@ class Feed(Model):
     return None
 
   @staticmethod
-  def modify_http(http, response):
+  def modify_http(http, response, min_max_age):
     now = int(time.time())
     if 'last-modified' in response.headers:
       http['last-modified'] = response.headers['last-modified']
@@ -501,7 +501,7 @@ class Feed(Model):
       http['expires_at'] = now
 
     # wait at least 30 min
-    http['expires_at'] = max(http['expires_at'], now + 1800)
+    http['expires_at'] = max(http['expires_at'], now + min_max_age)
 
   @defer.inlineCallbacks
   def save_ifeed(self, ifeed, response):
@@ -512,16 +512,16 @@ class Feed(Model):
       doc['author_detail'] = ifeed.author_detail
       doc['updated_at'] = ifeed.updated_at
       if 'error' in doc: del doc['error']
-      self.modify_http(doc.setdefault('http', {}), response)
+      self.modify_http(doc.setdefault('http', {}), response, 1800)
 
     yield self.modify(modify)
     yield self.save_iposts(ifeed.posts)
     defer.returnValue(None)
 
   @defer.inlineCallbacks
-  def save_headers(self, name, response, **extra):
+  def save_headers(self, name, response, min_max_age, **extra):
     def modify(doc):
-      self.modify_http(doc.setdefault(name, {}), response)
+      self.modify_http(doc.setdefault(name, {}), response, min_max_age)
       for k, v in extra.items():
         doc[k] = v
 
@@ -561,7 +561,8 @@ class Feed(Model):
       return
 
     if response.status.code == 304:
-      yield self.save_headers('http', response) # update last-modified, etag, etc
+      # update last-modified, etag, etc
+      yield self.save_headers('http', response, 1800)
       yield self.discover_favicon()
       return
 
@@ -570,13 +571,13 @@ class Feed(Model):
 
     if not parsed.version: # not a feed
       if 'links' not in parsed.feed:
-        yield self.save_headers('http', response, error='notafeed')
+        yield self.save_headers('http', response, 1800, error='notafeed')
         return
 
       links = [x for x in parsed.feed.links if x.rel == 'alternate']
 
       if not links:
-        yield self.save_headers('http', response, error='notafeed')
+        yield self.save_headers('http', response, 1800, error='notafeed')
         return
 
       # We don't save redirects.
@@ -653,7 +654,7 @@ class Feed(Model):
     response = yield self.fetch(uri, headers)
 
     # update last-modified, etag, etc
-    yield self.save_headers('icon_http', response)
+    yield self.save_headers('icon_http', response, 86400)
 
     if response.status.code in (301, 302, 303, 307):
       return # bleh. someday I will try harder
