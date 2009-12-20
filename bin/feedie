@@ -7,6 +7,7 @@
 import sys
 import os
 import gtk
+import gconf
 import pango
 import webkit
 import couchdb
@@ -101,6 +102,16 @@ class FeedieWindow(gtk.Window):
         #code for other initialization actions should be added here
 
         # now add other widgets that glade doesn't know about
+
+        def configure_event(window, event):
+          gconf_client.set_pair(
+              '/applications/feedie/window-size',
+              'GCONF_VALUE_INT',
+              'GCONF_VALUE_INT',
+              event.width,
+              event.height)
+
+        self.connect('configure-event', configure_event)
 
         sources = models.Sources(self.db)
         self.sources_view = SourcesView(sources)
@@ -517,7 +528,13 @@ class "GtkWidget" style "feedie-scrolledwindow"
     #run the application
     gtk.gdk.threads_init()
     window = NewFeedieWindow()
-    window.set_default_size(800, 800)
+    gconf_client = gconf.client_get_default()
+    width, height = gconf_client.get_pair('/applications/feedie/window-size',
+        'GCONF_VALUE_INT',
+        'GCONF_VALUE_INT')
+    if not width: width = 800
+    if not height: height = 800
+    window.set_default_size(width, height)
     window.show()
     #gtk.main()
     reactor.run()
