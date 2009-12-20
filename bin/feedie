@@ -341,9 +341,20 @@ class FeedieWindow(gtk.Window):
             main_area.set_position(new_pos)
           gconf_client.set_int('/apps/feedie/geometry/main-pane-position', new_pos)
 
+        def vpaned_resized(vp, rect):
+          new_pos = vpaned1.get_position()
+          gconf_client.set_int('/apps/feedie/geometry/posts-pane-position',
+              new_pos)
+
         self.sources_view.connect('size-allocate', sources_pane_resized)
         sources_status.connect('size-allocate', status_paned_resized)
-        self.builder.get_object('vpaned1').set_position(200)
+
+        vpaned1 = self.builder.get_object('vpaned1')
+        self.builder.get_object('scrolledwindow2').connect('size-allocate',
+          vpaned_resized)
+        pos = gconf_client.get_int('/apps/feedie/geometry/posts-pane-position')
+        vpaned1.set_position(pos)
+
         pos = gconf_client.get_int('/apps/feedie/geometry/main-pane-position')
         main_area.set_position(pos)
         status_paned.set_position(pos)
