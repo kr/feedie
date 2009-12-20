@@ -450,7 +450,8 @@ class SourceItem:
         cairo_context.set_source_rgb(0.35, 0.35, 0.35)
       else:
         cairo_context.set_source_rgb(1, 1, 1)
-      cairo_context.move_to(self.width - text_width - text_offset - lr_margin,
+      cairo_context.move_to(
+          self.width - text_width - text_offset - lr_margin - 0.5,
           leading(self.height, text_height) * 0.5)
       cairo_context.show_layout(layout)
 
