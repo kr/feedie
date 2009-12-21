@@ -1134,6 +1134,10 @@ class Feed(Model):
       def modify(doc):
         doc['deleted_at'] = now
 
+        # Forget the expiration times, etc, because our cache will go away.
+        doc['http'] = {}
+        doc['icon_http'] = {}
+
       now = int(time.time())
       self.doc = yield self.db.modify_doc(self.id, modify, doc=self.doc)
     self.emit('deleted')
