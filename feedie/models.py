@@ -204,6 +204,135 @@ class UnreadNewsSource(Model):
   def read(self):
     return self.summary['read']
 
+class StarredNewsSource(Model):
+  def __init__(self, db):
+    self.db = db
+    self.sources = None
+    self.posts = None
+    self.summary = dict(total=0, read=0)
+    self.update_summary()
+
+  def added_to(self, sources):
+    def summary_changed(source, event):
+      self.update_summary()
+
+    def post_changed(post, event_name, field_name=None):
+      if self.posts is not None:
+        if field_name == 'starred':
+          if post.starred:
+            self.posts[post._id] = post
+            self.emit('post-added', post)
+          else:
+            if post._id in self.posts:
+              del self.posts[post._id]
+              self.emit('post-removed', post)
+
+    def post_added(feed, event_name, post):
+      post.connect('changed', post_changed)
+      if self.posts is not None:
+        if post.starred:
+          self.posts[post._id] = post
+          self.emit('post-added', post)
+
+    def post_removed(feed, event_name, post):
+      if self.posts is not None:
+        if post._id in self.posts:
+          del self.posts[post._id]
+
+    def feed_added(sources, event, feed):
+      feed.connect('summary-changed', summary_changed)
+      feed.connect('post-added', post_added)
+      feed.connect('post-removed', post_removed)
+      self.update_summary()
+
+    def feed_removed(sources, event, feed):
+      self.update_summary()
+
+    self.sources = sources
+    sources.connect('feed-added', feed_added)
+    sources.connect('feed-removed', feed_removed)
+    for feed in sources.feeds.values():
+      feed.connect('summary-changed', summary_changed)
+      feed.connect('post-added', post_added)
+      feed.connect('post-removed', post_removed)
+    self.update_summary()
+
+  @defer.inlineCallbacks
+  def update_summary(self):
+    old = self.summary
+    self.summary = yield self.load_summary()
+    if self.summary != old:
+      self.emit('summary-changed')
+
+  @defer.inlineCallbacks
+  def load_summary(self):
+    summaries = yield Feed.load_summaries(self.db, [self.id])
+    for id, summary in summaries:
+      if id == self.id:
+        defer.returnValue(summary)
+    defer.returnValue(dict(total=0, read=0))
+
+  @property
+  def id(self):
+    return 'starred-items'
+
+  @property
+  def error(self):
+    return None
+
+  @property
+  def can_refresh(self):
+    return False # TODO change this
+
+  # 0 means no transfers,
+  # -1 means indeterminate state,
+  # 1-100 mean percentage
+  @property
+  def progress(self):
+    return 0
+
+  @defer.inlineCallbacks
+  def post_summaries(self):
+    def row_to_entry(row):
+      doc = row['value']
+      return row['id'], self.get_feed(doc['feed_id']).post(doc)
+    if self.posts is None:
+      rows = yield self.db.view('feedie/starred_posts',
+          keys=self.sources.feed_ids)
+      self.posts = dict(map(row_to_entry, rows))
+    defer.returnValue(self.posts.values())
+
+  def get_feed(self, feed_id):
+    return self.sources.get_feed(feed_id)
+
+  def get_post(self, post_id):
+    feed = self.get_feed(feed_id)
+    return feed.posts[post_id]
+
+  @property
+  def title(self):
+    return 'Starred Items'
+
+  @property
+  def icon(self):
+    return None
+
+  @property
+  def category(self):
+    return 'News'
+
+  @property
+  def unread(self):
+    return self.total - self.read
+
+  @property
+  def total(self):
+    return self.summary['total']
+
+  @property
+  def read(self):
+    return self.summary['read']
+
 class Sources(Model):
   def __init__(self, db):
     self.db = db

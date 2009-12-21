@@ -11,6 +11,14 @@ function (doc) {
       } else {
         emit(doc.feed_id, {total:1, read:0});
       }
+
+      if (!doc.deleted_at && doc.starred) {
+        if (doc.read_updated_at >= doc.updated_at) {
+          emit('starred-items', {total:1, read:1});
+        } else {
+          emit('starred-items', {total:1, read:0});
+        }
+      }
     } catch (e) {
       emit(doc.feed_id, {total:1, read:0});
     }
@@ -81,6 +89,22 @@ function (doc) {
 }
 ''' % locals()
 
+STARRED_POSTS_MAP = '''
+function (doc) {
+  %(EMIT_SNIPPET)s
+
+  if (doc.type == 'post') {
+    try {
+      if (!doc.deleted_at && doc.starred) {
+        emit_snippet(doc);
+      }
+    } catch (e) {
+      emit_snippet(doc);
+    }
+  }
+}
+''' % locals()
+
 def view(map, reduce=None):
   d = {'map':map}
   if reduce: d['reduce'] = reduce
@@ -107,6 +131,9 @@ def add_views(db):
     modified = True
   if 'unread_posts' not in views:
     views['unread_posts'] = view(UNREAD_POSTS_MAP)
+    modified = True
+  if 'starred_posts' not in views:
+    views['starred_posts'] = view(STARRED_POSTS_MAP)
     modified = True
   if modified:
     db.couchdb[DOC_ID] = ddoc

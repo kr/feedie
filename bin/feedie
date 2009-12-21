@@ -144,6 +144,8 @@ class FeedieWindow(gtk.Window):
         self.sources_view = SourcesView(sources)
         unreadnews = models.UnreadNewsSource(self.db)
         sources.add_builtin(unreadnews)
+        starrednews = models.StarredNewsSource(self.db)
+        sources.add_builtin(starrednews)
         self.sources_view.show()
 
         self.builder.get_object('sources-scrolledwindow').add_with_viewport(self.sources_view)
