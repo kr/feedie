@@ -293,6 +293,24 @@ class FeedieWindow(gtk.Window):
 
         self.connect('style-set', style_set)
 
+        def treeview_clicked(tv, event):
+          path_info = tv.get_path_at_pos(int(event.x), int(event.y))
+          if path_info:
+            path, col, cx, cy = path_info
+            if col == read_column:
+              model = tv.get_model()
+              iter = model.get_iter(path)
+              feed_id = model.get_value(iter, feed_id_colnum)
+              post_id = model.get_value(iter, post_id_colnum)
+              feed = sources.get_feed(feed_id)
+              post = feed.posts.get(post_id, None)
+              if post:
+                post.toggle_read_updated_at()
+              return True
+          return False
+
+        treeview.connect('button-press-event', treeview_clicked)
+
         treeview.insert_column_with_attributes(0, 'Starred',
             gtk.CellRendererPixbuf(),
             pixbuf=PostsTreeModel.colnum('star'))
@@ -308,6 +326,7 @@ class FeedieWindow(gtk.Window):
         treeview.insert_column_with_attributes(1, 'Read',
             gtk.CellRendererPixbuf(),
             pixbuf=PostsTreeModel.colnum('read'))
+        read_column = treeview.get_column(1)
         treeview.get_column(1).set_sizing(gtk.TREE_VIEW_COLUMN_FIXED)
         treeview.get_column(1).set_fixed_width(24)
         treeview.get_column(1).set_min_width(24)

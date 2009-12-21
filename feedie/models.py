@@ -976,6 +976,11 @@ class Post(Model):
     if was_read != now_read:
       self.emit('changed', 'read')
 
+  def toggle_read_updated_at(self, when=None):
+    if self.read:
+      return self.unset_read_updated_at()
+    return self.set_read_updated_at()
+
   @property
   def read_updated_at(self):
     return self.doc.get('read_updated_at', 0)
