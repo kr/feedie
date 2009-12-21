@@ -4,7 +4,7 @@ DOC_ID = '_design/feedie'
 
 SUMMARY_MAP = '''
 function (doc) {
-  if (doc.type == 'post') {
+  if (doc.type == 'post' && !doc.deleted_at) {
     try {
       if (doc.read_updated_at >= doc.updated_at) {
         emit(doc.feed_id, {total:1, read:1});
@@ -65,10 +65,8 @@ FEED_POST_MAP = '''
 function (doc) {
   %(EMIT_SNIPPET)s
 
-  if (doc.type == 'post') {
-    if (!doc.deleted_at) {
-      emit_snippet(doc);
-    }
+  if (doc.type == 'post' && !doc.deleted_at) {
+    emit_snippet(doc);
   }
 }
 ''' % locals()
@@ -77,9 +75,9 @@ UNREAD_POSTS_MAP = '''
 function (doc) {
   %(EMIT_SNIPPET)s
 
-  if (doc.type == 'post') {
+  if (doc.type == 'post' && !doc.deleted_at) {
     try {
-      if (!doc.deleted_at && !(doc.read_updated_at >= doc.updated_at)) {
+      if (!(doc.read_updated_at >= doc.updated_at)) {
         emit_snippet(doc);
       }
     } catch (e) {
@@ -93,9 +91,9 @@ STARRED_POSTS_MAP = '''
 function (doc) {
   %(EMIT_SNIPPET)s
 
-  if (doc.type == 'post') {
+  if (doc.type == 'post' && !doc.deleted_at) {
     try {
-      if (!doc.deleted_at && doc.starred) {
+      if (doc.starred) {
         emit_snippet(doc);
       }
     } catch (e) {
