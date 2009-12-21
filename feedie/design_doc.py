@@ -37,13 +37,7 @@ function (keys, values, rereduce) {
 FEED_MAP = '''
 function (doc) {
   if (doc.type == 'feed') {
-    try {
-      if (!(doc.deleted_at > doc.subscribed_at)) {
-        emit(doc._id, doc);
-      }
-    } catch (e) {
-      emit(doc._id, doc);
-    }
+    emit(doc._id, doc);
   }
 }
 '''

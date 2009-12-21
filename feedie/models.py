@@ -102,6 +102,10 @@ class UnreadNewsSource(Model):
     def summary_changed(source, event):
       self.update_summary()
 
+    def feed_changed(source, event_name, field_name):
+      self.posts = None
+      self.update_summary()
+
     def post_changed(post, event_name, field_name=None):
       if field_name == 'read':
         if self.posts is not None:
@@ -127,17 +131,20 @@ class UnreadNewsSource(Model):
 
     def feed_added(sources, event, feed):
       feed.connect('summary-changed', summary_changed)
+      feed.connect('changed', feed_changed)
       feed.connect('post-added', post_added)
       feed.connect('post-removed', post_removed)
+      self.posts = None
       self.update_summary()
 
     def feed_removed(sources, event, feed):
+      self.posts = None
       self.update_summary()
 
     self.sources = sources
     sources.connect('feed-added', feed_added)
     sources.connect('feed-removed', feed_removed)
-    for feed in sources.feeds.values():
+    for feed in sources.subscribed_feeds:
       feed.connect('summary-changed', summary_changed)
       feed.connect('post-added', post_added)
       feed.connect('post-removed', post_removed)
@@ -146,7 +153,7 @@ class UnreadNewsSource(Model):
   def update_summary(self):
     self.summary = attrdict(total=0, read=0)
     if self.sources:
-      for feed in self.sources.feeds.values():
+      for feed in self.sources.subscribed_feeds:
         self.summary.total += feed.summary['total']
         self.summary.read += feed.summary['read']
     self.emit('summary-changed')
@@ -308,8 +315,7 @@ class StarredNewsSource(Model):
       doc = row['value']
       return row['id'], self.get_feed(doc['feed_id']).post(doc)
     if self.posts is None:
-      rows = yield self.db.view('feedie/starred_posts',
-          keys=self.sources.feed_ids)
+      rows = yield self.db.view('feedie/starred_posts')
       self.posts = dict(map(row_to_entry, rows))
     defer.returnValue(self.posts.values())
 
@@ -382,7 +388,7 @@ class Sources(Model):
     reactor.callLater(60, self.housekeeping)
 
   def refresh(self):
-    for feed in self.feeds.values():
+    for feed in self.subscribed_feeds:
       feed.refresh()
 
   @defer.inlineCallbacks
@@ -395,10 +401,7 @@ class Sources(Model):
   @defer.inlineCallbacks
   def collect_garbage_posts(self):
     def modify(doc):
-      print 'modifying', doc
-
       if doc.get('_rev', None) != revs[doc['_id']]:
-        print 'nope,', doc.get('_rev', None), '!=', revs[doc['_id']]
         doc.clear()
         return
 
@@ -423,7 +426,6 @@ class Sources(Model):
     revs = {}
     rows = yield self.db.view('feedie/posts_to_gc')
     for row in rows:
-      print row
       revs[row['id']] = row['value']
 
     yield self.db.modify_docs(revs.keys(), modify, load_first=True)
@@ -447,10 +449,10 @@ class Sources(Model):
     for row in rows:
       summaries = yield Feed.load_summaries(self.db, [row['id']])
       if summaries:
-        summary = summaries[0]
+        id, summary = summaries[0]
       else:
         summary = attrdict(total=0, read=0)
-      if summary.total == 0:
+      if summary['total'] == 0:
         revs[row['id']] = row['value']
 
     yield self.db.modify_docs(revs.keys(), modify, load_first=True)
@@ -460,7 +462,7 @@ class Sources(Model):
     revs = []
     rows = yield self.db.view('feedie/deleted_feeds')
     for row in rows:
-      revs.append((row['id'], row['_rev']))
+      revs.append((row['id'], row['value']))
 
     for feed_id, feed_rev in revs:
       yield self.mark_posts_feed_is_deleted(feed_id, feed_rev)
@@ -468,7 +470,9 @@ class Sources(Model):
   @defer.inlineCallbacks
   def mark_posts_feed_is_deleted(self, feed_id, feed_rev):
     def modify(doc):
-      if doc.get('_rev', None) == rev and doc.get('feed_rev', None) == feed_rev:
+      doc_rev = doc.get('_rev', None)
+      doc_feed_rev = doc.get('feed_rev', None)
+      if doc_rev == revs[doc['_id']] and doc_feed_rev == feed_rev:
         doc['feed_deleted'] = True
       else:
         doc.clear()
@@ -526,7 +530,7 @@ class Sources(Model):
 
   @property
   def feed_ids(self):
-    return self.feeds.keys()
+    return [x.id for x in self.subscribed_feeds]
 
   def add_builtin(self, source):
     self.builtins[source.id] = source
@@ -552,6 +556,10 @@ class Sources(Model):
 
   def can_remove(self, source):
     return source.id in self.feeds
+
+  @property
+  def subscribed_feeds(self):
+    return [x for x in self.feeds.values() if x.subscribed]
 
   def __iter__(self):
     return iter([self[id] for id in self.order if id in self])
@@ -599,10 +607,8 @@ class Sources(Model):
       self.emit('feed-removed', feed)
       self.emit('source-removed', feed)
 
-    if feed.id in self.feeds:
-      del self.feeds[feed.id]
-      d = self.remove_from_feed_order(feed.id)
-      d.addCallback(success)
+    d = self.remove_from_feed_order(feed.id)
+    d.addCallback(success)
 
 class Feed(Model):
   def __init__(self, db, doc, summary=None):
@@ -1099,17 +1105,21 @@ class Feed(Model):
     if self.x_subscribed_at == when:
       return
 
-    #was = self.x_subscribed_at
+    was = self.x_subscribed_at
     yield self.modify(modify)
-    #now = self.x_subscribed_at
-    #if was != now:
-    #  self.emit('changed', 'subscribed_at')
+    now = self.x_subscribed_at
+    if was != now:
+      self.emit('changed', 'subscribed_at')
 
   @property
   def is_deleted(self):
     delat = self.x_deleted_at
     subat = self.x_subscribed_at
     return delat > subat
+
+  @property
+  def subscribed(self):
+    return not self.is_deleted
 
   @property
   def stored(self):
