@@ -989,6 +989,19 @@ class Post(Model):
   def read(self):
     return self.read_updated_at >= self.updated_at
 
+  @defer.inlineCallbacks
+  def toggle_starred(self):
+    def modify(doc):
+      doc['starred'] = new_starred
+
+    was_starred = self.starred
+    new_starred = not self.starred
+    yield self.modify(modify)
+    now_starred = self.starred
+
+    if was_starred != now_starred: # always true
+      self.emit('changed', 'starred')
+
   @property
   def starred(self):
     return self.doc.get('starred', False)

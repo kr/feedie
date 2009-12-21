@@ -307,6 +307,16 @@ class FeedieWindow(gtk.Window):
               if post:
                 post.toggle_read_updated_at()
               return True
+            if col == star_column:
+              model = tv.get_model()
+              iter = model.get_iter(path)
+              feed_id = model.get_value(iter, feed_id_colnum)
+              post_id = model.get_value(iter, post_id_colnum)
+              feed = sources.get_feed(feed_id)
+              post = feed.posts.get(post_id, None)
+              if post:
+                post.toggle_starred()
+              return True
           return False
 
         treeview.connect('button-press-event', treeview_clicked)
@@ -314,6 +324,7 @@ class FeedieWindow(gtk.Window):
         treeview.insert_column_with_attributes(0, 'Starred',
             gtk.CellRendererPixbuf(),
             pixbuf=PostsTreeModel.colnum('star'))
+        star_column = treeview.get_column(0)
         treeview.get_column(0).set_sizing(gtk.TREE_VIEW_COLUMN_FIXED)
         treeview.get_column(0).set_fixed_width(24)
         treeview.get_column(0).set_min_width(24)
