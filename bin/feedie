@@ -109,6 +109,7 @@ class FeedieWindow(gtk.Window):
     @defer.inlineCallbacks
     def finish_initializing_async_part(self):
       yield sources.load()
+      self.sources_view.select(self.unreadnews.id)
 
 
     def finish_initializing(self, builder):
@@ -142,8 +143,8 @@ class FeedieWindow(gtk.Window):
 
         sources = models.Sources(self.db)
         self.sources_view = SourcesView(sources)
-        unreadnews = models.UnreadNewsSource(self.db)
-        sources.add_builtin(unreadnews)
+        self.unreadnews = models.UnreadNewsSource(self.db)
+        sources.add_builtin(self.unreadnews)
         starrednews = models.StarredNewsSource(self.db)
         sources.add_builtin(starrednews)
         self.sources_view.show()
@@ -381,11 +382,11 @@ class FeedieWindow(gtk.Window):
         status_paned = self.builder.get_object('status-paned')
 
         def update_unread_counts(*args):
-          message = '%d unread' % (unreadnews.unread,)
+          message = '%d unread' % (self.unreadnews.unread,)
           sources_status.set_text(message)
           self.set_title('Feedie (%s)' % (message,))
 
-        unreadnews.connect('summary-changed', update_unread_counts)
+        self.unreadnews.connect('summary-changed', update_unread_counts)
         update_unread_counts()
 
         def sources_pane_resized(sv, rect):
