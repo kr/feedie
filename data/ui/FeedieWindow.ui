@@ -28,8 +28,8 @@
                     <child>
                       <object class="GtkImageMenuItem" id="new-subscription-menuitem">
                         <property name="visible">True</property>
-                        <property name="use_action_appearance">True</property>
                         <property name="related_action">action-show-subscribe</property>
+                        <property name="use_action_appearance">True</property>
                         <property name="use_underline">True</property>
                         <property name="image">image1</property>
                         <property name="use_stock">True</property>
@@ -39,8 +39,8 @@
                     <child>
                       <object class="GtkImageMenuItem" id="imagemenuitem2">
                         <property name="visible">True</property>
-                        <property name="use_action_appearance">True</property>
                         <property name="related_action">action-remove-feed</property>
+                        <property name="use_action_appearance">True</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                       </object>
@@ -73,6 +73,29 @@
                 <child type="submenu">
                   <object class="GtkMenu" id="menu2">
                     <property name="visible">True</property>
+                    <child>
+                      <object class="GtkImageMenuItem" id="mark-as-read">
+                        <property name="visible">True</property>
+                        <property name="related_action">action-mark-as-read</property>
+                        <property name="use_action_appearance">True</property>
+                        <property name="use_stock">True</property>
+                        <accelerator key="k" signal="activate" modifiers="GDK_CONTROL_MASK"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkImageMenuItem" id="mark-as-unread">
+                        <property name="visible">True</property>
+                        <property name="related_action">action-mark-as-unread</property>
+                        <property name="use_action_appearance">True</property>
+                        <property name="use_stock">True</property>
+                        <accelerator key="k" signal="activate" modifiers="GDK_SHIFT_MASK | GDK_CONTROL_MASK"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="menuitem3">
+                        <property name="visible">True</property>
+                      </object>
+                    </child>
                     <child>
                       <object class="GtkImageMenuItem" id="imagemenuitem11">
                         <property name="label">gtk-preferences</property>
@@ -465,5 +488,13 @@
     <property name="stock_id">gtk-remove</property>
     <property name="sensitive">False</property>
     <signal name="activate" handler="remove_feed"/>
+  </object>
+  <object class="GtkAction" id="action-mark-as-read">
+    <property name="label">Mark as Read</property>
+    <signal name="activate" handler="mark_as_read"/>
+  </object>
+  <object class="GtkAction" id="action-mark-as-unread">
+    <property name="label">Mark as Unread</property>
+    <signal name="activate" handler="mark_as_unread"/>
   </object>
 </interface>

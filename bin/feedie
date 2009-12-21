@@ -61,6 +61,31 @@ source_template = Template(file=getdatapath() + '/templates/source.html')
 
 gconf_client = gconf.client_get_default()
 
+feed_id_colnum = PostsTreeModel.colnum('feed_id')
+post_id_colnum = PostsTreeModel.colnum('post_id')
+
+def mark_selected_posts_as_read(treeviewsel):
+  model, paths = treeviewsel.get_selected_rows()
+  for path in paths:
+    iter = model.get_iter(path)
+    feed_id = model.get_value(iter, feed_id_colnum)
+    post_id = model.get_value(iter, post_id_colnum)
+    feed = sources.get_feed(feed_id)
+    post = feed.posts.get(post_id, None)
+    if post:
+      post.set_read_updated_at()
+
+def mark_selected_posts_as_unread(treeviewsel):
+  model, paths = treeviewsel.get_selected_rows()
+  for path in paths:
+    iter = model.get_iter(path)
+    feed_id = model.get_value(iter, feed_id_colnum)
+    post_id = model.get_value(iter, post_id_colnum)
+    feed = sources.get_feed(feed_id)
+    post = feed.posts.get(post_id, None)
+    if post:
+      post.unset_read_updated_at()
+
 class FeedieWindow(gtk.Window):
     __gtype_name__ = "FeedieWindow"
 
@@ -184,12 +209,7 @@ class FeedieWindow(gtk.Window):
             def set_read_updated_at():
               if okay_to_mark_read[0]:
                 treeviewsel = treeview.get_selection()
-                if treeviewsel.count_selected_rows() == 1:
-                  model, (path,) = treeviewsel.get_selected_rows()
-                  iter = model.get_iter(path)
-                  post_id = model.get_value(iter, post_id_colnum)
-                  if post._id == post_id:
-                    post.set_read_updated_at()
+                mark_selected_posts_as_read(treeviewsel)
 
             def cancel():
               okay_to_mark_read[0] = False
@@ -220,6 +240,10 @@ class FeedieWindow(gtk.Window):
           self.web.load_html_string(html, base)
 
         def treeview_selection_changed(treeviewsel):
+          any = treeviewsel.count_selected_rows() > 0
+          self.builder.get_object('action-mark-as-read').set_sensitive(any)
+          self.builder.get_object('action-mark-as-unread').set_sensitive(any)
+
           if treeviewsel.count_selected_rows() == 1:
             model, (path,) = treeviewsel.get_selected_rows()
             iter = model.get_iter(path)
@@ -235,12 +259,15 @@ class FeedieWindow(gtk.Window):
             self.current_post_ids = new_post_ids
             update_web_view()
 
-        treeview = self.builder.get_object('posts-treeview')
+        treeview = self.treeview = self.builder.get_object('posts-treeview')
         treeview.set_property('rules-hint', True)
         treeviewsel = treeview.get_selection()
         treeviewsel.set_mode(gtk.SELECTION_MULTIPLE)
         treeviewsel.connect('changed', treeview_selection_changed)
         update_web_view()
+        any = treeviewsel.count_selected_rows() > 0
+        self.builder.get_object('action-mark-as-read').set_sensitive(any)
+        self.builder.get_object('action-mark-as-unread').set_sensitive(any)
 
         treeview_heading_widgets = []
 
@@ -369,6 +396,14 @@ class FeedieWindow(gtk.Window):
         self.select_feed(self.sources_view, None, selected_source_to_remove)
 
         d = self.finish_initializing_async_part()
+
+    def mark_as_read(self, action):
+      treeviewsel = self.treeview.get_selection()
+      mark_selected_posts_as_read(treeviewsel)
+
+    def mark_as_unread(self, action):
+      treeviewsel = self.treeview.get_selection()
+      mark_selected_posts_as_unread(treeviewsel)
 
     def select_feed(self, widget, selected_id, to_remove):
       source = widget.selected

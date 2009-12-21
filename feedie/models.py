@@ -176,6 +176,10 @@ class UnreadNewsSource(Model):
   def get_feed(self, feed_id):
     return self.sources.get_feed(feed_id)
 
+  def get_post(self, post_id):
+    feed = self.get_feed(feed_id)
+    return feed.posts[post_id]
+
   @property
   def title(self):
     return 'Unread News'
@@ -947,6 +951,21 @@ class Post(Model):
   def set_read_updated_at(self, when=None):
     def modify(doc):
       doc['read_updated_at'] = when
+
+    if when is None:
+      when = self.updated_at
+    was_read = self.read
+    yield self.modify(modify)
+    now_read = self.read
+
+    if was_read != now_read:
+      self.emit('changed', 'read')
+
+  @defer.inlineCallbacks
+  def unset_read_updated_at(self, when=None):
+    def modify(doc):
+      if 'read_updated_at' in doc:
+        del doc['read_updated_at']
 
     if when is None:
       when = self.updated_at
