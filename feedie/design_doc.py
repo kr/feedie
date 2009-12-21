@@ -103,6 +103,39 @@ function (doc) {
 }
 ''' % locals()
 
+POSTS_TO_GC = '''
+function (doc) {
+  if (doc.type != 'post') return;
+  if (doc.starred) return;
+
+  if (doc.feed_deleted) {
+    emit(doc._id, doc._rev);
+    return;
+  }
+
+  if (doc.deleted_at) return;
+  if (doc.read_updated_at >= doc.updated_at) {
+    emit(doc._id, doc._rev);
+  }
+}
+'''
+
+DELETED_FEEDS = '''
+function (doc) {
+  if (doc.type != 'feed') return;
+  if (doc.deleted_at > doc.subscribed_at) {
+    emit(doc._id, doc._rev);
+  }
+}
+'''
+
+POSTS_TO_MARK_FEED_IS_DELETED = '''
+function (doc) {
+  if (doc.type != 'post') return;
+  emit(doc._id, doc._rev);
+}
+'''
+
 def view(map, reduce=None):
   d = {'map':map}
   if reduce: d['reduce'] = reduce
@@ -132,6 +165,15 @@ def add_views(db):
     modified = True
   if 'starred_posts' not in views:
     views['starred_posts'] = view(STARRED_POSTS_MAP)
+    modified = True
+  if 'posts_to_gc' not in views:
+    views['posts_to_gc'] = view(POSTS_TO_GC)
+    modified = True
+  if 'deleted_feeds' not in views:
+    views['deleted_feeds'] = view(DELETED_FEEDS)
+    modified = True
+  if 'posts_to_mark_feed_is_deleted' not in views:
+    views['posts_to_mark_feed_is_deleted'] = view(POSTS_TO_MARK_FEED_IS_DELETED)
     modified = True
   if modified:
     db.couchdb[DOC_ID] = ddoc

@@ -15,6 +15,14 @@ from feedie import fetcher
 from feedie import incoming
 from feedie.attrdict import attrdict
 
+ONE_WEEK = 7 * 24 * 60 * 60
+
+DELETED_POST_KEYS = tuple('''
+
+  _id _rev type feed_id feed_rev feed_deleted updated_at read_updated_at
+
+'''.split())
+
 class Transfer(object):
   __slots__ = 'progress total'.split()
 
@@ -365,12 +373,112 @@ class Sources(Model):
       summary = summaries.get(row['id'], None)
       self.feed(row['value'], summary=summary)
 
+    self.housekeeping()
+
+  @defer.inlineCallbacks
+  def housekeeping(self):
+    yield self.collect_garbage()
     self.refresh()
+    reactor.callLater(60, self.housekeeping)
 
   def refresh(self):
     for feed in self.feeds.values():
       feed.refresh()
-    reactor.callLater(60, self.refresh)
+
+  @defer.inlineCallbacks
+  def collect_garbage(self):
+    yield self.collect_garbage_posts()
+    yield self.collect_garbage_feeds()
+    yield self.mark_posts_with_deleted_feeds()
+
+  # This code must be careful not to retry modifications.
+  @defer.inlineCallbacks
+  def collect_garbage_posts(self):
+    def modify(doc):
+      print 'modifying', doc
+
+      if doc.get('_rev', None) != revs[doc['_id']]:
+        print 'nope,', doc.get('_rev', None), '!=', revs[doc['_id']]
+        doc.clear()
+        return
+
+      # TODO replace this with the true read_at time
+      read_at = doc.get('read_updated_at', now)
+
+      if doc.get('feed_deleted', False):
+        doc['_deleted'] = True
+      elif (now - read_at) > ONE_WEEK:
+        # Remove most fields to save space. Keep just enough to know the user
+        # has read this post before.
+        doc2 = doc.copy()
+        doc.clear()
+        for k in DELETED_POST_KEYS:
+          if k in doc2:
+            doc[k] = doc2[k]
+        doc['deleted_at'] = now
+      else:
+        doc.clear()
+
+    now = int(time.time())
+    revs = {}
+    rows = yield self.db.view('feedie/posts_to_gc')
+    for row in rows:
+      print row
+      revs[row['id']] = row['value']
+
+    yield self.db.modify_docs(revs.keys(), modify, load_first=True)
+
+  # This code must be careful not to retry modifications.
+  #
+  # If a feed is deleted, no more posts can appear until the feed is subscribed
+  # again. So we ask for deleted feeds, then, for each feed, ask if any posts
+  # exist. If no posts exist, we delete the feed. There is no race condition as
+  # long as we only delete the feed rev that we originally got.
+  @defer.inlineCallbacks
+  def collect_garbage_feeds(self):
+    def modify(doc):
+      if doc.get('_rev', None) == rev:
+        doc['_deleted'] = True
+      else:
+        doc.clear()
+
+    revs = {}
+    rows = yield self.db.view('feedie/deleted_feeds')
+    for row in rows:
+      summaries = yield Feed.load_summaries(self.db, [row['id']])
+      if summaries:
+        summary = summaries[0]
+      else:
+        summary = attrdict(total=0, read=0)
+      if summary.total == 0:
+        revs[row['id']] = row['value']
+
+    yield self.db.modify_docs(revs.keys(), modify, load_first=True)
+
+  @defer.inlineCallbacks
+  def mark_posts_with_deleted_feeds(self):
+    revs = []
+    rows = yield self.db.view('feedie/deleted_feeds')
+    for row in rows:
+      revs.append((row['id'], row['_rev']))
+
+    for feed_id, feed_rev in revs:
+      yield self.mark_posts_feed_is_deleted(feed_id, feed_rev)
+
+  @defer.inlineCallbacks
+  def mark_posts_feed_is_deleted(self, feed_id, feed_rev):
+    def modify(doc):
+      if doc.get('_rev', None) == rev and doc.get('feed_rev', None) == feed_rev:
+        doc['feed_deleted'] = True
+      else:
+        doc.clear()
+
+    revs = {}
+    rows = yield self.db.view('feedie/posts_to_mark_feed_is_deleted')
+    for row in rows:
+      revs[row['id']] = row['value']
+
+    yield self.db.modify_docs(revs.keys(), modify, load_first=True)
 
   @property
   def doc(self):
@@ -888,6 +996,8 @@ class Feed(Model):
       doc['title'] = ipost.get('title', '(unknown title)')
       doc['updated_at'] = ipost.updated_at
       doc['feed_id'] = self.id
+      doc['feed_rev'] = self._rev
+      if 'feed_deleted' in doc: del doc['feed_deleted']
       doc['link'] = ipost.link
       doc['summary_detail'] = ipost.summary_detail
       doc['content'] = ipost.content # TODO use less-sanitized
@@ -913,6 +1023,10 @@ class Feed(Model):
   @property
   def id(self):
     return self.doc['_id']
+
+  @property
+  def _rev(self):
+    return self.doc['_rev']
 
   @property
   def type(self):
