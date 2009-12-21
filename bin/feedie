@@ -451,7 +451,7 @@ class FeedieWindow(gtk.Window):
         treeview.set_model(None)
         treeview.get_column(2).get_widget().set_text('')
         self.builder.get_object('scrolledwindow2').hide()
-        self.web.load_html_string('Welcome', 'file:///')
+        self.web.load_html_string('', 'file:///')
         return
 
       if not source.error:
