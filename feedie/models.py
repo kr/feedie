@@ -921,9 +921,8 @@ class Feed(Model):
 
   @defer.inlineCallbacks
   def check_posts_loaded(self):
-    if not self.posts:
-      rows = yield self.db.view('feedie/feed_post', key=self.id)
-      self.posts = dict([(row['id'], self.post(row['value'])) for row in rows])
+    rows = yield self.db.view('feedie/feed_post', key=self.id)
+    self.posts = dict([(row['id'], self.post(row['value'])) for row in rows])
 
   @defer.inlineCallbacks
   def post_summaries(self):
