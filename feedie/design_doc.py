@@ -118,7 +118,10 @@ DELETED_FEEDS = '''
 function (doc) {
   if (doc.type != 'feed') return;
   if (doc.deleted_at > doc.subscribed_at) {
-    emit(doc._id, doc._rev);
+    emit(doc._id, {
+      _rev: doc._rev,
+      subscribed_at: doc.subscribed_at,
+    });
   }
 }
 '''

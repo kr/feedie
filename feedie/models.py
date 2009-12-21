@@ -19,7 +19,8 @@ ONE_WEEK = 7 * 24 * 60 * 60
 
 DELETED_POST_KEYS = tuple('''
 
-  _id _rev type feed_id feed_rev feed_deleted updated_at read_updated_at
+  _id _rev type feed_id feed_subscribed_at feed_deleted updated_at
+  read_updated_at
 
 '''.split())
 
@@ -439,7 +440,7 @@ class Sources(Model):
   @defer.inlineCallbacks
   def collect_garbage_feeds(self):
     def modify(doc):
-      if doc.get('_rev', None) == rev:
+      if doc.get('_rev', None) == revs[doc['_id']]:
         doc['_deleted'] = True
       else:
         doc.clear()
@@ -453,7 +454,7 @@ class Sources(Model):
       else:
         summary = attrdict(total=0, read=0)
       if summary['total'] == 0:
-        revs[row['id']] = row['value']
+        revs[row['id']] = row['value']['_rev']
 
     yield self.db.modify_docs(revs.keys(), modify, load_first=True)
 
@@ -462,17 +463,19 @@ class Sources(Model):
     revs = []
     rows = yield self.db.view('feedie/deleted_feeds')
     for row in rows:
-      revs.append((row['id'], row['value']))
+      revs.append((row['id'], row['value']['subscribed_at']))
 
-    for feed_id, feed_rev in revs:
-      yield self.mark_posts_feed_is_deleted(feed_id, feed_rev)
+    for feed_id, feed_subscribed_at in revs:
+      yield self.mark_posts_feed_is_deleted(feed_id, feed_subscribed_at)
 
   @defer.inlineCallbacks
-  def mark_posts_feed_is_deleted(self, feed_id, feed_rev):
+  def mark_posts_feed_is_deleted(self, feed_id, feed_subscribed_at):
     def modify(doc):
       doc_rev = doc.get('_rev', None)
-      doc_feed_rev = doc.get('feed_rev', None)
-      if doc_rev == revs[doc['_id']] and doc_feed_rev == feed_rev:
+      doc_feed_subscribed_at = doc.get('feed_subscribed_at', 0)
+      if doc_rev == revs[doc['_id']]:
+        doc['feed_deleted'] = True
+      elif feed_subscribed_at >= doc_feed_subscribed_at:
         doc['feed_deleted'] = True
       else:
         doc.clear()
@@ -1002,7 +1005,7 @@ class Feed(Model):
       doc['title'] = ipost.get('title', '(unknown title)')
       doc['updated_at'] = ipost.updated_at
       doc['feed_id'] = self.id
-      doc['feed_rev'] = self._rev
+      doc['feed_subscribed_at'] = self.x_subscribed_at
       if 'feed_deleted' in doc: del doc['feed_deleted']
       doc['link'] = ipost.link
       doc['summary_detail'] = ipost.summary_detail
