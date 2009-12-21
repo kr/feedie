@@ -226,6 +226,7 @@ class StarredNewsSource(Model):
             if post._id in self.posts:
               del self.posts[post._id]
               self.emit('post-removed', post)
+      self.update_summary()
 
     def post_added(feed, event_name, post):
       post.connect('changed', post_changed)
@@ -233,11 +234,13 @@ class StarredNewsSource(Model):
         if post.starred:
           self.posts[post._id] = post
           self.emit('post-added', post)
+      self.update_summary()
 
     def post_removed(feed, event_name, post):
       if self.posts is not None:
         if post._id in self.posts:
           del self.posts[post._id]
+      self.update_summary()
 
     def feed_added(sources, event, feed):
       feed.connect('summary-changed', summary_changed)
