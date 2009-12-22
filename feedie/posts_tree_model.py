@@ -14,7 +14,8 @@ class PostsTreeModel(gtk.GenericTreeModel):
       ('age',         str),
       ('pretty_date', str),
       ('star',        gtk.gdk.Pixbuf),
-      ('read',        gtk.gdk.Pixbuf),
+      ('read_image',  gtk.gdk.Pixbuf),
+      ('read',        bool),
       ('weight',      int),
       ('post_id',     str),
       ('feed_id',     str),
@@ -76,9 +77,12 @@ class PostsTreeModel(gtk.GenericTreeModel):
   def column_age(self, doc):
     return '%18d %s' % (946080000000000000 - doc.updated_at, doc._id)
 
-  def column_read(self, doc):
+  def column_read_image(self, doc):
     read = doc.read
     return images.get_pixbuf(('dot', 'blank')[read])
+
+  def column_read(self, doc):
+    return bool(doc.read)
 
   def column_star(self, doc):
     starred = doc.starred

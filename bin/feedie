@@ -63,6 +63,7 @@ gconf_client = gconf.client_get_default()
 
 feed_id_colnum = PostsTreeModel.colnum('feed_id')
 post_id_colnum = PostsTreeModel.colnum('post_id')
+read_column = PostsTreeModel.colnum('read')
 
 def mark_selected_posts_as_read(treeviewsel):
   model, paths = treeviewsel.get_selected_rows()
@@ -110,6 +111,7 @@ class FeedieWindow(gtk.Window):
     def finish_initializing_async_part(self):
       yield sources.load()
       self.sources_view.select(self.unreadnews.id)
+      self.treeview.grab_focus()
 
 
     def finish_initializing(self, builder):
@@ -192,6 +194,7 @@ class FeedieWindow(gtk.Window):
         self.web.connect('navigation-policy-decision-requested', nav_policy)
         self.web.connect('resource-request-starting', request_starting)
         self.web.connect('hovering-over-link', web_hovering_over_link)
+        self.web.connect('key-press-event', self.paging_keypress)
         websettings = self.web.get_settings()
         websettings.set_property('user-stylesheet-uri',
             'file://' + getdatapath() + '/css/Default.css')
@@ -246,6 +249,8 @@ class FeedieWindow(gtk.Window):
           any = treeviewsel.count_selected_rows() > 0
           self.builder.get_object('action-mark-as-read').set_sensitive(any)
           self.builder.get_object('action-mark-as-unread').set_sensitive(any)
+
+          self.set_next_unread_sensitivity()
 
           if treeviewsel.count_selected_rows() == 1:
             model, (path,) = treeviewsel.get_selected_rows()
@@ -324,6 +329,11 @@ class FeedieWindow(gtk.Window):
 
         treeview.connect('button-press-event', treeview_clicked)
 
+        def treeview_focus(widget, event):
+          self.set_next_unread_sensitivity()
+        treeview.connect('focus-in-event', treeview_focus)
+        treeview.connect('focus-out-event', treeview_focus)
+
         treeview.insert_column_with_attributes(0, 'Starred',
             gtk.CellRendererPixbuf(),
             pixbuf=PostsTreeModel.colnum('star'))
@@ -339,7 +349,7 @@ class FeedieWindow(gtk.Window):
 
         treeview.insert_column_with_attributes(1, 'Read',
             gtk.CellRendererPixbuf(),
-            pixbuf=PostsTreeModel.colnum('read'))
+            pixbuf=PostsTreeModel.colnum('read_image'))
         read_column = treeview.get_column(1)
         treeview.get_column(1).set_sizing(gtk.TREE_VIEW_COLUMN_FIXED)
         treeview.get_column(1).set_fixed_width(24)
@@ -438,6 +448,74 @@ class FeedieWindow(gtk.Window):
       treeviewsel = self.treeview.get_selection()
       mark_selected_posts_as_unread(treeviewsel)
 
+    def get_next_row(self, step):
+      tv = self.treeview
+      model = tv.get_model()
+      path, col = tv.get_cursor()
+      if path is None: return 0
+      return path[0] + step
+
+    def move_to(self, row):
+      if row is None: return
+      tv = self.treeview
+      model = tv.get_model()
+      if row < 0 or row >= len(model): return
+      tv.set_cursor(row)
+
+    def move_by(self, n):
+      self.move_to(self.get_next_row(n))
+
+    def find_next_unread(self):
+      def row_is_unread(n):
+        iter = model.get_iter(n)
+        read = model.get_value(iter, read_column)
+        return not read
+
+      model = self.treeview.get_model()
+      if model is None: return None
+      row = self.get_next_row(1)
+      while row < len(model):
+        if row_is_unread(row):
+          return row
+        row += 1
+      return None
+
+    def next_unread(self, action=None):
+      self.move_to(self.find_next_unread())
+
+    def paging_keypress(self, widget, event):
+      key = gtk.gdk.keyval_name(event.keyval)
+
+      if key == 'j':
+        self.move_by(1)
+        return True
+
+      if key == 'k':
+        self.move_by(-1)
+        return True
+
+      if key in ('Page_Down', 'Page_Up'):
+        if widget is self.web: return False
+        self.web.emit('key-press-event', event)
+        return True
+
+      if key == 'space':
+        sw = self.builder.get_object('scrolledwindow1')
+        vadj = sw.get_vadjustment()
+        if vadj.value >= vadj.upper - vadj.page_size:
+          # At the bottom, so view next unread
+          self.next_unread()
+        else:
+          # Just page down
+          vadj.value += vadj.page_increment
+
+        return True
+
+    def set_next_unread_sensitivity(self):
+      row = self.find_next_unread()
+      sensitive = row is not None
+      self.builder.get_object('action-next-unread').set_sensitive(sensitive)
+
     def select_feed(self, widget, selected_id, to_remove):
       source = widget.selected
 
@@ -446,6 +524,8 @@ class FeedieWindow(gtk.Window):
 
       refreshable = bool(source and source.can_refresh)
       self.builder.get_object('action-refresh').set_sensitive(refreshable)
+
+      self.set_next_unread_sensitivity()
 
       if not source:
         treeview = self.builder.get_object('posts-treeview')
@@ -548,6 +628,7 @@ class FeedieWindow(gtk.Window):
         self.builder.get_object('subscribe-box').hide()
         text = self.builder.get_object('subscribe-entry').get_text()
         self.builder.get_object('subscribe-entry').set_text('')
+        self.treeview.grab_focus()
         return text
 
     def subscribe_entry_keypress(self, widget, data=None):

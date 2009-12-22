@@ -56,8 +56,8 @@
                         <property name="visible">True</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
-                        <accelerator key="q" signal="activate" modifiers="GDK_CONTROL_MASK"/>
                         <accelerator key="w" signal="activate" modifiers="GDK_CONTROL_MASK"/>
+                        <accelerator key="q" signal="activate" modifiers="GDK_CONTROL_MASK"/>
                         <signal name="activate" handler="quit"/>
                       </object>
                     </child>
@@ -78,6 +78,7 @@
                         <property name="visible">True</property>
                         <property name="related_action">action-mark-as-read</property>
                         <property name="use_action_appearance">True</property>
+                        <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                         <accelerator key="k" signal="activate" modifiers="GDK_CONTROL_MASK"/>
                       </object>
@@ -87,6 +88,7 @@
                         <property name="visible">True</property>
                         <property name="related_action">action-mark-as-unread</property>
                         <property name="use_action_appearance">True</property>
+                        <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                         <accelerator key="k" signal="activate" modifiers="GDK_SHIFT_MASK | GDK_CONTROL_MASK"/>
                       </object>
@@ -103,6 +105,28 @@
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                         <signal name="activate" handler="preferences"/>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="GtkMenuItem" id="view-menuitem">
+                <property name="visible">True</property>
+                <property name="label" translatable="yes">_View</property>
+                <property name="use_underline">True</property>
+                <child type="submenu">
+                  <object class="GtkMenu" id="view-menu">
+                    <property name="visible">True</property>
+                    <child>
+                      <object class="GtkImageMenuItem" id="next-unread-menuitem">
+                        <property name="visible">True</property>
+                        <property name="related_action">action-next-unread</property>
+                        <property name="use_action_appearance">True</property>
+                        <property name="use_underline">True</property>
+                        <property name="use_stock">True</property>
+                        <accelerator key="n" signal="activate"/>
                       </object>
                     </child>
                   </object>
@@ -323,8 +347,10 @@
                       <object class="GtkTreeView" id="posts-treeview">
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
+                        <property name="events">GDK_KEY_PRESS_MASK | GDK_STRUCTURE_MASK</property>
                         <property name="enable_search">False</property>
                         <property name="fixed_height_mode">True</property>
+                        <signal name="key_press_event" handler="paging_keypress"/>
                       </object>
                     </child>
                   </object>
@@ -496,5 +522,13 @@
   <object class="GtkAction" id="action-mark-as-unread">
     <property name="label">Mark as Unread</property>
     <signal name="activate" handler="mark_as_unread"/>
+  </object>
+  <object class="GtkImage" id="image2">
+    <property name="visible">True</property>
+    <property name="stock">gtk-missing-image</property>
+  </object>
+  <object class="GtkAction" id="action-next-unread">
+    <property name="label">Next Unread</property>
+    <signal name="activate" handler="next_unread"/>
   </object>
 </interface>
