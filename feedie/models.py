@@ -197,6 +197,10 @@ class UnreadNewsSource(Model):
     return feed.posts[post_id]
 
   @property
+  def sort_key(self):
+    return [0, 0, '']
+
+  @property
   def title(self):
     return 'Unread News'
 
@@ -326,6 +330,10 @@ class StarredNewsSource(Model):
   def get_post(self, post_id):
     feed = self.get_feed(feed_id)
     return feed.posts[post_id]
+
+  @property
+  def sort_key(self):
+    return [0, 1, '']
 
   @property
   def title(self):
@@ -1104,6 +1112,10 @@ class Feed(Model):
   def post_summaries(self):
     yield self.check_posts_loaded()
     defer.returnValue(self.posts.values())
+
+  @property
+  def sort_key(self):
+    return [1, 0, self.title]
 
   @property
   def title(self):

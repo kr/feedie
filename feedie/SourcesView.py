@@ -52,7 +52,7 @@ class SourcesView(gtk.DrawingArea):
     if source.id not in self.items:
       self.items[source.id] = SourceItem(self, source)
       self.order.append(self.items[source.id])
-      self.order.sort(key=lambda x: x.label)
+      self.order.sort(key=lambda x: x.source.sort_key)
       self.post_update()
 
   def remove_source(self, source):
