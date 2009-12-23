@@ -512,8 +512,11 @@ class FeedieWindow(gtk.Window):
         return True
 
     def set_next_unread_sensitivity(self):
-      row = self.find_next_unread()
-      sensitive = row is not None
+      if self.treeview.is_focus() or self.web.is_focus():
+        row = self.find_next_unread()
+        sensitive = row is not None
+      else:
+        sensitive = False
       self.builder.get_object('action-next-unread').set_sensitive(sensitive)
 
     def select_feed(self, widget, selected_id, to_remove):
