@@ -140,12 +140,11 @@ class FeedieWindow(gtk.Window):
         self.connect('configure-event', configure_event)
 
         sources = models.Sources(self.db)
-        yield sources.load()
-
         self.sources_view = SourcesView(sources)
         self.unreadnews = models.UnreadNewsSource(self.db)
         sources.add_builtin(self.unreadnews)
         starrednews = models.StarredNewsSource(self.db)
+        yield sources.load()
         sources.add_builtin(starrednews)
         self.sources_view.show()
 
@@ -436,6 +435,7 @@ class FeedieWindow(gtk.Window):
             selected_source_to_remove)
 
         self.sources_view.select(self.unreadnews.id)
+        sw2 = self.builder.get_object('scrolledwindow2')
         self.treeview.grab_focus()
 
     def mark_as_read(self, action):
