@@ -13,6 +13,7 @@ import webkit
 import couchdb
 import desktopcouch
 import webbrowser
+from xml.dom import minidom
 from desktopcouch.records.server import CouchDatabase
 from Cheetah.Template import Template
 
@@ -519,6 +520,29 @@ class FeedieWindow(gtk.Window):
       else:
         sensitive = False
       self.builder.get_object('action-next-unread').set_sensitive(sensitive)
+
+    def import_subscriptions(self, widget, data=None):
+      chooser = gtk.FileChooserDialog('Import Subscriptions', self,
+          buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT,
+                   gtk.STOCK_OK, gtk.RESPONSE_ACCEPT))
+      response = chooser.run()
+      if response == gtk.RESPONSE_ACCEPT:
+        filename = chooser.get_filename()
+      else:
+        filename = None
+      chooser.destroy()
+      if filename is not None:
+        dom = minidom.parse(filename)
+        links = dom.getElementsByTagName('outline')
+        subs = []
+        for link in links:
+          if link.hasAttribute('xmlUrl'):
+            uri = link.getAttribute('xmlUrl')
+            title = link.getAttribute('title')
+            sub = {'uri':uri,'defaults':{}}
+            if title: sub['defaults']['user_title'] = title
+            subs.append(sub)
+        sources.add_subscriptions(subs)
 
     def select_feed(self, widget, selected_id, to_remove):
       source = widget.selected

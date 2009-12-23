@@ -358,6 +358,8 @@ class Sources(Model):
     self.feeds = {}
     self.doc = dict(_id=self._id)
     self.builtin_order = []
+    self.needs_refresh = []
+    self.currently_refreshing = []
 
   @property
   def _id(self):
@@ -389,8 +391,23 @@ class Sources(Model):
     reactor.callLater(60, self.housekeeping)
 
   def refresh(self):
+    def finished_refreshing(feed):
+      if feed in self.currently_refreshing:
+        self.currently_refreshing.remove(feed)
+      refresh_more_if_necessary()
+
+    def refresh_more_if_necessary():
+      while len(self.currently_refreshing) < 5 and self.needs_refresh:
+        feed = self.needs_refresh.pop()
+        self.currently_refreshing.append(feed)
+        d = feed.refresh()
+        d.addBoth(finished_refreshing)
+
     for feed in self.subscribed_feeds:
+      if feed.ready_for_refresh:
+        self.needs_refresh.append(feed)
       feed.refresh()
+    refresh_more_if_necessary()
 
   @defer.inlineCallbacks
   def collect_garbage(self):
@@ -578,7 +595,13 @@ class Sources(Model):
     return id in self.builtins or id in self.feeds
 
   @defer.inlineCallbacks
-  def subscribe(self, uri, defaults={}):
+  def add_subscriptions(self, subs):
+    for sub in subs:
+      yield self.subscribe(sub['uri'], refresh=False, defaults=sub['defaults'])
+    self.refresh()
+
+  @defer.inlineCallbacks
+  def subscribe(self, uri, defaults={}, refresh=True):
     uri = http.normalize_uri(uri)
     now = int(time.time())
     title = uri
@@ -597,7 +620,7 @@ class Sources(Model):
 
     yield self.put_feed_at_front_of_order(feed.id)
 
-    yield feed.refresh(force=True)
+    if refresh: yield feed.refresh(force=True)
     if feed.error == 'redirect' and feed.link:
       yield feed.delete()
       next_defaults = dict(defaults, title=feed.title)
