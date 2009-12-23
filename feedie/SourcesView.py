@@ -5,7 +5,7 @@ import cairo
 import pango
 import gobject
 import time
-from math import pi
+from math import pi, ceil
 from collections import namedtuple
 
 from feedie.feedieconfig import *
@@ -164,8 +164,11 @@ class SourcesView(gtk.DrawingArea):
 
     top = len(self.layout.items)
 
-    start_line = min(max(int(area.y / self.line_height), 0), top)
-    stop_line = min(max(int((area.y + area.height) / self.line_height), 0), top)
+    def clamp(n):
+      return min(max(n, 0), top)
+
+    start_line = clamp(int(area.y / self.line_height))
+    stop_line = clamp(int(ceil((area.y + area.height) * 1.0 / self.line_height)))
 
     # background
     cairo_context.set_source_rgb(0.82, 0.85, 0.90)
