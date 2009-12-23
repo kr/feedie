@@ -600,7 +600,8 @@ class Sources(Model):
     yield feed.refresh(force=True)
     if feed.error == 'redirect' and feed.link:
       yield feed.delete()
-      feed2 = yield self.subscribe(feed.link, defaults=dict(title=feed.title))
+      next_defaults = dict(defaults, title=feed.title)
+      feed2 = yield self.subscribe(feed.link, defaults=next_defaults)
       defer.returnValue(feed2)
     feed.set_subscribed_at(now)
     defer.returnValue(feed)
