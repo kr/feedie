@@ -361,6 +361,7 @@ class Sources(Model):
     self.db = db
     self.builtins = {}
     self.feeds = {}
+    self._subscribed_feeds = None
     self.doc = dict(_id=self._id)
     self.builtin_order = []
     self.needs_refresh = []
@@ -570,6 +571,8 @@ class Sources(Model):
     feed_id = default_doc['_id']
     if feed_id not in self.feeds:
       feed = self.feeds[feed_id] = Feed(self.db, default_doc, summary)
+      if feed.subscribed:
+        self._subscribed_feeds.append(feed)
       feed.added_to(self)
       self.emit('feed-added', feed)
       self.emit('source-added', feed)
@@ -585,7 +588,9 @@ class Sources(Model):
 
   @property
   def subscribed_feeds(self):
-    return [x for x in self.feeds.values() if x.subscribed]
+    if self._subscribed_feeds is None:
+      self._subscribed_feeds = [x for x in self.feeds.values() if x.subscribed]
+    return self._subscribed_feeds
 
   def __iter__(self):
     return iter([self[id] for id in self.order if id in self])
