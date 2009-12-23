@@ -5,22 +5,23 @@ DOC_ID = '_design/feedie'
 SUMMARY_MAP = '''
 function (doc) {
   if (doc.type == 'post' && !doc.deleted_at) {
+    var summary = {total:1,read:0,starred_total:0,starred_read:0};
     try {
+
       if (doc.read_updated_at >= doc.updated_at) {
-        emit(doc.feed_id, {total:1, read:1});
-      } else {
-        emit(doc.feed_id, {total:1, read:0});
+        summary.read = 1;
       }
 
       if (!doc.deleted_at && doc.starred) {
+        summary.starred_total = 1;
         if (doc.read_updated_at >= doc.updated_at) {
-          emit('starred-items', {total:1, read:1});
-        } else {
-          emit('starred-items', {total:1, read:0});
+          summary.starred_read = 1;
         }
       }
+
+      emit(doc.feed_id, summary);
     } catch (e) {
-      emit(doc.feed_id, {total:1, read:0});
+      emit(doc.feed_id, summary);
     }
   }
 }
@@ -30,7 +31,14 @@ SUMMARY_REDUCE = '''
 function (keys, values, rereduce) {
   total = sum(values.map(function (x) x.total));
   read = sum(values.map(function (x) x.read));
-  return {total:total, read:read};
+  starred_total = sum(values.map(function (x) x.starred_total));
+  starred_read = sum(values.map(function (x) x.starred_read));
+  return {
+    total:total,
+    read:read,
+    starred_total:starred_total,
+    starred_read:starred_read,
+  };
 }
 '''
 

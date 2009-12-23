@@ -228,7 +228,7 @@ class FeedieWindow(gtk.Window):
           if self.current_post_ids:
             feed_id, post_id = self.current_post_ids
             feed = sources.get_feed(feed_id)
-            post = yield feed.get_post(post_id)
+            post = yield feed.load_post(post_id)
             yield post.load_doc()
             post_template.post = post
             post_template.display_feed = (feed_id != self.sources_view.selected_id)

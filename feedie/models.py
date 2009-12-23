@@ -152,7 +152,7 @@ class UnreadNewsSource(Model):
     self.update_summary()
 
   def update_summary(self):
-    self.summary = attrdict(total=0, read=0)
+    self.summary = attrdict(total=0, read=0, starred_total=0, starred_read=0)
     if self.sources:
       for feed in self.sources.subscribed_feeds:
         self.summary.total += feed.summary['total']
@@ -182,7 +182,10 @@ class UnreadNewsSource(Model):
   def post_summaries(self):
     def row_to_entry(row):
       doc = row['value']
-      return row['id'], self.get_feed(doc['feed_id']).post(doc)
+      feed = self.get_feed(doc['feed_id'])
+      post = feed.post(doc)
+      return row['id'], post
+
     if self.posts is None:
       rows = yield self.db.view('feedie/unread_posts',
           keys=self.sources.feed_ids)
@@ -229,37 +232,38 @@ class StarredNewsSource(Model):
     self.db = db
     self.sources = None
     self.posts = None
-    self.summary = dict(total=0, read=0)
+    self.summary = dict(total=0, read=0, starred_total=0, starred_read=0)
     self.update_summary()
 
   def added_to(self, sources):
     def summary_changed(source, event):
       self.update_summary()
 
-    def post_changed(post, event_name, field_name=None):
-      if self.posts is not None:
-        if field_name == 'starred':
-          if post.starred:
-            self.posts[post._id] = post
-            self.emit('post-added', post)
-          else:
-            if post._id in self.posts:
-              del self.posts[post._id]
-              self.emit('post-removed', post)
-      self.update_summary()
-
-    def post_added(feed, event_name, post):
-      post.connect('changed', post_changed)
+    def post_was_added(post):
       if self.posts is not None:
         if post.starred:
           self.posts[post._id] = post
           self.emit('post-added', post)
       self.update_summary()
 
+    def post_changed(post, event_name, field_name=None):
+      if field_name == 'starred':
+        if post.starred:
+          post_was_added(post)
+        else:
+          post_removed(None, None, post)
+
+      self.update_summary()
+
+    def post_added(feed, event_name, post):
+      post.connect('changed', post_changed)
+      post_was_added(post)
+
     def post_removed(feed, event_name, post):
       if self.posts is not None:
         if post._id in self.posts:
           del self.posts[post._id]
+          self.emit('post-removed', post)
       self.update_summary()
 
     def feed_added(sources, event, feed):
@@ -280,20 +284,13 @@ class StarredNewsSource(Model):
       feed.connect('post-removed', post_removed)
     self.update_summary()
 
-  @defer.inlineCallbacks
   def update_summary(self):
-    old = self.summary
-    self.summary = yield self.load_summary()
-    if self.summary != old:
-      self.emit('summary-changed')
-
-  @defer.inlineCallbacks
-  def load_summary(self):
-    summaries = yield Feed.load_summaries(self.db, [self.id])
-    for id, summary in summaries:
-      if id == self.id:
-        defer.returnValue(summary)
-    defer.returnValue(dict(total=0, read=0))
+    self.summary = attrdict(total=0, read=0, starred_total=0, starred_read=0)
+    if self.sources:
+      for feed in self.sources.subscribed_feeds:
+        self.summary.total += feed.summary['starred_total']
+        self.summary.read += feed.summary['starred_read']
+    self.emit('summary-changed')
 
   @property
   def id(self):
@@ -477,7 +474,7 @@ class Sources(Model):
       if summaries:
         id, summary = summaries[0]
       else:
-        summary = attrdict(total=0, read=0)
+        summary = attrdict(total=0, read=0, starred_total=0, starred_read=0)
       if summary['total'] == 0:
         revs[row['id']] = row['value']['_rev']
 
@@ -671,16 +668,18 @@ class Sources(Model):
     d = self.remove_from_feed_order(feed.id)
     d.addCallback(success)
 
+count_load_summaries = 0
+
 class Feed(Model):
   def __init__(self, db, doc, summary=None):
     self.db = db
     self.doc = doc
     self.posts = {}
-    self.summary = summary or dict(total=0, read=0)
+    self.summary = summary or dict(total=0, read=0, starred_total=0, starred_read=0)
     self.load_favicon()
 
   @defer.inlineCallbacks
-  def get_post(self, post_id):
+  def load_post(self, post_id):
     x = yield self.get_posts([post_id])
     defer.returnValue(x[0])
 
@@ -712,7 +711,7 @@ class Feed(Model):
     for id, summary in summaries:
       if id == self.id:
         defer.returnValue(summary)
-    defer.returnValue(dict(total=0, read=0))
+    defer.returnValue(dict(total=0, read=0, starred_total=0, starred_read=0))
 
   @property
   def transfers(self):
@@ -1035,7 +1034,7 @@ class Feed(Model):
     return self.doc.get('error', None)
 
   def post_changed(self, post, event_name, field_name=None):
-    if field_name == 'read':
+    if field_name in ('read', 'starred'):
       self.update_summary()
 
   # Retrieves the post. If it does not exist, creates one using default_doc.
