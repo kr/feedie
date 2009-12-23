@@ -1057,7 +1057,7 @@ class Feed(Model):
 
   @property
   def title(self):
-    return self.doc.get('title', '(unknown title)')
+    return self.doc.get('user_title', self.doc.get('title', '(unknown title)'))
 
   @property
   def icon(self):
