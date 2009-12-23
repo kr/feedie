@@ -110,12 +110,6 @@ class FeedieWindow(gtk.Window):
         design_doc.add_views(self.db)
 
     @defer.inlineCallbacks
-    def finish_initializing_async_part(self):
-      yield sources.load()
-      self.sources_view.select(self.unreadnews.id)
-      self.treeview.grab_focus()
-
-
     def finish_initializing(self, builder):
         global sources
         """finish_initalizing should be called after parsing the ui definition
@@ -146,6 +140,8 @@ class FeedieWindow(gtk.Window):
         self.connect('configure-event', configure_event)
 
         sources = models.Sources(self.db)
+        yield sources.load()
+
         self.sources_view = SourcesView(sources)
         self.unreadnews = models.UnreadNewsSource(self.db)
         sources.add_builtin(self.unreadnews)
@@ -438,9 +434,9 @@ class FeedieWindow(gtk.Window):
         selected_source_to_remove = []
         self.sources_view.connect('selection-changed', self.select_feed,
             selected_source_to_remove)
-        self.select_feed(self.sources_view, None, selected_source_to_remove)
 
-        d = self.finish_initializing_async_part()
+        self.sources_view.select(self.unreadnews.id)
+        self.treeview.grab_focus()
 
     def mark_as_read(self, action):
       treeviewsel = self.treeview.get_selection()
@@ -706,6 +702,7 @@ class FeedieWindow(gtk.Window):
         d = sel.refresh(force=True)
         d.addCallback(success)
 
+@defer.inlineCallbacks
 def NewFeedieWindow():
     """NewFeedieWindow - returns a fully instantiated
     FeedieWindow object. Use this function rather than
@@ -721,8 +718,17 @@ def NewFeedieWindow():
     builder.add_from_file(ui_filename)
     window = builder.get_object("feedie_window")
     window.set_icon_from_file(getdatapath() + '/media/logo.png')
-    window.finish_initializing(builder)
-    return window
+    yield window.finish_initializing(builder)
+    defer.returnValue(window)
+
+def open_window(window):
+    width, height = gconf_client.get_pair('/apps/feedie/geometry/window-size',
+        'GCONF_VALUE_INT',
+        'GCONF_VALUE_INT')
+    if not width: width = 800
+    if not height: height = 800
+    window.set_default_size(width, height)
+    window.show()
 
 if __name__ == "__main__":
     #support for command line options
@@ -746,14 +752,8 @@ class "GtkWidget" style "feedie-scrolledwindow"
 
     #run the application
     gtk.gdk.threads_init()
-    window = NewFeedieWindow()
-    width, height = gconf_client.get_pair('/apps/feedie/geometry/window-size',
-        'GCONF_VALUE_INT',
-        'GCONF_VALUE_INT')
-    if not width: width = 800
-    if not height: height = 800
-    window.set_default_size(width, height)
-    window.show()
+    d = NewFeedieWindow()
+    d.addCallback(open_window)
     #gtk.main()
     reactor.run()
 
