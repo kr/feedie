@@ -73,7 +73,12 @@ class SourcesView(gtk.DrawingArea):
 
   def update_heading_items(self):
     old = self.items
-    self.items = dict([(x.id, old.get(x.id, SourceItem(self, x))) for x in self.sources])
+    self.items = {}
+    for source in self.sources:
+      if source.id in old:
+        self.items[source.id] = old[source.id]
+      else:
+        self.items[source.id] = SourceItem(self, source)
 
     by_heading = {}
     for x in self.sources:
