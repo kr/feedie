@@ -152,11 +152,11 @@ class UnreadNewsSource(Model):
     self.update_summary()
 
   def update_summary(self):
-    self.summary = attrdict(total=0, read=0, starred_total=0, starred_read=0)
+    self.summary = dict(total=0, read=0, starred_total=0, starred_read=0)
     if self.sources:
       for feed in self.sources.subscribed_feeds:
-        self.summary.total += feed.summary['total']
-        self.summary.read += feed.summary['read']
+        self.summary['total'] += feed.summary['total']
+        self.summary['read'] += feed.summary['read']
     self.emit('summary-changed')
 
   @property
@@ -232,7 +232,6 @@ class StarredNewsSource(Model):
     self.db = db
     self.sources = None
     self.posts = None
-    self.summary = dict(total=0, read=0, starred_total=0, starred_read=0)
     self.update_summary()
 
   def added_to(self, sources):
@@ -285,11 +284,11 @@ class StarredNewsSource(Model):
     self.update_summary()
 
   def update_summary(self):
-    self.summary = attrdict(total=0, read=0, starred_total=0, starred_read=0)
+    self.summary = dict(total=0, read=0, starred_total=0, starred_read=0)
     if self.sources:
       for feed in self.sources.subscribed_feeds:
-        self.summary.total += feed.summary['starred_total']
-        self.summary.read += feed.summary['starred_read']
+        self.summary['total'] += feed.summary['starred_total']
+        self.summary['read'] += feed.summary['starred_read']
     self.emit('summary-changed')
 
   @property
@@ -475,7 +474,7 @@ class Sources(Model):
       if summaries:
         id, summary = summaries[0]
       else:
-        summary = attrdict(total=0, read=0, starred_total=0, starred_read=0)
+        summary = dict(total=0, read=0, starred_total=0, starred_read=0)
       if summary['total'] == 0:
         revs[row['id']] = row['value']['_rev']
 
