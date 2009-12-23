@@ -563,28 +563,10 @@ class FeedieWindow(gtk.Window):
         def show(x, source):
           def update_title(model, path, iter=None):
             title = u'%s \u2013 %d posts' % (source.title, len(model))
-            terms = search_entry.get_text().lower().split()
-            if terms:
-              terms = ', '.join([u'\u201c%s\u201d' % (x,) for x in terms])
-              title += ' containing ' + terms
             treeview.get_column(2).get_widget().set_text(title)
 
-          def visible(raw_model, iter, data=None):
-            terms = search_entry.get_text().lower().split()
-            title = raw_model.get_value(iter, title_column).lower()
-            for term in terms:
-              if not term in title:
-                return False
-            return True
-
-          def refilter(*args):
-            update_title(model, None, None)
-            filtered_model.refilter()
-
           search_entry = self.builder.get_object('search-entry')
-          search_entry.hids = getattr(search_entry, 'hids', [])
-          filtered_model = raw_model.filter_new()
-          filtered_model.set_visible_func(visible)
+          filtered_model = raw_model
           model = gtk.TreeModelSort(filtered_model)
           model.set_sort_column_id(PostsTreeModel.colnum('age'),
               gtk.SORT_ASCENDING)
@@ -596,9 +578,6 @@ class FeedieWindow(gtk.Window):
           model.connect('row-deleted', update_title)
           update_title(model, None, None)
           self.builder.get_object('scrolledwindow2').show()
-          while search_entry.hids:
-            search_entry.disconnect(search_entry.hids.pop())
-          search_entry.hids.append(search_entry.connect('changed', refilter))
 
         raw_model = PostsTreeModel(source)
         for disconnecter in to_remove:
