@@ -517,15 +517,16 @@ class Sources(Model):
     self.doc = yield self.db.modify_doc(self._id, modify, doc=self.doc)
 
   @defer.inlineCallbacks
-  def put_feed_at_front_of_order(self, source_id):
+  def put_feeds_at_front_of_order(self, source_ids):
     def modify(doc):
       doc.setdefault('feed_order', [])
-      try:
-        doc['feed_order'].remove(source_id)
-      except ValueError:
-        # source_id isn't in the list? that's okay.
-        pass
-      doc['feed_order'].insert(0, source_id)
+      for source_id in source_ids:
+        try:
+          doc['feed_order'].remove(source_id)
+        except ValueError:
+          # source_id isn't in the list? that's okay.
+          pass
+      doc['feed_order'][0:0] = source_ids
 
       # Remove any bogus entries
       doc['feed_order'] = [x for x in doc['feed_order'] if x in self]
@@ -594,10 +595,35 @@ class Sources(Model):
   def __contains__(self, id):
     return id in self.builtins or id in self.feeds
 
+  def update_feed(self, doc):
+    feed = self.feed(doc)
+    feed.doc = doc
+
   @defer.inlineCallbacks
   def add_subscriptions(self, subs):
+    now = int(time.time())
+    def modify(doc):
+      sub = by_id[doc['_id']]
+      defaults = sub.get('defaults', {})
+      uri = http.normalize_uri(sub['uri'])
+      doc.setdefault('title', uri[7:] if uri.startswith('http://') else uri)
+      for k, v in defaults.items():
+        doc.setdefault(k, v)
+      doc['type'] = 'feed'
+      doc['source_uri'] = uri
+      doc['subscribed_at'] = now
+
+    by_id = {}
     for sub in subs:
-      yield self.subscribe(sub['uri'], refresh=False, defaults=sub['defaults'])
+      feed_id = short_hash(sub['uri'])
+      by_id[feed_id] = sub
+
+    docs = yield self.db.modify_docs(by_id.keys(), modify)
+    for doc in docs:
+      self.update_feed(doc)
+
+    yield self.put_feeds_at_front_of_order(by_id.keys())
+
     self.refresh()
 
   @defer.inlineCallbacks
@@ -618,7 +644,7 @@ class Sources(Model):
     )
     feed = self.feed(doc)
 
-    yield self.put_feed_at_front_of_order(feed.id)
+    yield self.put_feeds_at_front_of_order([feed.id])
 
     if refresh: yield feed.refresh(force=True)
     if feed.error == 'redirect' and feed.link:
