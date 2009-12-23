@@ -29,7 +29,9 @@ class SourcesView(gtk.DrawingArea):
     self.sources.connect('source-added', self.source_added)
     self.sources.connect('source-removed', self.source_removed)
     self.items = {}
-    self.update()
+    self.order = []
+    for source in self.sources:
+      self.add_source(source)
 
   @property
   def selected_view(self):
@@ -46,15 +48,28 @@ class SourcesView(gtk.DrawingArea):
   def is_item_selected(self, item_id):
     return item_id == self.selected_id
 
+  def add_source(self, source):
+    if source.id not in self.items:
+      self.items[source.id] = SourceItem(self, source)
+      self.order.append(self.items[source.id])
+      self.order.sort(key=lambda x: x.label)
+      self.post_update()
+
+  def remove_source(self, source):
+    # TODO disconnect event handlers in SourceItem
+    if source.id in self.items:
+      item = self.items[source.id]
+      del self.items[source.id]
+      self.order.remove(item)
+      self.post_update()
+
   def source_added(self, sources, event, source):
-    self.update()
+    self.add_source(source)
 
   def source_removed(self, sources, event, source):
-    self.update()
+    self.remove_source(source)
 
-  def update(self):
-    self.update_heading_order()
-    self.update_heading_items()
+  def post_update(self):
     del self.layout
     self.set_size_request(-1, self.height_request)
     if self.selected_id not in self.items:
@@ -64,26 +79,6 @@ class SourcesView(gtk.DrawingArea):
   @property
   def height_request(self):
     return self.line_height * len(self.layout.items)
-
-  def update_heading_order(self):
-    names = set()
-    for x in self.sources:
-      names.add(x.category)
-    self.heading_order = sorted(names)
-
-  def update_heading_items(self):
-    old = self.items
-    self.items = {}
-    for source in self.sources:
-      if source.id in old:
-        self.items[source.id] = old[source.id]
-      else:
-        self.items[source.id] = SourceItem(self, source)
-
-    by_heading = {}
-    for x in self.sources:
-      by_heading.setdefault(x.category, []).append(self.items[x.id])
-    self.heading_items = by_heading
 
   def button_press(self, widget, event):
     line = int(event.y / self.line_height)
@@ -97,14 +92,12 @@ class SourcesView(gtk.DrawingArea):
     if not hasattr(self, '_layout'):
       items, rev = self._layout = Layout([], {})
 
-      for heading_name in self.heading_order:
-        heading_items = self.heading_items[heading_name]
-        items.append(HeadingItem(self, heading_name))
-        for item in heading_items:
-          if hasattr(item, 'id'):
-            rev[item.id] = len(items)
-          items.append(item)
-        #items.append(BlankItem())
+      items.append(HeadingItem(self, 'News'))
+      for item in self.order:
+        if hasattr(item, 'id'):
+          rev[item.id] = len(items)
+        items.append(item)
+      #items.append(BlankItem())
 
     return self._layout
 
