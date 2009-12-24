@@ -35,26 +35,26 @@ class PostsTreeModel(gtk.GenericTreeModel):
     self.order = []
     self.refs = {}
     self.sort_column_ids = []
-    self.direction = gtk.SORT_ASCENDING
+    self.sort_direction = gtk.SORT_ASCENDING
 
-  def insert_doc(self, doc):
-    id = doc._id
-    if id in self.docs: return
-    n = len(self.order)
-    self.order.append(id)
-    self.docs[id] = doc
-    self.refs[id] = n
-    self.row_inserted(n, self.get_iter(n))
-    doc.connect('changed', self.post_changed)
+  def _insert_docs(self, docs):
+    for doc in docs:
+      id = doc._id
+      if id in self.docs: return
+      n = len(self.order)
+      self.order.append(id)
+      self.docs[id] = doc
+      self.refs[id] = n
+      self.row_inserted(n, self.get_iter(n))
+      doc.connect('changed', self.post_changed)
     self._sort()
-    return n
 
   def post_changed(self, post, event_name, field_name=None):
     n = self.on_get_path(post._id)
     self.row_changed(n, self.get_iter(n))
 
-  def post_added(self, feed, event_name, post):
-    n = self.insert_doc(post)
+  def posts_added(self, feed, event_name, posts):
+    self._insert_docs(posts)
 
   def post_removed(self, *args):
     # Don't remove the post now -- it's jarring. When the tree-model gets
@@ -64,8 +64,7 @@ class PostsTreeModel(gtk.GenericTreeModel):
   @defer.inlineCallbacks
   def load(self):
     posts = yield self.feed.post_summaries()
-    for post in posts:
-      self.insert_doc(post)
+    self._insert_docs(posts)
 
   def column_title(self, doc):
     return self.strip.sub('', doc.title)

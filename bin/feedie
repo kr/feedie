@@ -639,7 +639,7 @@ class FeedieWindow(gtk.Window):
         for disconnecter in to_remove:
           disconnecter()
         to_remove[:] = []
-        to_remove.append(source.connect('post-added', raw_model.post_added))
+        to_remove.append(source.connect('posts-added', raw_model.posts_added))
         to_remove.append(source.connect('post-removed', raw_model.post_removed))
         d = raw_model.load()
         d.addCallback(show, source)

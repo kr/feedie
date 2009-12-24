@@ -112,18 +112,19 @@ class UnreadNewsSource(Model):
         if self.posts is not None:
           if not post.read:
             self.posts[post._id] = post
-            self.emit('post-added', post)
+            self.emit('posts-added', [post])
           else:
             if post._id in self.posts:
               del self.posts[post._id]
               self.emit('post-removed', post)
 
-    def post_added(feed, event_name, post):
-      post.connect('changed', post_changed)
-      if not post.read:
-        if self.posts is not None:
-          self.posts[post._id] = post
-          self.emit('post-added', post)
+    def posts_added(feed, event_name, posts):
+      for post in posts:
+        post.connect('changed', post_changed)
+        if not post.read:
+          if self.posts is not None:
+            self.posts[post._id] = post
+            self.emit('posts-added', [post])
 
     def post_removed(feed, event_name, post):
       if self.posts is not None:
@@ -133,7 +134,7 @@ class UnreadNewsSource(Model):
     def feed_added(sources, event, feed):
       feed.connect('summary-changed', summary_changed)
       feed.connect('changed', feed_changed)
-      feed.connect('post-added', post_added)
+      feed.connect('posts-added', posts_added)
       feed.connect('post-removed', post_removed)
       self.posts = None
       self.update_summary()
@@ -147,7 +148,7 @@ class UnreadNewsSource(Model):
     sources.connect('feed-removed', feed_removed)
     for feed in sources.subscribed_feeds:
       feed.connect('summary-changed', summary_changed)
-      feed.connect('post-added', post_added)
+      feed.connect('posts-added', posts_added)
       feed.connect('post-removed', post_removed)
     self.update_summary()
 
@@ -241,7 +242,7 @@ class StarredNewsSource(Model):
     def starred_post_was_added(post):
       if self.posts is not None:
         self.posts[post._id] = post
-        self.emit('post-added', post)
+        self.emit('posts-added', [post])
       self.update_summary()
 
     def post_changed(post, event_name, field_name=None):
@@ -253,10 +254,11 @@ class StarredNewsSource(Model):
 
       self.update_summary()
 
-    def post_added(feed, event_name, post):
-      post.connect('changed', post_changed)
-      if post.starred:
-        starred_post_was_added(post)
+    def posts_added(feed, event_name, posts):
+      for post in posts:
+        post.connect('changed', post_changed)
+        if post.starred:
+          starred_post_was_added(post)
 
     def post_removed(feed, event_name, post):
       if self.posts is not None:
@@ -267,7 +269,7 @@ class StarredNewsSource(Model):
 
     def feed_added(sources, event, feed):
       feed.connect('summary-changed', summary_changed)
-      feed.connect('post-added', post_added)
+      feed.connect('posts-added', posts_added)
       feed.connect('post-removed', post_removed)
       self.update_summary()
 
@@ -279,7 +281,7 @@ class StarredNewsSource(Model):
     sources.connect('feed-removed', feed_removed)
     for feed in sources.feeds.values():
       feed.connect('summary-changed', summary_changed)
-      feed.connect('post-added', post_added)
+      feed.connect('posts-added', posts_added)
       feed.connect('post-removed', post_removed)
     self.update_summary()
 
@@ -1051,18 +1053,33 @@ class Feed(Model):
     if field_name in ('read', 'starred'):
       self.update_summary()
 
+  # Retrieves the posts. If each one does not exist, creates it using
+  # the appropriate element in default_doc.
+  def upsert_posts(self, default_docs):
+    posts = []
+    new_posts = []
+    for default_doc in default_docs:
+      post_id = default_doc['_id']
+      if post_id not in self.posts:
+        post = self.posts[post_id] = Post(default_doc, self)
+        post.connect('changed', self.post_changed)
+        new_posts.append(post)
+      posts.append(self.posts[post_id])
+
+    if new_posts:
+      self.emit('posts-added', new_posts)
+
+    return posts
+
   # Retrieves the post. If it does not exist, creates one using default_doc.
   def post(self, default_doc):
-    post_id = default_doc['_id']
-    if post_id not in self.posts:
-      post = self.posts[post_id] = Post(default_doc, self)
-      post.connect('changed', self.post_changed)
-      self.emit('post-added', post)
-    return self.posts[post_id]
+    return self.upsert_posts([default_doc])[0]
 
-  def update_post(self, doc):
-    post = self.post(doc)
-    post.doc = doc
+  def _update_posts(self, docs):
+    posts = self.upsert_posts(docs)
+    for post, doc in zip(posts, docs):
+      post = self.post(doc)
+      post.doc = doc
 
   @defer.inlineCallbacks
   def save_iposts(self, iposts):
@@ -1095,8 +1112,7 @@ class Feed(Model):
 
     docs = yield self.db.modify_docs(by_id.keys(), modify)
 
-    for doc in docs:
-      self.update_post(doc)
+    self._update_posts(docs)
 
     yield self.update_summary()
 
