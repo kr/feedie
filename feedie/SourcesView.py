@@ -30,8 +30,7 @@ class SourcesView(gtk.DrawingArea):
     self.sources.connect('source-removed', self.source_removed)
     self.items = {}
     self.order = []
-    for source in self.sources:
-      self.add_source(source)
+    self.add_sources(self.sources)
 
   @property
   def selected_view(self):
@@ -48,12 +47,13 @@ class SourcesView(gtk.DrawingArea):
   def is_item_selected(self, item_id):
     return item_id == self.selected_id
 
-  def add_source(self, source):
-    if source.id not in self.items:
-      self.items[source.id] = SourceItem(self, source)
-      self.order.append(self.items[source.id])
-      self.order.sort(key=lambda x: x.source.sort_key)
-      self.post_update()
+  def add_sources(self, sources):
+    for source in sources:
+      if source.id not in self.items:
+        self.items[source.id] = SourceItem(self, source)
+        self.order.append(self.items[source.id])
+    self.order.sort(key=lambda x: x.source.sort_key)
+    self.post_update()
 
   def remove_source(self, source):
     # TODO disconnect event handlers in SourceItem
@@ -64,7 +64,7 @@ class SourcesView(gtk.DrawingArea):
       self.post_update()
 
   def source_added(self, sources, event, source):
-    self.add_source(source)
+    self.add_sources([source])
 
   def source_removed(self, sources, event, source):
     self.remove_source(source)
@@ -94,8 +94,7 @@ class SourcesView(gtk.DrawingArea):
 
       items.append(HeadingItem(self, 'News'))
       for item in self.order:
-        if hasattr(item, 'id'):
-          rev[item.id] = len(items)
+        rev[item.id] = len(items)
         items.append(item)
       #items.append(BlankItem())
 
