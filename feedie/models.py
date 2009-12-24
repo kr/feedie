@@ -119,12 +119,14 @@ class UnreadNewsSource(Model):
               self.emit('post-removed', post)
 
     def posts_added(feed, event_name, posts):
+      added_here = []
       for post in posts:
         post.connect('changed', post_changed)
         if not post.read:
           if self.posts is not None:
             self.posts[post._id] = post
-            self.emit('posts-added', [post])
+            added_here.append(post)
+      self.emit('posts-added', added_here)
 
     def post_removed(feed, event_name, post):
       if self.posts is not None:
@@ -181,16 +183,21 @@ class UnreadNewsSource(Model):
 
   @defer.inlineCallbacks
   def post_summaries(self):
-    def row_to_entry(row):
-      doc = row['value']
-      feed = self.get_feed(doc['feed_id'])
-      post = feed.post(doc)
-      return row['id'], post
+    def group(rows):
+      map = {}
+      for row in rows:
+        map.setdefault(row['value']['feed_id'], []).append(row['value'])
+      return map
 
     if self.posts is None:
       rows = yield self.db.view('feedie/unread_posts',
           keys=self.sources.feed_ids)
-      self.posts = dict(map(row_to_entry, rows))
+      by_feed = group(rows)
+      self.posts = {}
+      for feed_id, docs in by_feed.items():
+        feed = self.get_feed(feed_id)
+        posts = feed.upsert_posts(docs)
+        self.posts.update(dict([(post._id, post) for post in posts]))
     defer.returnValue(self.posts.values())
 
   def get_feed(self, feed_id):
