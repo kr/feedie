@@ -26,7 +26,7 @@ class SourcesView(gtk.DrawingArea):
     self.add_events(gtk.gdk.BUTTON_PRESS_MASK)
     self.selected_id = None
     self.sources = sources
-    self.sources.connect('source-added', self.source_added)
+    self.sources.connect('sources-added', self.sources_added)
     self.sources.connect('source-removed', self.source_removed)
     self.items = {}
     self.order = []
@@ -63,8 +63,8 @@ class SourcesView(gtk.DrawingArea):
       self.order.remove(item)
       self.post_update()
 
-  def source_added(self, sources, event, source):
-    self.add_sources([source])
+  def sources_added(self, manager, event, sources):
+    self.add_sources(sources)
 
   def source_removed(self, sources, event, source):
     self.remove_source(source)

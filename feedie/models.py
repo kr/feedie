@@ -383,9 +383,8 @@ class Sources(Model):
     summary_rows = yield Feed.load_summaries(self.db, [r['id'] for r in rows])
     summaries = dict(summary_rows)
 
-    for row in rows:
-      summary = summaries.get(row['id'], None)
-      self.feed(row['value'], summary=summary)
+    docs = [r['value'] for r in rows]
+    self.upsert_feeds(docs, summaries=summaries)
 
     self.housekeeping()
 
@@ -563,21 +562,38 @@ class Sources(Model):
     self.builtin_order.append(source.id)
     source.added_to(self)
     self.emit('builtin-added', source)
-    self.emit('source-added', source)
+    self.emit('sources-added', [source])
 
-  # Retrieves the feed. If it does not exist, creates one using default_doc.
-  def feed(self, default_doc, summary=None):
-    feed_id = default_doc['_id']
-    if feed_id not in self.feeds:
-      feed = self.feeds[feed_id] = Feed(self.db, default_doc, summary)
-      if feed.subscribed:
-        self.subscribed_feeds.append(feed)
-      feed.added_to(self)
-      self.emit('feed-added', feed)
-      self.emit('source-added', feed)
-      feed.connect('deleted', self.feed_deleted)
+  # Retrieves the feeds. If each one does not exist, creates it using an
+  # element of default_docs.
+  def upsert_feeds(self, default_docs, summaries={}):
+    def adapt(default_doc):
+      summary = summaries.get(doc['_id'], None)
+      feed_id = default_doc['_id']
+      if feed_id not in self.feeds:
+        feed = self.feeds[feed_id] = Feed(self.db, default_doc, summary)
+        if feed.subscribed:
+          self.subscribed_feeds.append(feed)
+        feed.added_to(self)
+        self.emit('feed-added', feed)
+        feed.connect('deleted', self.feed_deleted)
+        is_new = True
+      else:
+        is_new = False
 
-    return self.feeds[feed_id]
+      return self.feeds[feed_id], is_new
+
+    feeds = []
+    new_feeds = []
+    for doc in default_docs:
+      feed, is_new = adapt(doc)
+      feeds.append(feed)
+      if is_new:
+        new_feeds.append(feed)
+
+    self.emit('sources-added', new_feeds)
+
+    return feeds
 
   def get_feed(self, feed_id):
     return self.feeds[feed_id]
@@ -598,9 +614,10 @@ class Sources(Model):
   def __contains__(self, id):
     return id in self.builtins or id in self.feeds
 
-  def update_feed(self, doc):
-    feed = self.feed(doc)
-    feed.doc = doc
+  def update_feeds(self, docs):
+    feeds = self.upsert_feeds(docs)
+    for feed, doc in zip(feeds, docs):
+      feed.doc = doc
 
   @defer.inlineCallbacks
   def add_subscriptions(self, subs):
@@ -622,8 +639,7 @@ class Sources(Model):
       by_id[feed_id] = sub
 
     docs = yield self.db.modify_docs(by_id.keys(), modify)
-    for doc in docs:
-      self.update_feed(doc)
+    self.update_feeds(docs)
 
     yield self.put_feeds_at_front_of_order(by_id.keys())
 
@@ -645,7 +661,7 @@ class Sources(Model):
       source_uri = uri,
       subscribed_at = now,
     )
-    feed = self.feed(doc)
+    feed = self.upsert_feeds([doc])[0]
 
     yield self.put_feeds_at_front_of_order([feed.id])
 
