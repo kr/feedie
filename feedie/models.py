@@ -70,6 +70,7 @@ class SignalRegistry(object):
   def register(self, name, handler):
     def unregister():
       del self[name][id]
+    assert callable(handler)
     id = object()
     self[name][id] = handler
     return unregister
@@ -83,7 +84,6 @@ class Model(object):
       self.registry = SignalRegistry()
 
   def connect(self, name, handler):
-    assert callable(handler)
     self.__model_init()
     return self.registry.register(name, handler)
 

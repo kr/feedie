@@ -28,8 +28,8 @@
                     <child>
                       <object class="GtkImageMenuItem" id="new-subscription-menuitem">
                         <property name="visible">True</property>
-                        <property name="use_action_appearance">True</property>
                         <property name="related_action">action-show-subscribe</property>
+                        <property name="use_action_appearance">True</property>
                         <property name="use_underline">True</property>
                         <property name="image">image1</property>
                         <property name="use_stock">True</property>
@@ -39,8 +39,8 @@
                     <child>
                       <object class="GtkImageMenuItem" id="imagemenuitem2">
                         <property name="visible">True</property>
-                        <property name="use_action_appearance">True</property>
                         <property name="related_action">action-remove-feed</property>
+                        <property name="use_action_appearance">True</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                       </object>
@@ -53,8 +53,8 @@
                     <child>
                       <object class="GtkImageMenuItem" id="import-menuitem">
                         <property name="visible">True</property>
-                        <property name="use_action_appearance">True</property>
                         <property name="related_action">action-import-subscriptions</property>
+                        <property name="use_action_appearance">True</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                       </object>
@@ -90,8 +90,8 @@
                     <child>
                       <object class="GtkImageMenuItem" id="mark-as-read">
                         <property name="visible">True</property>
-                        <property name="use_action_appearance">True</property>
                         <property name="related_action">action-mark-as-read</property>
+                        <property name="use_action_appearance">True</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                         <accelerator key="k" signal="activate" modifiers="GDK_CONTROL_MASK"/>
@@ -100,8 +100,8 @@
                     <child>
                       <object class="GtkImageMenuItem" id="mark-as-unread">
                         <property name="visible">True</property>
-                        <property name="use_action_appearance">True</property>
                         <property name="related_action">action-mark-as-unread</property>
+                        <property name="use_action_appearance">True</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                         <accelerator key="k" signal="activate" modifiers="GDK_SHIFT_MASK | GDK_CONTROL_MASK"/>
@@ -136,8 +136,8 @@
                     <child>
                       <object class="GtkImageMenuItem" id="next-unread-menuitem">
                         <property name="visible">True</property>
-                        <property name="use_action_appearance">True</property>
                         <property name="related_action">action-next-unread</property>
+                        <property name="use_action_appearance">True</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                         <accelerator key="n" signal="activate"/>
@@ -180,8 +180,8 @@
             <child>
               <object class="GtkToolButton" id="toolbutton1">
                 <property name="visible">True</property>
-                <property name="use_action_appearance">True</property>
                 <property name="related_action">action-show-subscribe</property>
+                <property name="use_action_appearance">True</property>
                 <property name="use_underline">True</property>
               </object>
               <packing>
@@ -192,8 +192,8 @@
             <child>
               <object class="GtkToolButton" id="toolbutton2">
                 <property name="visible">True</property>
-                <property name="use_action_appearance">True</property>
                 <property name="related_action">action-refresh</property>
+                <property name="use_action_appearance">True</property>
                 <property name="use_underline">True</property>
               </object>
               <packing>
@@ -218,7 +218,6 @@
                 <child>
                   <object class="GtkLabel" id="search-label">
                     <property name="visible">True</property>
-                    <property name="sensitive">False</property>
                     <property name="xpad">2</property>
                     <property name="label" translatable="yes">_Search:</property>
                     <property name="use_underline">True</property>
@@ -236,10 +235,9 @@
                 <child>
                   <object class="GtkEntry" id="search-entry">
                     <property name="visible">True</property>
-                    <property name="sensitive">False</property>
                     <property name="can_focus">True</property>
                     <property name="invisible_char">&#x2022;</property>
-                    <property name="text" translatable="yes">Coming Soon...</property>
+                    <signal name="changed" handler="search_changed"/>
                   </object>
                 </child>
               </object>
@@ -293,8 +291,8 @@
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="receives_default">True</property>
-                        <property name="use_action_appearance">True</property>
                         <property name="related_action">action-subscribe</property>
+                        <property name="use_action_appearance">True</property>
                       </object>
                       <packing>
                         <property name="expand">False</property>
@@ -307,8 +305,8 @@
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="receives_default">True</property>
-                        <property name="use_action_appearance">True</property>
                         <property name="related_action">action-cancel-subscribe</property>
+                        <property name="use_action_appearance">True</property>
                         <property name="use_stock">True</property>
                       </object>
                       <packing>
