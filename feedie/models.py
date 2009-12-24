@@ -1255,13 +1255,21 @@ class Post(Model):
   def __contains__(self, name):
     return name in self.doc
 
-  def __getattr__(self, name):
-    if name == '_doc': raise AttributeError(name)
-    return getattr(self.doc, name)
-
   @property
   def doc(self):
     return self._doc
+
+  @property
+  def _id(self):
+    return self.doc['_id']
+
+  @property
+  def title(self):
+    return self.doc['title']
+
+  @property
+  def updated_at(self):
+    return self.doc['updated_at']
 
   @doc.setter
   def doc(self, new):
