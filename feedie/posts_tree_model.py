@@ -44,8 +44,9 @@ class PostsTreeModel(gtk.GenericTreeModel):
     self.order.append(id)
     self.docs[id] = doc
     self.refs[id] = n
-    #self.row_inserted(n, self.get_iter(n))
+    self.row_inserted(n, self.get_iter(n))
     doc.connect('changed', self.post_changed)
+    self._sort()
     return n
 
   def post_changed(self, post, event_name, field_name=None):
@@ -168,13 +169,14 @@ class PostsTreeModel(gtk.GenericTreeModel):
       if col_id in self.sort_column_ids:
         self.sort_column_ids.remove(col_id)
     self.sort_column_ids[:0] = column_ids
-    self._sort_by(self._column_sort_key, direction=direction)
-    self.emit('sorted')
-
-  def _sort_by(self, key_func, direction=gtk.SORT_ASCENDING):
     self.sort_direction = direction
+    self._sort()
+    self.emit('sorted') # only emit this when we actually change the sort
+
+  def _sort(self):
     perm = [(i, self.docs[id]) for i, id in enumerate(self.order)]
-    perm.sort(key=key_func, reverse=(direction == gtk.SORT_DESCENDING))
+    perm.sort(key=self._column_sort_key,
+              reverse=(self.sort_direction == gtk.SORT_DESCENDING))
     self._reorder([r[0] for r in perm])
 
   def _reorder(self, new_order):
