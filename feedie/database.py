@@ -4,7 +4,10 @@ import cgi
 import httplib2
 from twisted.internet import defer
 import urllib
-import json
+try:
+  import simplejson as json
+except ImportError:
+  import json
 import couchdb
 
 from feedie import http
