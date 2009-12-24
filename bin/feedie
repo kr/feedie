@@ -399,6 +399,7 @@ class FeedieWindow(gtk.Window):
             weight=PostsTreeModel.colnum('weight'))
         title_column = treeview.get_column(2)
         set_sort_column_id(title_column, PostsTreeModel.colnum('title'))
+        treeview.get_column(2).set_sizing(gtk.TREE_VIEW_COLUMN_FIXED)
         treeview.get_column(2).set_expand(True)
         treeview_title_heading = gtk.Label('Title')
         treeview_title_heading.show()
