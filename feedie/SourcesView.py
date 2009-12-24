@@ -31,6 +31,7 @@ class SourcesView(gtk.DrawingArea):
     self.items = {}
     self.order = []
     self.add_sources(self.sources)
+    self.connect('style-set', self.style_set_cb)
 
   @property
   def selected_view(self):
@@ -71,10 +72,16 @@ class SourcesView(gtk.DrawingArea):
 
   def post_update(self):
     del self.layout
-    self.set_size_request(-1, self.height_request)
+    self.update_size_request()
     if self.selected_id not in self.items:
       self.select(None)
     self.queue_draw()
+
+  def style_set_cb(self, *args):
+    self.update_size_request()
+
+  def update_size_request(self):
+    self.set_size_request(-1, self.height_request)
 
   @property
   def height_request(self):
