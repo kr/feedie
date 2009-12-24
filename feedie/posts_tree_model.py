@@ -5,8 +5,11 @@ import gobject
 from twisted.internet import reactor, defer
 
 from feedie import images
+from feedie import util
 
 class PostsTreeModel(gtk.GenericTreeModel):
+  __gsignals__ = dict(sorted=(gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()))
+
   strip = re.compile('<[^>]*?>')
 
   columns = (
@@ -31,6 +34,8 @@ class PostsTreeModel(gtk.GenericTreeModel):
     self.docs = {}
     self.order = []
     self.refs = {}
+    self.sort_column_ids = []
+    self.direction = gtk.SORT_ASCENDING
 
   def insert_doc(self, doc):
     id = doc._id
@@ -39,15 +44,16 @@ class PostsTreeModel(gtk.GenericTreeModel):
     self.order.append(id)
     self.docs[id] = doc
     self.refs[id] = n
-    self.row_inserted(n, self.get_iter(n))
+    #self.row_inserted(n, self.get_iter(n))
     doc.connect('changed', self.post_changed)
+    return n
 
   def post_changed(self, post, event_name, field_name=None):
     n = self.on_get_path(post._id)
     self.row_changed(n, self.get_iter(n))
 
   def post_added(self, feed, event_name, post):
-    self.insert_doc(post)
+    n = self.insert_doc(post)
 
   def post_removed(self, *args):
     # Don't remove the post now -- it's jarring. When the tree-model gets
@@ -115,11 +121,13 @@ class PostsTreeModel(gtk.GenericTreeModel):
   def on_get_path(self, rowref):
     return self.refs[rowref]
 
+  def doc_value(self, doc, column):
+    colname, type = self.columns[column]
+    return getattr(self, 'column_' + colname)(doc)
+
   def on_get_value(self, rowref, column):
     doc = self.docs[rowref]
-    colname, type = self.columns[column]
-
-    return getattr(self, 'column_' + colname)(doc)
+    return self.doc_value(doc, column)
 
   def on_iter_next(self, rowref):
     try:
@@ -129,6 +137,7 @@ class PostsTreeModel(gtk.GenericTreeModel):
 
   def on_iter_children(self, parent):
     if parent: return None
+    if not self.order: return None
     return self.order[0]
 
   def on_iter_has_child(self, rowref):
@@ -148,3 +157,33 @@ class PostsTreeModel(gtk.GenericTreeModel):
   def on_iter_parent(self, child):
     return None
 
+  def _column_sort_key(self, x):
+    i, doc = x
+    return [self.doc_value(doc, n) for n in self.sort_column_ids]
+
+  def sort(self, column_ids, direction=gtk.SORT_ASCENDING):
+    column_ids = util.flatten([column_ids])
+    assert(column_ids)
+    for col_id in column_ids:
+      if col_id in self.sort_column_ids:
+        self.sort_column_ids.remove(col_id)
+    self.sort_column_ids[:0] = column_ids
+    self._sort_by(self._column_sort_key, direction=direction)
+    self.emit('sorted')
+
+  def _sort_by(self, key_func, direction=gtk.SORT_ASCENDING):
+    self.sort_direction = direction
+    perm = [(i, self.docs[id]) for i, id in enumerate(self.order)]
+    perm.sort(key=key_func, reverse=(direction == gtk.SORT_DESCENDING))
+    self._reorder([r[0] for r in perm])
+
+  def _reorder(self, new_order):
+    self.order = [self.order[new_order[i]] for i in range(len(self.order))]
+    for i, id in enumerate(self.order):
+      self.refs[id] = i
+
+    self.rows_reordered(None, None, new_order)
+
+  def get_sort_info(self):
+    if not self.sort_column_ids: return None, None
+    return self.sort_column_ids[0], self.sort_direction

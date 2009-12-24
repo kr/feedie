@@ -65,7 +65,7 @@ gconf_client = gconf.client_get_default()
 feed_id_colnum = PostsTreeModel.colnum('feed_id')
 post_id_colnum = PostsTreeModel.colnum('post_id')
 read_column = PostsTreeModel.colnum('read')
-title_column = PostsTreeModel.colnum('title')
+title_colnum = PostsTreeModel.colnum('title')
 
 def mark_selected_posts_as_read(treeviewsel):
   model, paths = treeviewsel.get_selected_rows()
@@ -331,6 +331,35 @@ class FeedieWindow(gtk.Window):
         treeview.connect('focus-in-event', treeview_focus)
         treeview.connect('focus-out-event', treeview_focus)
 
+        def set_sort_column_id(tvcol, sort_column_id):
+          def was_sorted(model):
+            colnum, order = model.get_sort_info()
+            tvcol.set_property('sort-indicator', colnum == sort_column_id)
+            tvcol.set_property('sort-order', order)
+
+          def set_up_model(tv, data=None):
+            model = tv.get_model()
+            if not model: return
+            model.connect('sorted', was_sorted)
+            was_sorted(model)
+
+          def choose_order(colnum, order):
+            if colnum != sort_column_id or order == gtk.SORT_DESCENDING:
+              return gtk.SORT_ASCENDING
+            return gtk.SORT_DESCENDING
+
+          def clicked(tvcol, *args):
+            model = tv.get_model()
+            if not model: return
+            order = choose_order(*model.get_sort_info())
+            model.sort(sort_column_id, order)
+
+          tvcol.set_clickable(True)
+          tvcol.connect('clicked', clicked)
+          tv = tvcol.get_tree_view()
+          tv.connect('notify::model', set_up_model)
+          set_up_model(tv)
+
         treeview.insert_column_with_attributes(0, 'Starred',
             gtk.CellRendererPixbuf(),
             pixbuf=PostsTreeModel.colnum('star'))
@@ -363,7 +392,8 @@ class FeedieWindow(gtk.Window):
             title_cell_renderer,
             text=PostsTreeModel.colnum('title'),
             weight=PostsTreeModel.colnum('weight'))
-        treeview.get_column(2).set_sort_column_id(PostsTreeModel.colnum('title'))
+        title_column = treeview.get_column(2)
+        set_sort_column_id(title_column, PostsTreeModel.colnum('title'))
         treeview.get_column(2).set_expand(True)
         treeview_title_heading = gtk.Label('Title')
         treeview_title_heading.show()
@@ -375,7 +405,8 @@ class FeedieWindow(gtk.Window):
         treeview.insert_column_with_attributes(3, 'Date',
             updated_cell_renderer,
             text=PostsTreeModel.colnum('pretty_date'))
-        treeview.get_column(3).set_sort_column_id(PostsTreeModel.colnum('age'))
+        date_column = treeview.get_column(3)
+        set_sort_column_id(date_column, PostsTreeModel.colnum('age'))
         treeview.get_column(3).set_sizing(gtk.TREE_VIEW_COLUMN_FIXED)
         treeview.get_column(3).set_fixed_width(100)
         treeview.get_column(3).set_min_width(100)
@@ -565,12 +596,10 @@ class FeedieWindow(gtk.Window):
             title = u'%s \u2013 %d posts' % (source.title, len(model))
             treeview.get_column(2).get_widget().set_text(title)
 
+          raw_model.sort(PostsTreeModel.colnum('age'), gtk.SORT_ASCENDING)
           search_entry = self.builder.get_object('search-entry')
           filtered_model = raw_model
-          model = gtk.TreeModelSort(filtered_model)
-          model.set_sort_column_id(PostsTreeModel.colnum('age'),
-              gtk.SORT_ASCENDING)
-          model.set_default_sort_func(None)
+          model = filtered_model
 
           treeview = self.builder.get_object('posts-treeview')
           treeview.set_model(model)

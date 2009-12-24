@@ -13,6 +13,20 @@ def merge(a, b):
   a.update(b)
   return a
 
+def flatten(x):
+  x = list(x)
+  i = 0
+  while i < len(x):
+    while isinstance(x[i], (list, tuple)):
+      if not x[i]:
+        x.pop(i)
+        i -= 1
+        break
+      else:
+        x[i:i + 1] = x[i]
+    i += 1
+  return x
+
 def mix_one(f, a, b):
   ap = (1 - f) * 1000
   bp = f * 1000
