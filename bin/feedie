@@ -141,10 +141,10 @@ class FeedieWindow(gtk.Window):
         self.connect('configure-event', configure_event)
 
         sources = models.Sources(self.db)
+        yield sources.load()
         self.unreadnews = models.UnreadNewsSource(self.db)
         sources.add_builtin(self.unreadnews)
         starrednews = models.StarredNewsSource(self.db)
-        yield sources.load()
         sources.add_builtin(starrednews)
         self.sources_view = SourcesView(sources)
         self.sources_view.show()

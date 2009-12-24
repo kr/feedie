@@ -238,17 +238,16 @@ class StarredNewsSource(Model):
     def summary_changed(source, event):
       self.update_summary()
 
-    def post_was_added(post):
+    def starred_post_was_added(post):
       if self.posts is not None:
-        if post.starred:
-          self.posts[post._id] = post
-          self.emit('post-added', post)
+        self.posts[post._id] = post
+        self.emit('post-added', post)
       self.update_summary()
 
     def post_changed(post, event_name, field_name=None):
       if field_name == 'starred':
         if post.starred:
-          post_was_added(post)
+          starred_post_was_added(post)
         else:
           post_removed(None, None, post)
 
@@ -256,7 +255,8 @@ class StarredNewsSource(Model):
 
     def post_added(feed, event_name, post):
       post.connect('changed', post_changed)
-      post_was_added(post)
+      if post.starred:
+        starred_post_was_added(post)
 
     def post_removed(feed, event_name, post):
       if self.posts is not None:
@@ -360,7 +360,7 @@ class Sources(Model):
     self.db = db
     self.builtins = {}
     self.feeds = {}
-    self._subscribed_feeds = None
+    self.subscribed_feeds = []
     self.doc = dict(_id=self._id)
     self.builtin_order = []
     self.needs_refresh = []
@@ -571,7 +571,7 @@ class Sources(Model):
     if feed_id not in self.feeds:
       feed = self.feeds[feed_id] = Feed(self.db, default_doc, summary)
       if feed.subscribed:
-        self._subscribed_feeds.append(feed)
+        self.subscribed_feeds.append(feed)
       feed.added_to(self)
       self.emit('feed-added', feed)
       self.emit('source-added', feed)
@@ -584,12 +584,6 @@ class Sources(Model):
 
   def can_remove(self, source):
     return source.id in self.feeds
-
-  @property
-  def subscribed_feeds(self):
-    if self._subscribed_feeds is None:
-      self._subscribed_feeds = [x for x in self.feeds.values() if x.subscribed]
-    return self._subscribed_feeds
 
   def __iter__(self):
     return iter([self[id] for id in self.order if id in self])
