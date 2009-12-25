@@ -1268,6 +1268,22 @@ class Post(Model):
     return self.doc['title']
 
   @property
+  def link(self):
+    return self.doc['link']
+
+  @property
+  def feed_id(self):
+    return self.doc['feed_id']
+
+  @property
+  def content(self):
+    return self.doc['content']
+
+  @property
+  def summary_detail(self):
+    return self.doc['summary_detail']
+
+  @property
   def updated_at(self):
     return self.doc['updated_at']
 
