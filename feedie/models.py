@@ -436,8 +436,7 @@ class Sources(Model):
         doc.clear()
         return
 
-      # TODO replace this with the true read_at time
-      read_at = doc.get('read_updated_at', now)
+      read_at = doc.get('read_at', now)
 
       if doc.get('feed_deleted', False):
         doc['_deleted'] = True
@@ -693,14 +692,18 @@ class Sources(Model):
 
   @defer.inlineCallbacks
   def mark_posts_as(self, posts, read):
+    now = int(time.time())
     if read:
       def modify(doc):
         when = doc.get('updated_at', 0)
         doc['read_updated_at'] = when
+        doc['read_at'] = now
     else:
       def modify(doc):
         if 'read_updated_at' in doc:
           del doc['read_updated_at']
+        if 'read_at' in doc:
+          del doc['read_at']
 
     ids = [post._id for post in posts]
     docs = [post.doc.copy() for post in posts]
