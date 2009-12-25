@@ -1076,7 +1076,19 @@ class Feed(Model):
     return self.doc.get('error', None)
 
   def post_changed(self, post, event_name, field_name=None):
-    if field_name in ('read', 'starred'):
+    if field_name == 'read':
+      new_read = post.read
+      old_read = not new_read
+      if new_read:
+        self.summary['read'] += 1
+        if post.starred:
+          self.summary['starred_read'] += 1
+      else:
+        self.summary['read'] -= 1
+        if post.starred:
+          self.summary['starred_read'] -= 1
+      self.emit('summary-changed')
+    elif field_name == 'starred':
       self.update_summary()
 
   # Retrieves the posts. If each one does not exist, creates it using

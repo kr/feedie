@@ -13,7 +13,7 @@ import couchdb
 from feedie import http
 from feedie import util
 
-debug = False
+debug = True
 
 JSON_PARAMS = 'key startkey endkey'.split()
 
