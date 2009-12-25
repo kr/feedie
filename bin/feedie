@@ -678,6 +678,11 @@ class FeedieWindow(gtk.Window):
         """on_destroy - called when the FeedieWindow is close. """
         #clean up code for saving application state should be added here
 
+        # For some reason a treeview with many rows takes a long time to
+        # destroy, but removing its model is fast. So this lets us quit much
+        # quicker.
+        self.treeview.set_model(None)
+
         #gtk.main_quit()
         reactor.stop()
 
