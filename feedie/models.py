@@ -691,6 +691,25 @@ class Sources(Model):
     d = self.remove_from_feed_order(feed.id)
     d.addCallback(success)
 
+  @defer.inlineCallbacks
+  def mark_posts_as(self, posts, read):
+    if read:
+      def modify(doc):
+        when = doc.get('updated_at', 0)
+        doc['read_updated_at'] = when
+    else:
+      def modify(doc):
+        if 'read_updated_at' in doc:
+          del doc['read_updated_at']
+
+    ids = [post._id for post in posts]
+    docs = [post.doc.copy() for post in posts]
+    docs = yield self.db.modify_docs(ids, modify, docs=docs)
+
+    # update each post with current doc from the db
+    for post, doc in zip(posts, docs):
+      post.doc = doc
+
 count_load_summaries = 0
 
 class Feed(Model):
@@ -1297,6 +1316,10 @@ class Post(Model):
     if old != new:
       self._doc = attrdict(new)
       self.emit('changed', None)
+      old_read = old.get('read_updated_at', 0) >= old.get('updated_at', 0)
+      new_read = new.get('read_updated_at', 0) >= new.get('updated_at', 0)
+      if old_read != new_read:
+        self.emit('changed', 'read')
 
   def base(self):
     post_domain = urlparse.urlsplit(self.link).netloc
@@ -1331,39 +1354,8 @@ class Post(Model):
   def modify(self, modify):
     self.doc = yield self.feed.db.modify_doc(self._id, modify, doc=self.doc)
 
-  @defer.inlineCallbacks
-  def set_read_updated_at(self, when=None):
-    def modify(doc):
-      doc['read_updated_at'] = when
-
-    if when is None:
-      when = self.updated_at
-    was_read = self.read
-    yield self.modify(modify)
-    now_read = self.read
-
-    if was_read != now_read:
-      self.emit('changed', 'read')
-
-  @defer.inlineCallbacks
-  def unset_read_updated_at(self, when=None):
-    def modify(doc):
-      if 'read_updated_at' in doc:
-        del doc['read_updated_at']
-
-    if when is None:
-      when = self.updated_at
-    was_read = self.read
-    yield self.modify(modify)
-    now_read = self.read
-
-    if was_read != now_read:
-      self.emit('changed', 'read')
-
-  def toggle_read_updated_at(self, when=None):
-    if self.read:
-      return self.unset_read_updated_at()
-    return self.set_read_updated_at()
+  def toggle_read_updated_at(self, sources):
+    return sources.mark_posts_as([self], read=not self.read)
 
   @property
   def read_updated_at(self):

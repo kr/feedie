@@ -67,27 +67,22 @@ post_id_colnum = PostsTreeModel.colnum('post_id')
 read_column = PostsTreeModel.colnum('read')
 title_colnum = PostsTreeModel.colnum('title')
 
+def get_post(model, path):
+  iter = model.get_iter(path)
+  feed_id = model.get_value(iter, feed_id_colnum)
+  post_id = model.get_value(iter, post_id_colnum)
+  feed = sources.get_feed(feed_id)
+  return feed.posts.get(post_id, None)
+
 def mark_selected_posts_as_read(treeviewsel):
   model, paths = treeviewsel.get_selected_rows()
-  for path in paths:
-    iter = model.get_iter(path)
-    feed_id = model.get_value(iter, feed_id_colnum)
-    post_id = model.get_value(iter, post_id_colnum)
-    feed = sources.get_feed(feed_id)
-    post = feed.posts.get(post_id, None)
-    if post:
-      post.set_read_updated_at()
+  posts = [get_post(model, path) for path in paths]
+  sources.mark_posts_as(posts, read=True)
 
 def mark_selected_posts_as_unread(treeviewsel):
   model, paths = treeviewsel.get_selected_rows()
-  for path in paths:
-    iter = model.get_iter(path)
-    feed_id = model.get_value(iter, feed_id_colnum)
-    post_id = model.get_value(iter, post_id_colnum)
-    feed = sources.get_feed(feed_id)
-    post = feed.posts.get(post_id, None)
-    if post:
-      post.unset_read_updated_at()
+  posts = [get_post(model, path) for path in paths]
+  sources.mark_posts_as(posts, read=False)
 
 class FeedieWindow(gtk.Window):
     __gtype_name__ = "FeedieWindow"
@@ -311,7 +306,7 @@ class FeedieWindow(gtk.Window):
               feed = sources.get_feed(feed_id)
               post = feed.posts.get(post_id, None)
               if post:
-                post.toggle_read_updated_at()
+                post.toggle_read_updated_at(sources)
               return True
             if col == star_column:
               model = tv.get_model()
