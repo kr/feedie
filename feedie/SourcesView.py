@@ -61,7 +61,7 @@ class SourcesView(gtk.DrawingArea):
     if source.id in self.items:
       item = self.items[source.id]
       del self.items[source.id]
-      self.order.remove(item)
+      if item in self.order: self.order.remove(item)
       self.post_update()
 
   def sources_added(self, manager, event, sources):

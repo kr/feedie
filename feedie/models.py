@@ -765,7 +765,8 @@ class Feed(Model):
 
     def on_complete(x):
       try:
-        self.transfers.remove(transfer)
+        if transfer in self.transfers:
+          self.transfers.remove(transfer)
         self.emit('summary-changed')
       except:
         pass
@@ -788,7 +789,8 @@ class Feed(Model):
 
     @d.addErrback
     def d(reason):
-      self.transfers.remove(transfer)
+      if transfer in self.transfers:
+        self.transfers.remove(transfer)
       raise reason
 
     defer.returnValue((yield d))

@@ -276,7 +276,7 @@ class Pool(object):
 
     @d.addCallback
     def d(conn):
-      self.making.remove(d)
+      if d in self.making: self.making.remove(d)
       close_notify = conn.close_notify
 
       @close_notify.addErrback
