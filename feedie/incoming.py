@@ -1,5 +1,4 @@
 import calendar
-import feedparser
 
 class Feed:
   def __init__(self, parsed):

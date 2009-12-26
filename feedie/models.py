@@ -42,6 +42,9 @@ class BodyHeadersHack(object):
   def read(self):
     return self.body
 
+def parse_feed(body, uri):
+  return feedparser.parse(BodyHeadersHack(body, uri))
+
 preferred=('text/html', 'application/xhtml+xml', 'text/plain')
 
 def preference_score(item):
@@ -925,7 +928,7 @@ class Feed(Model):
         defer.returnValue(self)
 
       uri = self.doc['source_uri']
-      parsed = feedparser.parse(BodyHeadersHack(response.body, uri))
+      parsed = parse_feed(response.body, uri)
 
       if not parsed.version: # not a feed
         if 'links' not in parsed.feed:
@@ -990,7 +993,7 @@ class Feed(Model):
 
         # Woo, let's abuse the feed parser to parse html!!!
         try:
-          parsed = feedparser.parse(BodyHeadersHack(response.body, self.link))
+          parsed = parse_feed(response.body, self.link)
         except Exception, ex:
           parsed = None
 
