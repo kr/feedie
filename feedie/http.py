@@ -129,17 +129,16 @@ def normalize_uri(uri):
   return 'http://' + uri
 
 class Client(object):
+  max_connections = 50
+  max_connections_per_domain = 6
+
   '''
     This interface is based somewhat on httplib2.
   '''
 
-  def __init__(self,
-      max_connections=50,
-      max_connections_per_domain=6):
+  def __init__(self):
     self._pools = {}
     self._pending = []
-    self.max_connections = max_connections
-    self.max_connections_per_domain = max_connections_per_domain
 
   def request(self, uri, method='GET', body=None, headers=None):
     promise = util.EventEmitter()
