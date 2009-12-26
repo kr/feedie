@@ -1210,7 +1210,7 @@ class Feed(Model):
 
   @property
   def icon(self):
-    if 'error' in self.doc:
+    if 'error' in self.doc and self.doc['error'] != 'redirect':
       return 'gtk-dialog-error'
     return 'gtk-file'
 

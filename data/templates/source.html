@@ -1,4 +1,6 @@
 #from cgi import escape as h
+#from json import dumps as j
+#from pprint import pformat as p
 <!doctype html>
 
 <html>
@@ -8,7 +10,7 @@ body {
     line-height: 18px;
     margin: 18px 30px;
     max-width: 550px;
-    opacity: 0.5;
+    opacity: 0.6;
 }
 </style>
 </head>
@@ -17,13 +19,28 @@ body {
 
 <h1>$source.title</h1>
 
-#if $source.error == "notafeed"
-  <p>Feedie could not find a news feed at
-  <a href="$h($source.source_uri)">$h($source.source_uri)</a>.
-#else if $source.error
-  <p>Error: $source.error</p>
-#else
-  <p>Showing $source.unread unread posts.</p>
+<p>Showing $source.unread unread posts.</p>
+
+#if $source.error
+  <div id=error>
+  #if $source.error == "notafeed"
+    <p>Feedie could not find a news feed at
+    <a href="$h($source.source_uri)">$h($source.source_uri)</a>.</p>
+  #else if $source.error == "redirect"
+    <p>This feed has been moved to a new address:
+    $h($source.link).</p>
+
+    <p>Feedie has added a subscription for the new address. The old subscription
+    will be removed automatically when it contains no more posts.</p>
+  #else
+    <p>Feedie has encountered an error for which I haven't written a
+    description. I sincerely apologize.</p>
+
+    <p>Error: $source.error</p>
+
+    <pre><code>$h($p($source.doc))</code></pre>
+  #end if
+  </div>
 #end if
 
 </body>

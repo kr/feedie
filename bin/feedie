@@ -616,7 +616,7 @@ class FeedieWindow(gtk.Window):
         self.web.load_html_string('', 'file:///')
         return
 
-      if not source.error:
+      if (not source.error) or source.summary['total']:
         def show(x, source):
           def search(model, iter, data=None):
             title = model.get_value(iter, PostsTreeModel.colnum('title')).lower()
