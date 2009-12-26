@@ -879,9 +879,9 @@ class Feed(Model):
       extra.setdefault('user_title', self.doc['user_title'])
     sub = dict(uri=link, defaults=extra)
     other = (yield self.sources.add_subscriptions([sub]))[0]
-    other = yield other.refresh()
     if self.summary['total'] == 0:
       self.delete()
+    other = yield other.refresh()
     defer.returnValue(other)
 
   @defer.inlineCallbacks
