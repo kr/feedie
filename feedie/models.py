@@ -882,6 +882,7 @@ class Feed(Model):
 
   @defer.inlineCallbacks
   def redirect(self, link, **extra):
+    link = urlparse.urljoin(self.doc['source_uri'], link)
     yield self.save_error('redirect', link=link, **extra)
 
     if 'user_title' in self.doc:
