@@ -15,6 +15,8 @@ class InvalidStateError(Exception):
   pass
 
 class Protocol(http.HTTPClient):
+  status = None
+
   def __init__(self, host, port):
     self.state = 'new'
     self.host = host
