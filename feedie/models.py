@@ -866,6 +866,8 @@ class Feed(Model):
   def redirect(self, link, **extra):
     yield self.save_error('redirect', link=link, **extra)
 
+    if 'user_title' in self.doc:
+      extra.setdefault('user_title', self.doc['user_title'])
     sub = dict(uri=link, defaults=extra)
     other = (yield self.sources.add_subscriptions([sub]))[0]
     other = yield other.refresh()
