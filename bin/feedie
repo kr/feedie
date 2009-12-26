@@ -65,6 +65,10 @@ DB_HTTP = http.Client()
 DB_HTTP.max_connections = 2
 DB_HTTP.max_connections_per_domain = 2
 
+ICON_HTTP = http.Client()
+ICON_HTTP.max_connections = 50
+ICON_HTTP.max_connections_per_domain = 6
+
 post_template = Template(file=getdatapath() + '/templates/post.html')
 source_template = Template(file=getdatapath() + '/templates/source.html')
 
@@ -143,7 +147,7 @@ class FeedieWindow(gtk.Window):
 
         self.connect('configure-event', configure_event)
 
-        sources = models.Sources(self.db, MAIN_HTTP)
+        sources = models.Sources(self.db, MAIN_HTTP, ICON_HTTP)
         yield sources.load()
         self.unreadnews = models.UnreadNewsSource(self.db)
         sources.add_builtin(self.unreadnews)

@@ -381,9 +381,10 @@ class StarredNewsSource(Model):
     return self.summary['read']
 
 class Sources(Model):
-  def __init__(self, db, http_client):
+  def __init__(self, db, http_client, icon_http_client):
     self.db = db
     self.http_client = http_client
+    self.icon_http_client = icon_http_client
     self.builtins = {}
     self.feeds = {}
     self.subscribed_feeds = []
@@ -680,7 +681,6 @@ class Feed(Model):
   def __init__(self, sources, doc, summary=None):
     self.sources = sources
     self.db = sources.db
-    self.http_client = sources.http_client
     self.doc = doc
     self.posts = {}
     self.summary = summary or dict(total=0, read=0, starred_total=0, starred_read=0)
@@ -740,7 +740,7 @@ class Feed(Model):
     return 100 * progress / total
 
   @defer.inlineCallbacks
-  def fetch(self, uri, http=None):
+  def fetch(self, uri, http=None, icon=False):
     def on_connecting(*args):
       self.transfers.append(transfer)
       transfer.progress = 0
@@ -778,7 +778,11 @@ class Feed(Model):
       headers['if-modified-since'] = http['last-modified']
     if 'etag' in http:
       headers['if-none-match'] = http['etag']
-    d = self.http_client.request(uri, headers=headers)
+    if icon:
+      client = self.sources.icon_http_client
+    else:
+      client = self.sources.http_client
+    d = client.request(uri, headers=headers)
     transfer = Transfer(progress=0, total=0)
     d.addListener('connecting', on_connecting)
     d.addListener('connected', on_connected)
@@ -999,7 +1003,7 @@ class Feed(Model):
 
     if self.link:
       try:
-        response = yield self.fetch(self.link)
+        response = yield self.fetch(self.link, icon=True)
       except Exception, ex:
         response = None
       # TODO save expires time for this document
@@ -1036,7 +1040,7 @@ class Feed(Model):
     if not uri: return
 
     try:
-      response = yield self.fetch(uri, headers)
+      response = yield self.fetch(uri, headers, icon=True)
     except Exception, ex:
       return
 
