@@ -904,6 +904,8 @@ class Feed(Model):
     sub = dict(uri=link, defaults=extra)
     other = (yield self.sources.add_subscriptions([sub]))[0]
     other = yield other.refresh()
+    if self.summary['total'] == 0:
+      self.delete()
     defer.returnValue(other)
 
   @defer.inlineCallbacks
