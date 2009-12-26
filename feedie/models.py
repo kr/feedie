@@ -11,7 +11,6 @@ from twisted.internet import reactor, defer
 
 from feedie import http
 from feedie import util
-from feedie import fetcher
 from feedie import incoming
 from feedie.attrdict import attrdict
 
@@ -365,8 +364,9 @@ class StarredNewsSource(Model):
     return self.summary['read']
 
 class Sources(Model):
-  def __init__(self, db):
+  def __init__(self, db, http_client):
     self.db = db
+    self.http_client = http_client
     self.builtins = {}
     self.feeds = {}
     self.subscribed_feeds = []
@@ -579,7 +579,8 @@ class Sources(Model):
       summary = summaries.get(doc['_id'], None)
       feed_id = default_doc['_id']
       if feed_id not in self.feeds:
-        feed = self.feeds[feed_id] = Feed(self.db, default_doc, summary)
+        feed = self.feeds[feed_id] = Feed(self.db, self.http_client,
+            default_doc, summary)
         if feed.subscribed:
           self.subscribed_feeds.append(feed)
         feed.added_to(self)
@@ -716,8 +717,9 @@ class Sources(Model):
 count_load_summaries = 0
 
 class Feed(Model):
-  def __init__(self, db, doc, summary=None):
+  def __init__(self, db, http_client, doc, summary=None):
     self.db = db
+    self.http_client = http_client
     self.doc = doc
     self.posts = {}
     self.summary = summary or dict(total=0, read=0, starred_total=0, starred_read=0)
@@ -813,7 +815,7 @@ class Feed(Model):
       headers['if-modified-since'] = http['last-modified']
     if 'etag' in http:
       headers['if-none-match'] = http['etag']
-    d = fetcher.fetch(uri, headers=headers)
+    d = self.http_client.request(uri, headers=headers)
     transfer = Transfer(progress=0, total=0)
     self.transfers.append(transfer)
     d.addListener('fetch', on_fetch)

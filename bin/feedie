@@ -57,6 +57,8 @@ from feedie import design_doc
 
 sources = None
 
+HTTP = http.Client()
+
 post_template = Template(file=getdatapath() + '/templates/post.html')
 source_template = Template(file=getdatapath() + '/templates/source.html')
 
@@ -100,7 +102,7 @@ class FeedieWindow(gtk.Window):
 
         couchdb = CouchDatabase('feedie', create=True).db
         oauth_tokens = desktopcouch.local_files.get_oauth_tokens()
-        self.db = database.AsyncCouch(couchdb, oauth_tokens)
+        self.db = database.AsyncCouch(couchdb, HTTP, oauth_tokens)
         self.search_terms = []
 
         design_doc.add_views(self.db)
@@ -135,7 +137,7 @@ class FeedieWindow(gtk.Window):
 
         self.connect('configure-event', configure_event)
 
-        sources = models.Sources(self.db)
+        sources = models.Sources(self.db, HTTP)
         yield sources.load()
         self.unreadnews = models.UnreadNewsSource(self.db)
         sources.add_builtin(self.unreadnews)

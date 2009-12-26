@@ -10,10 +10,9 @@ except ImportError:
   import json
 import couchdb
 
-from feedie import http
 from feedie import util
 
-debug = True
+debug = False
 
 JSON_PARAMS = 'key startkey endkey'.split()
 
@@ -36,8 +35,9 @@ def classify_error(doc):
   return ResponseError(doc)
 
 class AsyncCouch:
-  def __init__(self, couchdb, oauth_tokens):
+  def __init__(self, couchdb, http_client, oauth_tokens):
     self.couchdb = couchdb
+    self.http_client = http_client
     uri = urlparse.urlsplit(couchdb.resource.uri, 'http')
     self.host = uri.hostname
     self.port = uri.port
@@ -52,8 +52,8 @@ class AsyncCouch:
 
     full_http_url = "http://%s:%d%s" % (self.host, self.port, path)
     headers.update(self.make_oauth_headers(verb, full_http_url))
-    client = http.Client(self.host, self.port)
-    d = client.request(verb, path, headers=headers, body=body)
+    d = self.http_client.request(full_http_url, verb,
+        headers=headers, body=body)
     d.addCallback(success)
     d.addErrback(promise.errback)
     return promise
