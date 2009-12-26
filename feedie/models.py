@@ -544,38 +544,9 @@ class Sources(Model):
   def modify(self, modify):
     self.doc = yield self.db.modify_doc(self._id, modify, doc=self.doc)
 
-  @defer.inlineCallbacks
-  def put_feeds_at_front_of_order(self, source_ids):
-    def modify(doc):
-      doc.setdefault('feed_order', [])
-      for source_id in source_ids:
-        try:
-          doc['feed_order'].remove(source_id)
-        except ValueError:
-          # source_id isn't in the list? that's okay.
-          pass
-      doc['feed_order'][0:0] = source_ids
-
-      # Remove any bogus entries
-      doc['feed_order'] = [x for x in doc['feed_order'] if x in self]
-    yield self.modify(modify)
-
-  @defer.inlineCallbacks
-  def remove_from_feed_order(self, source_id):
-    def modify(doc):
-      doc['feed_order'].remove(source_id)
-
-      # Remove any bogus entries
-      doc['feed_order'] = [x for x in doc['feed_order'] if x in self]
-    yield self.modify(modify)
-
-  @property
-  def feed_order(self):
-    return self.doc.get('feed_order', [])
-
   @property
   def order(self):
-    return self.builtin_order + self.feed_order
+    return self.builtin_order + self.feed_ids
 
   @property
   def feed_ids(self):
@@ -662,17 +633,11 @@ class Sources(Model):
     for feed, doc in zip(feeds, docs):
       feed.doc = doc
 
-    yield self.put_feeds_at_front_of_order(by_id.keys())
-
     defer.returnValue(feeds)
 
   def feed_deleted(self, feed, event):
-    def success(x):
-      self.emit('feed-removed', feed)
-      self.emit('source-removed', feed)
-
-    d = self.remove_from_feed_order(feed.id)
-    d.addCallback(success)
+    self.emit('feed-removed', feed)
+    self.emit('source-removed', feed)
 
   @defer.inlineCallbacks
   def mark_posts_as(self, posts, read):
