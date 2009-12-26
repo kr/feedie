@@ -77,7 +77,7 @@ class PostsTreeModel(gtk.GenericTreeModel):
       return time.strftime('%d %b %Y', t)
     if abs(now - doc.updated_at) > 82800: # 23 Hours
       return time.strftime('%d %b', t)
-    return time.strftime('%I:%M %p', t)
+    return time.strftime('%I:%M %p', t).lstrip('0').lower()
 
   # Sort first by age, then by id, so at least it's a total order.
   def column_age(self, doc):
