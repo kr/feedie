@@ -775,6 +775,12 @@ class Feed(Model):
     d.addListener('headers', on_headers)
     d.addListener('body', on_body)
     d.addCallback(on_complete)
+
+    @d.addErrback
+    def d(reason):
+      self.transfers.remove(transfer)
+      raise reason
+
     defer.returnValue((yield d))
 
   @defer.inlineCallbacks
