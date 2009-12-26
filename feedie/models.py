@@ -149,7 +149,6 @@ class UnreadNewsSource(Model):
       feed.connect('changed', feed_changed)
       feed.connect('posts-added', posts_added)
       feed.connect('post-removed', post_removed)
-      self.posts = None
       self.update_summary()
 
     def feed_removed(sources, event, feed):
