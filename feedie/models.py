@@ -874,8 +874,11 @@ class Feed(Model):
 
   @defer.inlineCallbacks
   def save_error(self, error, **extra):
+    now = int(time.time())
     def modify(doc):
       doc['error'] = error
+      http = doc.setdefault('http', {})
+      http['expires_at'] = now + 1800 # cache the error for 1/2 hour
       for k, v in extra.items():
         doc[k] = v
     yield self.modify(modify)
