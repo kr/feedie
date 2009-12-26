@@ -895,18 +895,23 @@ class Feed(Model):
         response = yield self.fetch(uri, http_info)
       except http.BadURIError:
         yield self.save_error('bad-uri')
+        self.emit('favicon-changed')
         defer.returnValue(self)
       except http.UnsupportedSchemeError:
         yield self.save_error('unsupported-scheme')
+        self.emit('favicon-changed')
         defer.returnValue(self)
       except twisted_error.DNSLookupError:
         yield self.save_error('dns')
+        self.emit('favicon-changed')
         defer.returnValue(self)
       except twisted_error.TimeoutError:
         yield self.save_error('timeout')
+        self.emit('favicon-changed')
         defer.returnValue(self)
       except Exception, ex:
         yield self.save_error('other', detail=traceback.format_exc())
+        self.emit('favicon-changed')
         defer.returnValue(self)
 
       # TODO handle temporary redirects properly
@@ -1201,7 +1206,8 @@ class Feed(Model):
 
   @property
   def icon(self):
-    if 'error' in self.doc and self.doc['error'] != 'redirect':
+    error = self.doc.get('error', None)
+    if error and error != 'redirect':
       return 'gtk-dialog-error'
     return 'gtk-file'
 
