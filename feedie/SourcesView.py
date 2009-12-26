@@ -381,12 +381,17 @@ class SourceItem:
       shift = 20 # icon width + 4
       if self.is_selected:
         pie_color = (1, 1, 1)
+        pie_alpha = 1
       else:
         pie_color = (0.2, 0.2, 0.2)
+        pie_alpha = 0.6
+
+      cairo_context.push_group()
 
       cairo_context.set_source_rgb(*pie_color)
       cairo_context.new_sub_path()
       cairo_context.arc(20 + 8, height * 0.5, 8, 0, 2*pi)
+      cairo_context.set_line_width(1)
       cairo_context.stroke()
 
       cairo_context.set_source_rgb(*pie_color)
@@ -396,17 +401,14 @@ class SourceItem:
       cairo_context.line_to(20 + 8, height * 0.5)
       cairo_context.fill()
 
-    elif self.source.progress < 0:
-      shift = 20 # icon width + 4
-      cairo_context.set_source_pixbuf(self.icon, 20, leading(height, 16) / 2)
-      mask = cairo.SolidPattern(0, 0, 0, 0.3)
-      cairo_context.mask(mask)
-      #cairo_context.paint()
+      cairo_context.pop_group_to_source()
+      cairo_context.paint_with_alpha(pie_alpha)
 
     elif self.icon:
+      icon_alpha = 0.3 if self.source.progress < 0 else 1
       shift = 20 # icon width + 4
       cairo_context.set_source_pixbuf(self.icon, 20, leading(height, 16) / 2)
-      cairo_context.paint()
+      cairo_context.paint_with_alpha(icon_alpha)
 
     return shift
 
