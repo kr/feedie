@@ -65,25 +65,17 @@ class Protocol(http.HTTPClient):
     self.state = 'busy'
     self._promise.emit('connected')
 
-    if self.host == 'tieguy.org':
-      print id(self), '>', self._request.method, str(self._request.path)
     self.sendCommand(self._request.method, str(self._request.path))
     for k, v in self._request.headers.items():
-      if self.host == 'tieguy.org':
-        print id(self), '>', k, v
       self.sendHeader(str(k), str(v))
     self.endHeaders()
     if self._request.body is not None:
-      if self.host == 'tieguy.org':
-        print id(self), '>', 'BODY'
       self.transport.write(str(self._request.body))
 
     self._promise.emit('sent')
 
   def handleStatus(self, version, code, message):
     assert self.state == 'busy'
-    if self.host == 'tieguy.org':
-      print id(self), '<', version, code, message
     self.status = Status(version, int(code), message)
     self._promise.emit('status', self.status)
 
@@ -91,8 +83,6 @@ class Protocol(http.HTTPClient):
     assert self.state == 'busy'
     key = key.lower()
     self.headers[key] = value
-    if self.host == 'tieguy.org':
-      print id(self), '<', key, value
     if key == 'content-length':
       self.content_length = int(value)
     self._promise.emit('header', key, value)
@@ -105,8 +95,6 @@ class Protocol(http.HTTPClient):
     assert self.state == 'busy'
     self.chunks.append(chunk)
     self.content_progress += len(chunk)
-    if self.host == 'tieguy.org':
-      print id(self), '<', len(chunk)
     self._promise.emit('body', self.content_progress, self.content_length)
 
   def handleResponseEnd(self):
@@ -126,8 +114,6 @@ class Protocol(http.HTTPClient):
       promise.errback(reason)
 
   def complete(self):
-    if self.host == 'tieguy.org':
-      print id(self), 'complete'
     if self._promise:
       body = ''.join(self.chunks)
       resp = Response(self.status, self.headers, body)
@@ -156,7 +142,6 @@ class Client(object):
     self.max_connections_per_domain = max_connections_per_domain
 
   def request(self, uri, method='GET', body=None, headers=None):
-    print 'request (%d)' % self.count_active_connections, uri
     promise = util.EventEmitter()
 
     split_uri = urlparse.urlsplit(uri)
