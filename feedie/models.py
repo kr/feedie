@@ -1,3 +1,4 @@
+import re
 import cgi
 import time
 import couchdb
@@ -5,9 +6,11 @@ import urlparse
 import hashlib
 import feedparser
 import calendar
+import traceback
 from collections import defaultdict, namedtuple
 from desktopcouch.records.record import Record
 from twisted.internet import reactor, defer
+from twisted.internet import error as twisted_error
 
 from feedie import http
 from feedie import util
@@ -56,8 +59,14 @@ def detail_html(item):
 def short_hash(s):
   return hashlib.sha1(s).hexdigest()[:16]
 
+INT_PATTERN = re.compile(r'^-?[0-9]+$')
 def parse_http_datetime(s):
-  return int(calendar.timegm(feedparser._parse_date(s)))
+  try:
+    if INT_PATTERN.match(s):
+      return int(time.time()) + int(s)
+    return int(calendar.timegm(feedparser._parse_date(s)))
+  except:
+    return 0
 
 class SignalRegistry(object):
   def __init__(self):
@@ -404,23 +413,9 @@ class Sources(Model):
     reactor.callLater(60, self.housekeeping)
 
   def refresh(self):
-    def finished_refreshing(feed):
-      if feed in self.currently_refreshing:
-        self.currently_refreshing.remove(feed)
-      refresh_more_if_necessary()
-
-    def refresh_more_if_necessary():
-      while len(self.currently_refreshing) < 5 and self.needs_refresh:
-        feed = self.needs_refresh.pop()
-        self.currently_refreshing.append(feed)
-        d = feed.refresh()
-        d.addBoth(finished_refreshing)
-
-    for feed in self.subscribed_feeds:
-      if feed.ready_for_refresh:
-        self.needs_refresh.append(feed)
+    order = sorted(self.subscribed_feeds, key=lambda x: x.title)
+    for feed in order:
       feed.refresh()
-    refresh_more_if_necessary()
 
   @defer.inlineCallbacks
   def collect_garbage(self):
@@ -717,6 +712,8 @@ class Sources(Model):
 count_load_summaries = 0
 
 class Feed(Model):
+  refreshing = False
+
   def __init__(self, db, http_client, doc, summary=None):
     self.db = db
     self.http_client = http_client
@@ -780,7 +777,7 @@ class Feed(Model):
 
   @defer.inlineCallbacks
   def fetch(self, uri, http=None):
-    def on_fetch(*args):
+    def on_connecting(*args):
       transfer.progress = 0
       transfer.total = 0
       self.emit('summary-changed')
@@ -818,7 +815,7 @@ class Feed(Model):
     d = self.http_client.request(uri, headers=headers)
     transfer = Transfer(progress=0, total=0)
     self.transfers.append(transfer)
-    d.addListener('fetch', on_fetch)
+    d.addListener('connecting', on_connecting)
     d.addListener('connected', on_connected)
     d.addListener('status', on_status)
     d.addListener('headers', on_headers)
@@ -904,50 +901,80 @@ class Feed(Model):
     return now > self.icon_expires_at
 
   @defer.inlineCallbacks
+  def save_error(self, error, **extra):
+    def modify(doc):
+      doc['error'] = error
+      for k, v in extra.items():
+        doc[k] = v
+    yield self.modify(modify)
+
+  @defer.inlineCallbacks
   def refresh(self, force=False):
     if not (force or self.ready_for_refresh): return
+    if self.refreshing: return
 
-    uri = self.doc['source_uri']
-    http = self.doc.get('http', None)
-    response = yield self.fetch(uri, http)
+    try:
+      self.refreshing = True
 
-    if response.status.code in (301, 302, 303, 307):
-      # We don't save redirects.
-      self.doc['error'] = 'redirect'
-      self.doc['link'] = response.headers['location']
-      return
-
-    if response.status.code == 304:
-      # update last-modified, etag, etc
-      yield self.save_headers('http', response, 1800)
-      yield self.discover_favicon()
-      return
-
-    uri = self.doc['source_uri']
-    parsed = feedparser.parse(BodyHeadersHack(response.body, uri))
-
-    if not parsed.version: # not a feed
-      if 'links' not in parsed.feed:
-        yield self.save_headers('http', response, 1800, error='notafeed')
+      uri = self.doc['source_uri']
+      http_info = self.doc.get('http', None)
+      try:
+        response = yield self.fetch(uri, http_info)
+      except http.BadURIError:
+        yield self.save_error('bad-uri')
+        return
+      except http.UnsupportedSchemeError:
+        yield self.save_error('unsupported-scheme')
+        return
+      except twisted_error.DNSLookupError:
+        yield self.save_error('dns')
+        return
+      except twisted_error.TimeoutError:
+        print 'timeout', uri
+        yield self.save_error('timeout')
+        return
+      except Exception, ex:
+        yield self.save_error('other', detail=traceback.format_exc())
         return
 
-      links = [x for x in parsed.feed.links if x.rel == 'alternate']
-
-      if not links:
-        yield self.save_headers('http', response, 1800, error='notafeed')
+      if response.status.code in (301, 302, 303, 307):
+        print 'redirect', uri, 'to', response.headers['location']
+        yield self.save_error('redirect', link=response.headers['location'])
         return
 
-      # We don't save redirects.
-      self.doc['error'] = 'redirect'
-      self.doc['link'] = links[0].href
-      if 'title' in links[0] and links[0].title:
-        self.doc['title'] = links[0].title
+      if response.status.code == 304:
+        # update last-modified, etag, etc
+        yield self.save_headers('http', response, 1800)
+        yield self.discover_favicon()
+        return
+
+      uri = self.doc['source_uri']
+      parsed = feedparser.parse(BodyHeadersHack(response.body, uri))
+
+      if not parsed.version: # not a feed
+        if 'links' not in parsed.feed:
+          yield self.save_headers('http', response, 1800, error='notafeed')
+          return
+
+        links = [x for x in parsed.feed.links if x.rel == 'alternate']
+
+        if not links:
+          yield self.save_headers('http', response, 1800, error='notafeed')
+          return
+
+        extra = dict(link=links[0].href)
+        if 'title' in links[0] and links[0].title:
+          extra['title'] = links[0].title
+        yield self.save_error('redirect', **extra)
+        return
+
+      ifeed = incoming.Feed(parsed)
+      yield self.save_ifeed(ifeed, response)
+      yield self.discover_favicon(ifeed)
       return
 
-    ifeed = incoming.Feed(parsed)
-    yield self.save_ifeed(ifeed, response)
-    yield self.discover_favicon(ifeed)
-    return
+    finally:
+      self.refreshing = False
 
   @defer.inlineCallbacks
   def discover_favicon(self, ifeed=None):
@@ -977,16 +1004,22 @@ class Feed(Model):
         defer.returnValue(ifeed.icon)
 
     if self.link:
-      response = yield self.fetch(self.link)
+      try:
+        response = yield self.fetch(self.link)
+      except Exception, ex:
+        response = None
       # TODO save expires time for this document
 
       # We don't care about the status code. A 404 page will do just fine.
-      if response.body:
+      if response and response.body:
 
         # Woo, let's abuse the feed parser to parse html!!!
-        parsed = feedparser.parse(BodyHeadersHack(response.body, self.link))
+        try:
+          parsed = feedparser.parse(BodyHeadersHack(response.body, self.link))
+        except Exception, ex:
+          parsed = None
 
-        if 'links' in parsed.feed:
+        if parsed and parsed.feed and 'links' in parsed.feed:
           links = parsed.feed.links
           uris = [x.href for x in links if x.rel == 'shortcut icon']
           if uris:
@@ -1008,7 +1041,10 @@ class Feed(Model):
 
     if not uri: return
 
-    response = yield self.fetch(uri, headers)
+    try:
+      response = yield self.fetch(uri, headers)
+    except Exception, ex:
+      return
 
     # update last-modified, etag, etc
     yield self.save_headers('icon_http', response, 86400)

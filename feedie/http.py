@@ -14,8 +14,15 @@ Request = namedtuple('Request', 'method path headers body')
 class InvalidStateError(Exception):
   pass
 
+class UnsupportedSchemeError(Exception):
+  pass
+
+class BadURIError(Exception):
+  pass
+
 class Protocol(http.HTTPClient):
   status = None
+  _promise = None
 
   def __init__(self, host, port):
     self.state = 'new'
@@ -58,17 +65,25 @@ class Protocol(http.HTTPClient):
     self.state = 'busy'
     self._promise.emit('connected')
 
+    if self.host == 'tieguy.org':
+      print id(self), '>', self._request.method, str(self._request.path)
     self.sendCommand(self._request.method, str(self._request.path))
     for k, v in self._request.headers.items():
+      if self.host == 'tieguy.org':
+        print id(self), '>', k, v
       self.sendHeader(str(k), str(v))
     self.endHeaders()
     if self._request.body is not None:
+      if self.host == 'tieguy.org':
+        print id(self), '>', 'BODY'
       self.transport.write(str(self._request.body))
 
     self._promise.emit('sent')
 
   def handleStatus(self, version, code, message):
     assert self.state == 'busy'
+    if self.host == 'tieguy.org':
+      print id(self), '<', version, code, message
     self.status = Status(version, int(code), message)
     self._promise.emit('status', self.status)
 
@@ -76,6 +91,8 @@ class Protocol(http.HTTPClient):
     assert self.state == 'busy'
     key = key.lower()
     self.headers[key] = value
+    if self.host == 'tieguy.org':
+      print id(self), '<', key, value
     if key == 'content-length':
       self.content_length = int(value)
     self._promise.emit('header', key, value)
@@ -88,6 +105,8 @@ class Protocol(http.HTTPClient):
     assert self.state == 'busy'
     self.chunks.append(chunk)
     self.content_progress += len(chunk)
+    if self.host == 'tieguy.org':
+      print id(self), '<', len(chunk)
     self._promise.emit('body', self.content_progress, self.content_length)
 
   def handleResponseEnd(self):
@@ -101,13 +120,15 @@ class Protocol(http.HTTPClient):
     if reason.check(error.ConnectionDone) and self.status:
       self.complete()
 
-    if hasattr(self, '_promise'):
+    if self._promise:
       promise = self._promise
       del self._promise
       promise.errback(reason)
 
   def complete(self):
-    if hasattr(self, '_promise'):
+    if self.host == 'tieguy.org':
+      print id(self), 'complete'
+    if self._promise:
       body = ''.join(self.chunks)
       resp = Response(self.status, self.headers, body)
       promise = self._promise
@@ -135,6 +156,7 @@ class Client(object):
     self.max_connections_per_domain = max_connections_per_domain
 
   def request(self, uri, method='GET', body=None, headers=None):
+    print 'request (%d)' % self.count_active_connections, uri
     promise = util.EventEmitter()
 
     split_uri = urlparse.urlsplit(uri)
@@ -144,12 +166,17 @@ class Client(object):
 
     request_path = (uri_path or '/') + ('?' + query if query else '')
 
-    assert scheme == 'http'
-    assert host
+    if scheme != 'http':
+      promise.errback(UnsupportedSchemeError(scheme))
+      return promise
+
+    if not host:
+      promise.errback(BadURIError(uri))
+      return promise
 
     #headers = httplib2._normalize_headers(headers or {})
     headers = (headers or {}).copy()
-    headers.setdefault('host', '%s:%d' % (host, port))
+    headers.setdefault('host', host + ('' if port == 80 else ':%d' % port))
     headers.setdefault('user-agent', 'Feedie')
     headers.setdefault('connection', 'Keep-Alive')
     if body is not None:
@@ -177,10 +204,11 @@ class Client(object):
       d.chainDeferred(promise)
 
     d.addErrback(promise.errback) # can't happen
+    d.chainEvents(promise)
     return promise
 
   def _get_connection(self, point):
-    promise = defer.Deferred()
+    promise = util.EventEmitter()
     self._pending.append((point, promise))
     self._process_connections()
     return promise
@@ -194,14 +222,26 @@ class Client(object):
     while True:
       promise, conn = self._get_next()
       if promise is None: break
+      if promise == 'retry': continue
       promise.callback(conn)
 
   @property
-  def count_open_connections(self):
-    return sum(map(lambda x: len(x.in_use), self._pools.values()))
+  def count_active_connections(self):
+    return sum(map(lambda x: len(x.in_use) + len(x.making),
+                   self._pools.values()))
 
   def _get_next(self):
-    if self.count_open_connections >= self.max_connections:
+    def make_conn_for_promise(pool, promise):
+      promise.emit('connecting')
+      d = pool.make_conn()
+      @d.addCallback
+      def d(conn):
+        pool.in_use.append(conn)
+        promise.callback(conn)
+      #d.chainDeferred(promise)
+      d.addErrback(promise.errback)
+
+    if self.count_active_connections >= self.max_connections:
       return None, None
 
     for i, (point, promise) in enumerate(self._pending):
@@ -217,8 +257,9 @@ class Client(object):
         return promise, conn
 
       elif not pool.making:
-        d = pool.make_conn()
-        d.addErrback(promise.errback)
+        del self._pending[i]
+        make_conn_for_promise(pool, promise)
+        return 'retry', None
 
     return None, None
 
@@ -263,7 +304,8 @@ class Pool(object):
         reactor.callLater(0, self.client._process_connections)
 
       assert conn.state == 'idle'
-      self.available.append(conn)
+      #self.available.append(conn)
+      promise.callback(conn)
       reactor.callLater(0, self.client._process_connections)
 
     @d.addErrback

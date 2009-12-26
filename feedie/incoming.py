@@ -30,6 +30,7 @@ class Feed:
 
   @property
   def updated_int(self):
+    if not self.updated_parsed: return 0
     return int(calendar.timegm(self.updated_parsed))
 
   @property
