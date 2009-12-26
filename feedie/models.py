@@ -742,6 +742,7 @@ class Feed(Model):
   @defer.inlineCallbacks
   def fetch(self, uri, http=None):
     def on_connecting(*args):
+      self.transfers.append(transfer)
       transfer.progress = 0
       transfer.total = 0
       self.emit('summary-changed')
@@ -778,7 +779,6 @@ class Feed(Model):
       headers['if-none-match'] = http['etag']
     d = self.http_client.request(uri, headers=headers)
     transfer = Transfer(progress=0, total=0)
-    self.transfers.append(transfer)
     d.addListener('connecting', on_connecting)
     d.addListener('connected', on_connected)
     d.addListener('status', on_status)
