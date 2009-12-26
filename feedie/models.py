@@ -899,7 +899,10 @@ class Feed(Model):
 
   @defer.inlineCallbacks
   def refresh(self, force=False):
-    if not (force or self.ready_for_refresh): defer.returnValue(self)
+    if not (force or self.ready_for_refresh):
+      if self.ready_for_refresh_favicon:
+        self.discover_favicon()
+      defer.returnValue(self)
     if self.refreshing: defer.returnValue(self)
 
     try:
