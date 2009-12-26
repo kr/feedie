@@ -67,7 +67,7 @@ class PostsTreeModel(gtk.GenericTreeModel):
     self._insert_docs(posts)
 
   def column_title(self, doc):
-    return self.strip.sub('', doc.title)
+    return self.strip.sub('', doc.title).replace('\r', '').replace('\n', '')
 
   def column_pretty_date(self, doc):
     now = time.time()
