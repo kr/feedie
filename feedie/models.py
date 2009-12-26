@@ -409,13 +409,18 @@ class Sources(Model):
   @defer.inlineCallbacks
   def housekeeping(self):
     yield self.collect_garbage()
-    self.refresh()
+    self.refresh_all()
     reactor.callLater(60, self.housekeeping)
 
-  def refresh(self):
-    order = sorted(self.subscribed_feeds, key=lambda x: x.title)
+  def refresh_all(self):
+    return self.refresh_feeds(self.subscribed_feeds)
+
+  def refresh_feeds(self, feeds):
+    order = sorted(feeds, key=lambda x: x.title)
+    ds = []
     for feed in order:
-      feed.refresh()
+      ds.append(feed.refresh())
+    return defer.DeferredList(ds)
 
   @defer.inlineCallbacks
   def collect_garbage(self):
@@ -574,8 +579,7 @@ class Sources(Model):
       summary = summaries.get(doc['_id'], None)
       feed_id = default_doc['_id']
       if feed_id not in self.feeds:
-        feed = self.feeds[feed_id] = Feed(self.db, self.http_client,
-            default_doc, summary)
+        feed = self.feeds[feed_id] = Feed(self, default_doc, summary)
         if feed.subscribed:
           self.subscribed_feeds.append(feed)
         feed.added_to(self)
@@ -618,11 +622,6 @@ class Sources(Model):
   def __contains__(self, id):
     return id in self.builtins or id in self.feeds
 
-  def update_feeds(self, docs):
-    feeds = self.upsert_feeds(docs)
-    for feed, doc in zip(feeds, docs):
-      feed.doc = doc
-
   @defer.inlineCallbacks
   def add_subscriptions(self, subs):
     now = int(time.time())
@@ -643,40 +642,13 @@ class Sources(Model):
       by_id[feed_id] = sub
 
     docs = yield self.db.modify_docs(by_id.keys(), modify)
-    self.update_feeds(docs)
+    feeds = self.upsert_feeds(docs)
+    for feed, doc in zip(feeds, docs):
+      feed.doc = doc
 
     yield self.put_feeds_at_front_of_order(by_id.keys())
 
-    self.refresh()
-
-  @defer.inlineCallbacks
-  def subscribe(self, uri, defaults={}, refresh=True):
-    uri = http.normalize_uri(uri)
-    now = int(time.time())
-    title = uri
-    if title.startswith('http://'):
-      title = title[7:]
-    doc = dict(
-      title = title,
-    )
-    doc.update(defaults,
-      _id = short_hash(uri),
-      type = 'feed',
-      source_uri = uri,
-      subscribed_at = now,
-    )
-    feed = self.upsert_feeds([doc])[0]
-
-    yield self.put_feeds_at_front_of_order([feed.id])
-
-    if refresh: yield feed.refresh(force=True)
-    if feed.error == 'redirect' and feed.link:
-      yield feed.delete()
-      next_defaults = dict(defaults, title=feed.title)
-      feed2 = yield self.subscribe(feed.link, defaults=next_defaults)
-      defer.returnValue(feed2)
-    feed.set_subscribed_at(now)
-    defer.returnValue(feed)
+    defer.returnValue(feeds)
 
   def feed_deleted(self, feed, event):
     def success(x):
@@ -714,9 +686,10 @@ count_load_summaries = 0
 class Feed(Model):
   refreshing = False
 
-  def __init__(self, db, http_client, doc, summary=None):
-    self.db = db
-    self.http_client = http_client
+  def __init__(self, sources, doc, summary=None):
+    self.sources = sources
+    self.db = sources.db
+    self.http_client = sources.http_client
     self.doc = doc
     self.posts = {}
     self.summary = summary or dict(total=0, read=0, starred_total=0, starred_read=0)
@@ -909,9 +882,18 @@ class Feed(Model):
     yield self.modify(modify)
 
   @defer.inlineCallbacks
+  def redirect(self, link, **extra):
+    yield self.save_error('redirect', link=link, **extra)
+
+    sub = dict(uri=link, defaults=extra)
+    other = (yield self.sources.add_subscriptions([sub]))[0]
+    other = yield other.refresh()
+    defer.returnValue(other)
+
+  @defer.inlineCallbacks
   def refresh(self, force=False):
-    if not (force or self.ready_for_refresh): return
-    if self.refreshing: return
+    if not (force or self.ready_for_refresh): defer.returnValue(self)
+    if self.refreshing: defer.returnValue(self)
 
     try:
       self.refreshing = True
@@ -922,31 +904,29 @@ class Feed(Model):
         response = yield self.fetch(uri, http_info)
       except http.BadURIError:
         yield self.save_error('bad-uri')
-        return
+        defer.returnValue(self)
       except http.UnsupportedSchemeError:
         yield self.save_error('unsupported-scheme')
-        return
+        defer.returnValue(self)
       except twisted_error.DNSLookupError:
         yield self.save_error('dns')
-        return
+        defer.returnValue(self)
       except twisted_error.TimeoutError:
-        print 'timeout', uri
         yield self.save_error('timeout')
-        return
+        defer.returnValue(self)
       except Exception, ex:
         yield self.save_error('other', detail=traceback.format_exc())
-        return
+        defer.returnValue(self)
 
+      # TODO handle temporary redirects properly
       if response.status.code in (301, 302, 303, 307):
-        print 'redirect', uri, 'to', response.headers['location']
-        yield self.save_error('redirect', link=response.headers['location'])
-        return
+        defer.returnValue((yield self.redirect(response.headers['location'])))
 
       if response.status.code == 304:
         # update last-modified, etag, etc
         yield self.save_headers('http', response, 1800)
         yield self.discover_favicon()
-        return
+        defer.returnValue(self)
 
       uri = self.doc['source_uri']
       parsed = feedparser.parse(BodyHeadersHack(response.body, uri))
@@ -954,24 +934,23 @@ class Feed(Model):
       if not parsed.version: # not a feed
         if 'links' not in parsed.feed:
           yield self.save_headers('http', response, 1800, error='notafeed')
-          return
+          defer.returnValue(self)
 
         links = [x for x in parsed.feed.links if x.rel == 'alternate']
 
         if not links:
           yield self.save_headers('http', response, 1800, error='notafeed')
-          return
+          defer.returnValue(self)
 
-        extra = dict(link=links[0].href)
+        extra = {}
         if 'title' in links[0] and links[0].title:
           extra['title'] = links[0].title
-        yield self.save_error('redirect', **extra)
-        return
+        defer.returnValue((yield self.redirect(links[0].href, **extra)))
 
       ifeed = incoming.Feed(parsed)
       yield self.save_ifeed(ifeed, response)
       yield self.discover_favicon(ifeed)
-      return
+      defer.returnValue(self)
 
     finally:
       self.refreshing = False

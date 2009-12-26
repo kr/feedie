@@ -572,7 +572,10 @@ class FeedieWindow(gtk.Window):
             sub = {'uri':uri,'defaults':{}}
             if title: sub['defaults']['user_title'] = title
             subs.append(sub)
-        sources.add_subscriptions(subs)
+        d = sources.add_subscriptions(subs)
+        @d.addCallback
+        def d(feeds):
+          sources.refresh_feeds(feeds)
 
     def search_changed(self, entry):
       #model = self.treeview.get_model()
@@ -691,20 +694,21 @@ class FeedieWindow(gtk.Window):
         self.hide_subscribe_box()
 
     def start_subscribe(self):
-        def success(feed):
-          self.sources_view.select(feed.id)
-          self.sources_view.flash(feed.id)
-
-        # This should never happen. If it does, just dump out a stack trace.
-        # It's best for debugging, and we can't help the user anyway.
-        def failure(reason):
-          raise reason
-
         uri = self.hide_subscribe_box()
 
-        d = sources.subscribe(uri)
-        d.addCallback(success)
-        d.addErrback(failure)
+        d = sources.add_subscriptions([dict(uri=uri)])
+        # We don't catch errors here. Just let Twisted dump a stack trace.
+        # It's best for debugging, and we can't help the user anyway.
+
+        @d.addCallback
+        def d(feeds):
+          feed = feeds[0]
+          d = feed.refresh(force=True)
+
+          @d.addCallback
+          def d(feed):
+            self.sources_view.select(feed.id)
+            self.sources_view.flash(feed.id)
 
     def subscribe_cb(self, widget, data=None):
         self.start_subscribe()
