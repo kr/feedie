@@ -207,7 +207,7 @@ class UnreadNewsSource(Model):
       self.posts = {}
       for feed_id, docs in by_feed.items():
         feed = self.get_feed(feed_id)
-        posts = feed.upsert_posts(docs)
+        posts = feed.upsert_posts(docs, update_summary=False)
         self.posts.update(dict([(post._id, post) for post in posts]))
     defer.returnValue(self.posts.values())
 
@@ -1112,7 +1112,7 @@ class Feed(Model):
 
   # Retrieves the posts. If each one does not exist, creates it using
   # the appropriate element in default_doc.
-  def upsert_posts(self, default_docs):
+  def upsert_posts(self, default_docs, update_summary=True):
     posts = []
     new_posts = []
     for default_doc in default_docs:
@@ -1120,23 +1120,29 @@ class Feed(Model):
       if post_id not in self.posts:
         post = self.posts[post_id] = Post(default_doc, self)
         post.connect('changed', self.post_changed)
+
+        if update_summary:
+          self.summary['total'] += 1
+          if post.read:
+            self.summary['read'] += 1
+          if post.starred:
+            self.summary['starred_total'] += 1
+            if post.read:
+              self.summary['starred_read'] += 1
+
         new_posts.append(post)
       posts.append(self.posts[post_id])
 
     if new_posts:
       self.emit('posts-added', new_posts)
+      if update_summary:
+        self.emit('summary-changed')
 
     return posts
 
   # Retrieves the post. If it does not exist, creates one using default_doc.
   def post(self, default_doc):
     return self.upsert_posts([default_doc])[0]
-
-  def _update_posts(self, docs):
-    posts = self.upsert_posts(docs)
-    for post, doc in zip(posts, docs):
-      post = self.post(doc)
-      post.doc = doc
 
   @defer.inlineCallbacks
   def save_iposts(self, iposts):
@@ -1169,9 +1175,10 @@ class Feed(Model):
 
     docs = yield self.db.modify_docs(by_id.keys(), modify)
 
-    self._update_posts(docs)
-
-    yield self.update_summary()
+    posts = self.upsert_posts(docs)
+    for post, doc in zip(posts, docs):
+      post = self.post(doc)
+      post.doc = doc
 
   @property
   def id(self):
