@@ -427,6 +427,7 @@ class Sources(Model):
     yield self.collect_garbage_posts()
     yield self.collect_garbage_feeds()
     yield self.mark_posts_with_deleted_feeds()
+    yield self.delete_empty_redirected_feeds()
 
   # This code must be careful not to retry modifications.
   @defer.inlineCallbacks
@@ -486,6 +487,21 @@ class Sources(Model):
         revs[row['id']] = row['value']['_rev']
 
     yield self.db.modify_docs(revs.keys(), modify, load_first=True)
+
+  # This code must be careful not to retry modifications.
+  #
+  # If a feed is deleted, no more posts can appear until the feed is subscribed
+  # again. So we ask for deleted feeds, then, for each feed, ask if any posts
+  # exist. If no posts exist, we delete the feed. There is no race condition as
+  # long as we only delete the feed rev that we originally got.
+  @defer.inlineCallbacks
+  def delete_empty_redirected_feeds(self):
+    rows = yield self.db.view('feedie/redirected_feeds')
+    for row in rows:
+      if row['id'] in self.feeds:
+        feed = self.get_feed(row['id'])
+        if feed.summary['total'] == 0:
+          yield feed.delete()
 
   @defer.inlineCallbacks
   def mark_posts_with_deleted_feeds(self):

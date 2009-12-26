@@ -134,6 +134,18 @@ function (doc) {
 }
 '''
 
+REDIRECTED_FEEDS = '''
+function (doc) {
+  if (doc.type != 'feed') return;
+  if (doc.error == 'redirect') {
+    emit(doc._id, {
+      _rev: doc._rev,
+      subscribed_at: doc.subscribed_at,
+    });
+  }
+}
+'''
+
 POSTS_TO_MARK_FEED_IS_DELETED = '''
 function (doc) {
   if (doc.type != 'post') return;
@@ -176,6 +188,9 @@ def add_views(db):
     modified = True
   if 'deleted_feeds' not in views:
     views['deleted_feeds'] = view(DELETED_FEEDS)
+    modified = True
+  if 'redirected_feeds' not in views:
+    views['redirected_feeds'] = view(REDIRECTED_FEEDS)
     modified = True
   if 'posts_to_mark_feed_is_deleted' not in views:
     views['posts_to_mark_feed_is_deleted'] = view(POSTS_TO_MARK_FEED_IS_DELETED)
