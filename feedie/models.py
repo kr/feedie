@@ -9,7 +9,7 @@ import calendar
 import traceback
 from collections import defaultdict, namedtuple
 from desktopcouch.records.record import Record
-from twisted.internet import reactor, defer
+from twisted.internet import reactor, defer, threads
 from twisted.internet import error as twisted_error
 
 from feedie import http
@@ -43,7 +43,7 @@ class BodyHeadersHack(object):
     return self.body
 
 def parse_feed(body, uri):
-  return feedparser.parse(BodyHeadersHack(body, uri))
+  return threads.deferToThread(feedparser.parse, BodyHeadersHack(body, uri))
 
 preferred=('text/html', 'application/xhtml+xml', 'text/plain')
 
@@ -928,7 +928,7 @@ class Feed(Model):
         defer.returnValue(self)
 
       uri = self.doc['source_uri']
-      parsed = parse_feed(response.body, uri)
+      parsed = yield parse_feed(response.body, uri)
 
       if not parsed.version: # not a feed
         if 'links' not in parsed.feed:
@@ -993,7 +993,7 @@ class Feed(Model):
 
         # Woo, let's abuse the feed parser to parse html!!!
         try:
-          parsed = parse_feed(response.body, self.link)
+          parsed = yield parse_feed(response.body, self.link)
         except Exception, ex:
           parsed = None
 
