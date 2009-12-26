@@ -143,6 +143,8 @@ class UnreadNewsSource(Model):
       if self.posts is not None:
         if post._id in self.posts:
           del self.posts[post._id]
+          self.emit('post-removed', post)
+      self.update_summary()
 
     def feed_added(sources, event, feed):
       feed.connect('summary-changed', summary_changed)
@@ -152,7 +154,11 @@ class UnreadNewsSource(Model):
       self.update_summary()
 
     def feed_removed(sources, event, feed):
-      self.posts = None
+      if self.posts is not None:
+        for post_id, post in feed.posts.items():
+          if post_id in self.posts:
+            del self.posts[post_id]
+            self.emit('post-removed', post)
       self.update_summary()
 
     self.sources = sources
@@ -638,6 +644,8 @@ class Sources(Model):
     defer.returnValue(feeds)
 
   def feed_deleted(self, feed, event):
+    if feed in self.subscribed_feeds:
+      self.subscribed_feeds.remove(feed)
     self.emit('feed-removed', feed)
     self.emit('source-removed', feed)
 
