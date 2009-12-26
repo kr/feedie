@@ -1177,7 +1177,6 @@ class Feed(Model):
 
     posts = self.upsert_posts(docs)
     for post, doc in zip(posts, docs):
-      post = self.post(doc)
       post.doc = doc
 
   @property
