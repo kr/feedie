@@ -425,7 +425,7 @@ class Sources(Model):
     return self.refresh_feeds(self.subscribed_feeds)
 
   def refresh_feeds(self, feeds):
-    order = sorted(feeds, key=lambda x: x.title)
+    order = sorted(feeds, key=lambda x: x.sort_key)
     ds = []
     for feed in order:
       ds.append(feed.refresh())
@@ -1227,7 +1227,7 @@ class Feed(Model):
 
   @property
   def sort_key(self):
-    return [1, 0, self.title]
+    return [1, 0, self.title.lower()]
 
   @property
   def title(self):
