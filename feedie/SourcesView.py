@@ -30,6 +30,7 @@ class SourcesView(gtk.DrawingArea):
     self.sources.connect('source-removed', self.source_removed)
     self.items = {}
     self.order = []
+    self.compute_line_height()
     self.add_sources(self.sources)
     self.connect('style-set', self.style_set_cb)
 
@@ -78,6 +79,7 @@ class SourcesView(gtk.DrawingArea):
     self.queue_draw()
 
   def style_set_cb(self, *args):
+    self.compute_line_height()
     self.update_size_request()
 
   def update_size_request(self):
@@ -148,9 +150,9 @@ class SourcesView(gtk.DrawingArea):
     metrics = self.pango_context.get_metrics(fd, None)
     return (metrics.get_ascent() + metrics.get_descent()) / pango.SCALE
 
-  @property
-  def line_height(self):
-    return max(self.approx_text_height + self.approx_text_height / 2 - 1, 10)
+  def compute_line_height(self):
+    text_height = self.approx_text_height
+    self.line_height = max(text_height + text_height / 2 - 1, 10)
 
   @property
   def width(self):
