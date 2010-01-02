@@ -858,11 +858,13 @@ class Feed(Model):
   def modify(self, modify):
     self.doc = yield self.db.modify_doc(self.id, modify, doc=self.doc)
 
+  SPLIT_HEADER = re.compile(r'[,;]')
+
   @staticmethod
   def extract_max_age(response):
     h = response.headers
     if 'cache-control' not in h: return None
-    parts = [x.strip() for x in h['cache-control'].split(',')]
+    parts = [x.strip() for x in Feed.SPLIT_HEADER.split(h['cache-control'])]
     for part in parts:
       if part.startswith('max-age='):
         return int(part[8:])
