@@ -391,7 +391,6 @@ class Sources(Model):
     self.doc = dict(_id=self._id)
     self.builtin_order = []
     self.needs_refresh = []
-    self.currently_refreshing = []
 
   @property
   def _id(self):
@@ -431,8 +430,15 @@ class Sources(Model):
       ds.append(feed.refresh())
     return defer.DeferredList(ds)
 
+  @property
+  def is_refreshing(self):
+    for feed in self.subscribed_feeds:
+      if feed.is_refreshing: return True
+    return False
+
   @defer.inlineCallbacks
   def collect_garbage(self):
+    if self.is_refreshing: return
     yield self.collect_garbage_posts()
     yield self.collect_garbage_feeds()
     yield self.mark_posts_with_deleted_feeds()
@@ -678,7 +684,7 @@ class Sources(Model):
 count_load_summaries = 0
 
 class Feed(Model):
-  refreshing = False
+  is_refreshing = False
 
   def __init__(self, sources, doc, summary=None):
     self.sources = sources
@@ -909,10 +915,10 @@ class Feed(Model):
       if self.ready_for_refresh_favicon:
         self.discover_favicon()
       defer.returnValue(self)
-    if self.refreshing: defer.returnValue(self)
+    if self.is_refreshing: defer.returnValue(self)
 
     try:
-      self.refreshing = True
+      self.is_refreshing = True
 
       uri = self.doc['source_uri']
       http_info = self.doc.get('http', None)
@@ -974,7 +980,7 @@ class Feed(Model):
       defer.returnValue(self)
 
     finally:
-      self.refreshing = False
+      self.is_refreshing = False
 
   @defer.inlineCallbacks
   def discover_favicon(self, ifeed=None):
