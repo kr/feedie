@@ -149,7 +149,7 @@ function (doc) {
 POSTS_TO_MARK_FEED_IS_DELETED = '''
 function (doc) {
   if (doc.type != 'post') return;
-  emit(doc._id, doc._rev);
+  emit(doc.feed_id, {post_id: doc._id, post_rev: doc._rev});
 }
 '''
 

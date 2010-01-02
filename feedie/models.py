@@ -535,9 +535,11 @@ class Sources(Model):
         doc.clear()
 
     revs = {}
-    rows = yield self.db.view('feedie/posts_to_mark_feed_is_deleted')
+    rows = yield self.db.view('feedie/posts_to_mark_feed_is_deleted',
+        keys=[feed_id])
     for row in rows:
-      revs[row['id']] = row['value']
+      value = row['value']
+      revs[value['post_id']] = value['post_rev']
 
     yield self.db.modify_docs(revs.keys(), modify, load_first=True)
 
