@@ -107,67 +107,56 @@ class UnreadNewsSource(Model):
   def __init__(self, db):
     self.db = db
     self.sources = None
-    self.posts = None
-    self.update_summary()
+    self.posts = {}
+    self.summary = dict(total=0, read=0, starred_total=0, starred_read=0)
 
   def added_to(self, sources):
-    def summary_changed(source, event):
-      self.update_summary()
-
-    def feed_changed(source, event_name, field_name):
-      self.posts = None
-      self.update_summary()
-
-    def post_changed(post, event_name, field_name=None):
+    def post_changed(sources, event_name, feed, post, field_name=None):
       if field_name == 'read':
-        if self.posts is not None:
-          if not post.read:
-            self.posts[post._id] = post
-            self.emit('posts-added', [post])
-          else:
-            if post._id in self.posts:
-              del self.posts[post._id]
-              self.emit('post-removed', post)
-
-    def posts_added(feed, event_name, posts):
-      added_here = []
-      for post in posts:
-        post.connect('changed', post_changed)
         if not post.read:
-          if self.posts is not None:
-            self.posts[post._id] = post
-            added_here.append(post)
-      self.emit('posts-added', added_here)
+          self.posts[post._id] = post
+          self.emit('posts-added', [post])
 
-    def post_removed(feed, event_name, post):
-      if self.posts is not None:
-        if post._id in self.posts:
+          self.summary['total'] += 1
+          if post.starred:
+            self.summary['starred_total'] += 1
+
+        else:
           del self.posts[post._id]
           self.emit('post-removed', post)
-      self.update_summary()
 
-    def feed_added(sources, event, feed):
-      feed.connect('summary-changed', summary_changed)
-      feed.connect('changed', feed_changed)
-      feed.connect('posts-added', posts_added)
-      feed.connect('post-removed', post_removed)
-      self.update_summary()
+          self.summary['total'] -= 1
+          if post.starred:
+            self.summary['starred_total'] -= 1
 
-    def feed_removed(sources, event, feed):
-      if self.posts is not None:
-        for post_id, post in feed.posts.items():
-          if post_id in self.posts:
-            del self.posts[post_id]
-            self.emit('post-removed', post)
-      self.update_summary()
+        self.emit('summary-changed')
+
+    def posts_added(sources, event_name, feed, posts):
+      added_here = []
+      for post in posts:
+        if not post.read:
+          if post._id not in self.posts:
+            self.posts[post._id] = post
+            added_here.append(post)
+            self.summary['total'] += 1
+            if post.starred:
+              self.summary['starred_total'] += 1
+      self.emit('posts-added', added_here)
+      self.emit('summary-changed')
+
+    def post_removed(sources, event_name, feed, post):
+      if post._id in self.posts:
+        del self.posts[post._id]
+        self.emit('post-removed', post)
+        self.summary['total'] -= 1
+        if post.starred:
+          self.summary['starred_total'] -= 1
+        self.emit('summary-changed')
 
     self.sources = sources
-    sources.connect('feed-added', feed_added)
-    sources.connect('feed-removed', feed_removed)
-    for feed in sources.subscribed_feeds:
-      feed.connect('summary-changed', summary_changed)
-      feed.connect('posts-added', posts_added)
-      feed.connect('post-removed', post_removed)
+    sources.connect('posts-added', posts_added)
+    sources.connect('post-removed', post_removed)
+    sources.connect('post-changed', post_changed)
     self.update_summary()
 
   def update_summary(self):
@@ -205,15 +194,14 @@ class UnreadNewsSource(Model):
         map.setdefault(row['value']['feed_id'], []).append(row['value'])
       return map
 
-    if self.posts is None:
-      rows = yield self.db.view('feedie/unread_posts',
-          keys=self.sources.feed_ids)
-      by_feed = group(rows)
-      self.posts = {}
-      for feed_id, docs in by_feed.items():
-        feed = self.get_feed(feed_id)
-        posts = feed.upsert_posts(docs, update_summary=False)
-        self.posts.update(dict([(post._id, post) for post in posts]))
+    rows = yield self.db.view('feedie/unread_posts',
+        keys=self.sources.feed_ids)
+    by_feed = group(rows)
+    self.posts = {}
+    for feed_id, docs in by_feed.items():
+      feed = self.get_feed(feed_id)
+      posts = feed.upsert_posts(docs, update_summary=False)
+      self.posts.update(dict([(post._id, post) for post in posts]))
     defer.returnValue(self.posts.values())
 
   def get_feed(self, feed_id):
@@ -255,58 +243,74 @@ class StarredNewsSource(Model):
   def __init__(self, db):
     self.db = db
     self.sources = None
-    self.posts = None
-    self.update_summary()
+    self.posts = {}
+    self.summary = dict(total=0, read=0, starred_total=0, starred_read=0)
 
   def added_to(self, sources):
-    def summary_changed(source, event):
-      self.update_summary()
-
-    def starred_post_was_added(post):
-      if self.posts is not None:
-        self.posts[post._id] = post
-        self.emit('posts-added', [post])
-      self.update_summary()
-
-    def post_changed(post, event_name, field_name=None):
+    def post_changed(sources, event_name, feed, post, field_name=None):
       if field_name == 'starred':
         if post.starred:
-          starred_post_was_added(post)
+          self.posts[post._id] = post
+          self.emit('posts-added', [post])
+
+          self.summary['total'] += 1
+          self.summary['starred_total'] += 1
+          if post.read:
+            self.summary['read'] += 1
+            self.summary['starred_read'] += 1
+
         else:
-          post_removed(None, None, post)
-
-      self.update_summary()
-
-    def posts_added(feed, event_name, posts):
-      for post in posts:
-        post.connect('changed', post_changed)
-        if post.starred:
-          starred_post_was_added(post)
-
-    def post_removed(feed, event_name, post):
-      if self.posts is not None:
-        if post._id in self.posts:
           del self.posts[post._id]
           self.emit('post-removed', post)
-      self.update_summary()
 
-    def feed_added(sources, event, feed):
-      feed.connect('summary-changed', summary_changed)
-      feed.connect('posts-added', posts_added)
-      feed.connect('post-removed', post_removed)
-      self.update_summary()
+          self.summary['total'] -= 1
+          self.summary['starred_total'] -= 1
+          if post.read:
+            self.summary['read'] -= 1
+            self.summary['starred_read'] -= 1
 
-    def feed_removed(sources, event, feed):
-      self.update_summary()
+        self.emit('summary-changed')
+
+      elif field_name == 'read' and post.starred:
+        if post.read:
+          self.summary['read'] += 1
+          self.summary['starred_read'] += 1
+        else:
+          self.summary['read'] -= 1
+          self.summary['starred_read'] -= 1
+        self.emit('summary-changed')
+
+    def posts_added(sources, event_name, feed, posts):
+      added_here = []
+      for post in posts:
+        if post.starred:
+          if post._id not in self.posts:
+            self.posts[post._id] = post
+            added_here.append(post)
+            self.summary['total'] += 1
+            self.summary['starred_total'] += 1
+            if post.read:
+              self.summary['read'] += 1
+              self.summary['starred_read'] += 1
+      self.emit('posts-added', added_here)
+      self.emit('summary-changed')
+
+    def post_removed(sources, event_name, feed, post):
+      if post._id in self.posts:
+        del self.posts[post._id]
+        self.emit('post-removed', post)
+        self.summary['total'] -= 1
+        self.summary['starred_total'] -= 1
+        if post.read:
+          self.summary['read'] -= 1
+          self.summary['starred_read'] -= 1
+        self.emit('summary-changed')
 
     self.sources = sources
-    sources.connect('feed-added', feed_added)
-    sources.connect('feed-removed', feed_removed)
-    for feed in sources.feeds.values():
-      feed.connect('summary-changed', summary_changed)
-      feed.connect('posts-added', posts_added)
-      feed.connect('post-removed', post_removed)
-    self.update_summary()
+    sources.connect('posts-added', posts_added)
+    sources.connect('post-removed', post_removed)
+    sources.connect('post-changed', post_changed)
+    #self.update_summary()
 
   def update_summary(self):
     self.summary = dict(total=0, read=0, starred_total=0, starred_read=0)
@@ -340,9 +344,8 @@ class StarredNewsSource(Model):
     def row_to_entry(row):
       doc = row['value']
       return row['id'], self.get_feed(doc['feed_id']).post(doc)
-    if self.posts is None:
-      rows = yield self.db.view('feedie/starred_posts')
-      self.posts = dict(map(row_to_entry, rows))
+    rows = yield self.db.view('feedie/starred_posts')
+    self.posts = dict(map(row_to_entry, rows))
     defer.returnValue(self.posts.values())
 
   def get_feed(self, feed_id):
@@ -391,6 +394,40 @@ class Sources(Model):
     self.doc = dict(_id=self._id)
     self.builtin_order = []
     self.needs_refresh = []
+
+    def post_removed_helper(feed, event_name, post):
+      (post.__disconnect_changed or (lambda:None))()
+      post.__disconnect_changed = None
+
+      self.emit('post-removed', feed, post)
+
+    def feed_added_helper(sources, event_name, feed):
+      def posts_added(feed, event_name, posts):
+        def changed(post, event_name, field_name=None):
+          self.emit('post-changed', feed, post, field_name)
+
+        for post in posts:
+          post.__disconnect_changed = post.connect('changed', changed)
+
+        self.emit('posts-added', feed, posts)
+
+      feed.__disconnect_posts_added = feed.connect('posts-added', posts_added)
+      feed.__disconnect_post_removed = feed.connect('post-removed',
+          post_removed_helper)
+
+    self.connect('feed-added', feed_added_helper)
+
+    def feed_removed_helper(sources, event_name, feed):
+      (feed.__disconnect_posts_added or (lambda:None))()
+      feed.__disconnect_posts_added = None
+
+      (feed.__disconnect_post_removed or (lambda:None))()
+      feed.__disconnect_post_removed = None
+
+      for post in feed.posts.values():
+        post_removed_helper(feed, 'post-removed', post)
+
+    self.connect('feed-removed', feed_removed_helper)
 
   @property
   def _id(self):
