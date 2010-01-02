@@ -107,11 +107,12 @@ class UnreadNewsSource(Model):
   def __init__(self, db):
     self.db = db
     self.sources = None
-    self.posts = {}
+    self.posts = None
     self.summary = dict(total=0, read=0, starred_total=0, starred_read=0)
 
   def added_to(self, sources):
     def post_changed(sources, event_name, feed, post, field_name=None):
+      if self.posts is None: return
       if field_name == 'read':
         if not post.read:
           self.posts[post._id] = post
@@ -132,6 +133,7 @@ class UnreadNewsSource(Model):
         self.emit('summary-changed')
 
     def posts_added(sources, event_name, feed, posts):
+      if self.posts is None: return
       added_here = []
       for post in posts:
         if not post.read:
@@ -141,10 +143,12 @@ class UnreadNewsSource(Model):
             self.summary['total'] += 1
             if post.starred:
               self.summary['starred_total'] += 1
-      self.emit('posts-added', added_here)
+      if added_here:
+        self.emit('posts-added', added_here)
       self.emit('summary-changed')
 
     def post_removed(sources, event_name, feed, post):
+      if self.posts is None: return
       if post._id in self.posts:
         del self.posts[post._id]
         self.emit('post-removed', post)
@@ -194,14 +198,16 @@ class UnreadNewsSource(Model):
         map.setdefault(row['value']['feed_id'], []).append(row['value'])
       return map
 
-    rows = yield self.db.view('feedie/unread_posts',
-        keys=self.sources.feed_ids)
-    by_feed = group(rows)
-    self.posts = {}
-    for feed_id, docs in by_feed.items():
-      feed = self.get_feed(feed_id)
-      posts = feed.upsert_posts(docs, update_summary=False)
-      self.posts.update(dict([(post._id, post) for post in posts]))
+    if self.posts is None:
+      rows = yield self.db.view('feedie/unread_posts',
+          keys=self.sources.feed_ids)
+      by_feed = group(rows)
+      posts = {}
+      for feed_id, docs in by_feed.items():
+        feed = self.get_feed(feed_id)
+        feed_posts = feed.upsert_posts(docs, update_summary=False)
+        posts.update(dict([(post._id, post) for post in feed_posts]))
+      self.posts = posts
     defer.returnValue(self.posts.values())
 
   def get_feed(self, feed_id):
@@ -243,11 +249,12 @@ class StarredNewsSource(Model):
   def __init__(self, db):
     self.db = db
     self.sources = None
-    self.posts = {}
+    self.posts = None
     self.summary = dict(total=0, read=0, starred_total=0, starred_read=0)
 
   def added_to(self, sources):
     def post_changed(sources, event_name, feed, post, field_name=None):
+      if self.posts is None: return
       if field_name == 'starred':
         if post.starred:
           self.posts[post._id] = post
@@ -281,6 +288,7 @@ class StarredNewsSource(Model):
         self.emit('summary-changed')
 
     def posts_added(sources, event_name, feed, posts):
+      if self.posts is None: return
       added_here = []
       for post in posts:
         if post.starred:
@@ -296,6 +304,7 @@ class StarredNewsSource(Model):
       self.emit('summary-changed')
 
     def post_removed(sources, event_name, feed, post):
+      if self.posts is None: return
       if post._id in self.posts:
         del self.posts[post._id]
         self.emit('post-removed', post)
@@ -344,8 +353,9 @@ class StarredNewsSource(Model):
     def row_to_entry(row):
       doc = row['value']
       return row['id'], self.get_feed(doc['feed_id']).post(doc)
-    rows = yield self.db.view('feedie/starred_posts')
-    self.posts = dict(map(row_to_entry, rows))
+    if self.posts is None:
+      rows = yield self.db.view('feedie/starred_posts')
+      self.posts = dict(map(row_to_entry, rows))
     defer.returnValue(self.posts.values())
 
   def get_feed(self, feed_id):
