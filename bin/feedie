@@ -61,12 +61,12 @@ from feedie import design_doc
 sources = None
 
 MAIN_HTTP = http.Client()
-MAIN_HTTP.max_connections = 3
-MAIN_HTTP.max_connections_per_domain = 1
+MAIN_HTTP.max_connections = 5
+MAIN_HTTP.max_connections_per_domain = 2
 
 DB_HTTP = http.Client()
-DB_HTTP.max_connections = 2
-DB_HTTP.max_connections_per_domain = 2
+DB_HTTP.max_connections = 6
+DB_HTTP.max_connections_per_domain = 6
 
 ICON_HTTP = http.Client()
 ICON_HTTP.max_connections = 50
