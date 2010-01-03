@@ -73,9 +73,10 @@ class PostsTreeModel(gtk.GenericTreeModel):
     now = time.time()
     year = time.gmtime(now).tm_year
     t = time.gmtime(doc.updated_at)
-    if t.tm_year != year:
+    dt = abs(now - doc.updated_at)
+    if dt > 15552000: # ~6 months
       return time.strftime('%d %b %Y', t)
-    if abs(now - doc.updated_at) > 82800: # 23 Hours
+    if dt > 82800: # 23 Hours
       return time.strftime('%d %b', t)
     return time.strftime('%I:%M %p', t).lstrip('0').lower()
 
