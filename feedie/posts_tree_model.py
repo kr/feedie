@@ -72,7 +72,7 @@ class PostsTreeModel(gtk.GenericTreeModel):
   def column_pretty_date(self, doc):
     now = time.time()
     year = time.gmtime(now).tm_year
-    t = time.gmtime(doc.updated_at)
+    t = time.localtime(doc.updated_at)
     dt = abs(now - doc.updated_at)
     if dt > 15552000: # ~6 months
       return time.strftime('%d %b %Y', t).lstrip('0')
