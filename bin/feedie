@@ -17,12 +17,6 @@ from xml.dom import minidom
 from desktopcouch.records.server import CouchDatabase
 from Cheetah.Template import Template
 
-from twisted.internet import gtk2reactor
-gtk2reactor.install()
-
-from twisted.internet import reactor, defer
-from twisted.web import client
-
 webkit.WEB_NAVIGATION_REASON_OTHER = 5
 
 webkit.LOAD_COMMITTED = 1
@@ -39,6 +33,12 @@ if os.path.dirname(sys.argv[0]) != ".":
 else:
     fullPath = os.getcwd()
 sys.path.insert(0, os.path.dirname(fullPath))
+
+from feedie import gtk2reactor
+gtk2reactor.install()
+
+from twisted.internet import reactor, defer
+from twisted.web import client
 
 from feedie import AboutFeedieDialog, PreferencesFeedieDialog
 from feedie.SourcesView import SourcesView
