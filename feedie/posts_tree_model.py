@@ -79,9 +79,8 @@ class PostsTreeModel(gtk.GenericTreeModel):
       return time.strftime('%d %b', t)
     return time.strftime('%I:%M %p', t).lstrip('0').lower()
 
-  # Sort first by age, then by id, so at least it's a total order.
   def column_age(self, doc):
-    return '%18d %s' % (946080000000000000 - doc.updated_at, doc._id)
+    return -doc.updated_at
 
   def column_read_image(self, doc):
     read = doc.read
