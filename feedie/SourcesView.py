@@ -5,6 +5,7 @@ import cairo
 import pango
 import gobject
 import time
+import locale
 from math import pi, ceil
 from collections import namedtuple
 
@@ -438,7 +439,7 @@ class SourceItem:
       fd = self.sourceview.font_desc.copy()
       fd.set_weight(700)
       layout.set_font_description(fd)
-      layout.set_text(str(self.source.unread))
+      layout.set_text(locale.format('%d', self.source.unread, grouping=True))
       text_width, text_height = layout.get_pixel_size()
 
       if text_width >= self.width - dx: return lr_margin

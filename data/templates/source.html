@@ -1,6 +1,7 @@
 #from cgi import escape as h
 #from json import dumps as j
 #from pprint import pformat as p
+#from locale import format_string as f
 <!doctype html>
 
 <html>
@@ -19,7 +20,7 @@ body {
 
 <h1>$source.title</h1>
 
-<p>Showing $source.unread unread posts.</p>
+<p>Showing $f('%d', $source.unread, True) unread posts.</p>
 
 #if $source.error
   <div id=error>

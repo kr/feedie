@@ -4,6 +4,9 @@
 # This file is in the public domain
 ### END LICENSE
 
+import locale
+locale.setlocale(locale.LC_NUMERIC)
+
 import sys
 import os
 import gtk
@@ -433,7 +436,8 @@ class FeedieWindow(gtk.Window):
         status_paned = self.builder.get_object('status-paned')
 
         def update_unread_counts(*args):
-          message = '%d unread' % (self.unreadnews.unread,)
+          message = locale.format_string('%d unread', self.unreadnews.unread,
+              grouping=True)
           sources_status.set_text(message)
           self.set_title('Feedie (%s)' % (message,))
 
@@ -601,7 +605,8 @@ class FeedieWindow(gtk.Window):
     def update_posts_title(self, model, path, iter=None):
       source = self.sources_view.selected
       if not source: return
-      title = u'%s \u2013 %d posts' % (source.title, len(model))
+      title = locale.format_string(u'%s \u2013 %d posts',
+          (source.title, len(model)), grouping=True)
       if self.search_terms:
         terms = [u'\u201c%s\u201d' % (x,) for x in self.search_terms]
         title += ' containing ' + ', '.join(terms)
