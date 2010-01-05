@@ -649,7 +649,7 @@ class Sources(Model):
     self.emit('feed-removed', feed)
     self.emit('source-removed', feed)
 
-  BATCH_SIZE = 50
+  BATCH_SIZE = 113
 
   @defer.inlineCallbacks
   def mark_posts_as(self, posts, read, split='auto', now=None):
