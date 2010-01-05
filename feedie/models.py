@@ -694,6 +694,8 @@ class Sources(Model):
     else:
       self.emit('posts-marked-unread', changed_posts)
 
+    self.db.touch_view('feedie/feed_post')
+
 count_load_summaries = 0
 
 class Feed(Model):
