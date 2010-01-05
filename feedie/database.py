@@ -1,3 +1,4 @@
+from itertools import repeat, imap
 import urlparse
 from oauth import oauth
 import cgi
@@ -77,7 +78,8 @@ class AsyncCouch:
     headers['Accept'] = 'application/json'
 
     if body:
-      request = self.request(verb, request_path, headers, body=json.dumps(body))
+      body_str = json.dumps(body)
+      request = self.request(verb, request_path, headers, body=body_str)
     else:
       request = self.request(verb, request_path, headers)
 
@@ -168,10 +170,34 @@ class AsyncCouch:
     rows = yield self.view('_all_docs', include_docs='true', keys=doc_ids)
     defer.returnValue([row['doc'] for row in rows])
 
+  BATCH_SIZE = 1000
+  BULK_CONCURRENCY = 2
+
   # returns a list of responses as documented in
   # http://wiki.apache.org/couchdb/HTTP_Bulk_Document_API
-  def save_docs(self, docs):
-    return self.post('_bulk_docs', body=dict(docs=docs))
+  def save_docs(self, docs, split='auto'):
+    if split == 'auto':
+      split = len(docs) > self.BATCH_SIZE
+
+    if not split:
+      return self.post('_bulk_docs', body=dict(docs=docs))
+
+    # split into multiple sets and send them in parallel
+    promise = defer.Deferred()
+    groups = util.n_groups(self.BULK_CONCURRENCY, docs)
+    ds = tuple(imap(self.save_docs, groups, repeat(False)))
+    dl = defer.DeferredList(ds, fireOnOneErrback=True)
+
+    @dl.addCallback
+    def dl(result):
+      rows = []
+      for success, value in result:
+        if not success: return promise.errback(value)
+        rows.extend(value)
+      promise.callback(rows)
+
+    dl.addErrback(promise.errback)
+    return promise
 
   @defer.inlineCallbacks
   def modify_doc(self, doc_id, f, load_first=False, doc=None):

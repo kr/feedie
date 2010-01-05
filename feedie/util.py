@@ -13,6 +13,24 @@ def merge(a, b):
   a.update(b)
   return a
 
+def n_groups(n, x):
+  if n > len(x) or n < 1:
+    raise ValueError(n)
+
+  z = (len(x) + n - 1) / n
+
+  ys = []
+  while True:
+    if len(x) < z:
+      if len(x): ys.append(x)
+      assert len(ys) == n, ys
+      return ys
+    y, x = x[:z], x[z:]
+    ys.append(y)
+
+    rest = n - len(ys)
+    if rest: z = (len(x) + rest - 1) / rest
+
 def flatten(x):
   x = list(x)
   i = 0
