@@ -1339,10 +1339,9 @@ class Feed(Model):
     self.emit('deleted')
 
 class Post(Model):
-  def __init__(self, doc, feed, complete=False):
+  def __init__(self, doc, feed):
     self.doc = doc
     self.feed = feed
-    self.complete = complete
 
   def __getitem__(self, name):
     return self.doc[name]
@@ -1408,13 +1407,6 @@ class Post(Model):
     if post_domain == feed_domain:
       return self.link
     return self.feed.link
-
-  @defer.inlineCallbacks
-  def load_doc(self):
-    if self.complete: return
-    doc = yield self.feed.db.load_doc(self._id)
-    self.doc = doc
-    self.complete = True
 
   def summary_html(self):
     if self.summary_detail:
