@@ -111,6 +111,9 @@ class AsyncCouch:
       response = yield self.get(path, **params)
     defer.returnValue(response['rows'])
 
+  def touch_view(self, name):
+    self.view(name, startkey={}, endkey={})
+
   def load_doc(self, doc_id):
     return self.get(urllib.quote_plus(doc_id))
 

@@ -1256,6 +1256,8 @@ class Feed(Model):
     for post, doc in zip(posts, docs):
       post.doc = doc
 
+    self.db.touch_view('feedie/feed_post')
+
   @property
   def id(self):
     return self.doc['_id']
