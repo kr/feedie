@@ -13,6 +13,18 @@ def merge(a, b):
   a.update(b)
   return a
 
+def groups_of(n, x):
+  if n > len(x) or n < 1:
+    raise ValueError(n)
+
+  ys = []
+  while True:
+    if len(x) < n:
+      if len(x): ys.append(x)
+      return ys
+    y, x = x[:n], x[n:]
+    ys.append(y)
+
 def n_groups(n, x):
   if n > len(x) or n < 1:
     raise ValueError(n)

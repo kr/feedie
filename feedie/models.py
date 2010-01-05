@@ -649,9 +649,21 @@ class Sources(Model):
     self.emit('feed-removed', feed)
     self.emit('source-removed', feed)
 
+  BATCH_SIZE = 50
+
   @defer.inlineCallbacks
-  def mark_posts_as(self, posts, read):
-    now = int(time.time())
+  def mark_posts_as(self, posts, read, split='auto', now=None):
+    if split == 'auto':
+      split = len(posts) > self.BATCH_SIZE
+
+    if split:
+      groups = util.groups_of(self.BATCH_SIZE, posts)
+      for group in groups:
+        yield self.mark_posts_as(group, read, split=False, now=now)
+      return
+
+    if now is None:
+      now = int(time.time())
 
     if read:
       def modify(doc):
