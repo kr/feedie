@@ -56,11 +56,11 @@
     #if $post.tags
       <ul class=tags>
         #for $tag in $post.tags
-          #set $label = $tag.label
-          #if not $label
-            #set $label = $tag.term
+          #if $tag.label
+            <li>$h($tag.label)</li>
+          #else if $tag.term
+            <li>$h($tag.term)</li>
           #end if
-          <li>$h($label)</li>
         #end for
       </ul>
     #end if
