@@ -677,22 +677,21 @@ class Sources(Model):
         if 'read_at' in doc:
           del doc['read_at']
 
+    # We only care about ones that need changing
+    posts = [post for post in posts if post.read != read]
+
     ids = [post._id for post in posts]
     docs = [post.doc.copy() for post in posts]
     docs = yield self.db.modify_docs(ids, modify, docs=docs)
 
-    changed_posts = []
-
     # update each post with current doc from the db
     for post, doc in zip(posts, docs):
-      if post.read != read:
-        changed_posts.append(post)
       post.doc = doc
 
     if read:
-      self.emit('posts-marked-read', changed_posts)
+      self.emit('posts-marked-read', posts)
     else:
-      self.emit('posts-marked-unread', changed_posts)
+      self.emit('posts-marked-unread', posts)
 
     self.db.touch_view('feedie/feed_post')
 
