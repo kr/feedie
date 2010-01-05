@@ -708,6 +708,10 @@ class FeedieWindow(gtk.Window):
         # quicker.
         self.treeview.set_model(None)
 
+        # We want startup to be fast, so kick this off just in case. That way
+        # the view will be up to date for next time.
+        self.db.touch_view('feedie/feed_post')
+
         #gtk.main_quit()
         reactor.stop()
 
