@@ -111,26 +111,31 @@ class UnreadNewsSource(Model):
     self.summary = dict(total=0, read=0, starred_total=0, starred_read=0)
 
   def added_to(self, sources):
-    def post_changed(sources, event_name, feed, post, field_name=None):
+    def posts_marked_read(sources, event_name, posts):
       if self.posts is None: return
-      if field_name == 'read':
-        if not post.read:
-          self.posts[post._id] = post
-          self.emit('posts-added', [post])
 
-          self.summary['total'] += 1
-          if post.starred:
-            self.summary['starred_total'] += 1
+      self.summary['total'] -= len(posts)
 
-        else:
-          del self.posts[post._id]
-          self.emit('post-removed', post)
+      for post in posts:
+        del self.posts[post._id]
+        self.emit('post-removed', post)
+        if post.starred:
+          self.summary['starred_total'] -= 1
 
-          self.summary['total'] -= 1
-          if post.starred:
-            self.summary['starred_total'] -= 1
+      self.emit('summary-changed')
 
-        self.emit('summary-changed')
+    def posts_marked_unread(sources, event_name, posts):
+      if self.posts is None: return
+
+      self.summary['total'] += len(posts)
+
+      for post in posts:
+        self.posts[post._id] = post
+        self.emit('posts-added', [post])
+        if post.starred:
+          self.summary['starred_total'] += 1
+
+      self.emit('summary-changed')
 
     def posts_added(sources, event_name, feed, posts):
       if self.posts is None: return
@@ -160,7 +165,8 @@ class UnreadNewsSource(Model):
     self.sources = sources
     sources.connect('posts-added', posts_added)
     sources.connect('post-removed', post_removed)
-    sources.connect('post-changed', post_changed)
+    sources.connect('posts-marked-read', posts_marked_read)
+    sources.connect('posts-marked-unread', posts_marked_unread)
     self.update_summary()
 
   def update_summary(self):
@@ -253,73 +259,12 @@ class StarredNewsSource(Model):
     self.summary = dict(total=0, read=0, starred_total=0, starred_read=0)
 
   def added_to(self, sources):
-    def post_changed(sources, event_name, feed, post, field_name=None):
-      if self.posts is None: return
-      if field_name == 'starred':
-        if post.starred:
-          self.posts[post._id] = post
-          self.emit('posts-added', [post])
-
-          self.summary['total'] += 1
-          self.summary['starred_total'] += 1
-          if post.read:
-            self.summary['read'] += 1
-            self.summary['starred_read'] += 1
-
-        else:
-          del self.posts[post._id]
-          self.emit('post-removed', post)
-
-          self.summary['total'] -= 1
-          self.summary['starred_total'] -= 1
-          if post.read:
-            self.summary['read'] -= 1
-            self.summary['starred_read'] -= 1
-
-        self.emit('summary-changed')
-
-      elif field_name == 'read' and post.starred:
-        if post.read:
-          self.summary['read'] += 1
-          self.summary['starred_read'] += 1
-        else:
-          self.summary['read'] -= 1
-          self.summary['starred_read'] -= 1
-        self.emit('summary-changed')
-
-    def posts_added(sources, event_name, feed, posts):
-      if self.posts is None: return
-      added_here = []
-      for post in posts:
-        if post.starred:
-          if post._id not in self.posts:
-            self.posts[post._id] = post
-            added_here.append(post)
-            self.summary['total'] += 1
-            self.summary['starred_total'] += 1
-            if post.read:
-              self.summary['read'] += 1
-              self.summary['starred_read'] += 1
-      self.emit('posts-added', added_here)
-      self.emit('summary-changed')
-
-    def post_removed(sources, event_name, feed, post):
-      if self.posts is None: return
-      if post._id in self.posts:
-        del self.posts[post._id]
-        self.emit('post-removed', post)
-        self.summary['total'] -= 1
-        self.summary['starred_total'] -= 1
-        if post.read:
-          self.summary['read'] -= 1
-          self.summary['starred_read'] -= 1
-        self.emit('summary-changed')
+    def feed_summary_changed(sources, event_name, feed):
+      self.update_summary()
 
     self.sources = sources
-    sources.connect('posts-added', posts_added)
-    sources.connect('post-removed', post_removed)
-    sources.connect('post-changed', post_changed)
-    #self.update_summary()
+    sources.connect('feed-summary-changed', feed_summary_changed)
+    self.update_summary()
 
   def update_summary(self):
     self.summary = dict(total=0, read=0, starred_total=0, starred_read=0)
@@ -405,25 +350,21 @@ class Sources(Model):
     self.builtin_order = []
     self.needs_refresh = []
 
-    def post_removed_helper(feed, event_name, post):
-      (post.__disconnect_changed or (lambda:None))()
-      post.__disconnect_changed = None
-
-      self.emit('post-removed', feed, post)
-
     def feed_added_helper(sources, event_name, feed):
       def posts_added(feed, event_name, posts):
-        def changed(post, event_name, field_name=None):
-          self.emit('post-changed', feed, post, field_name)
-
-        for post in posts:
-          post.__disconnect_changed = post.connect('changed', changed)
-
         self.emit('posts-added', feed, posts)
+
+      def post_removed(feed, event_name, post):
+        self.emit('post-removed', feed, post)
+
+      def summary_changed(feed, event_name):
+        self.emit('feed-summary-changed', feed)
 
       feed.__disconnect_posts_added = feed.connect('posts-added', posts_added)
       feed.__disconnect_post_removed = feed.connect('post-removed',
-          post_removed_helper)
+          post_removed)
+      feed.__disconnect_summary_changed = feed.connect('summary-changed',
+          summary_changed)
 
     self.connect('feed-added', feed_added_helper)
 
@@ -434,8 +375,11 @@ class Sources(Model):
       (feed.__disconnect_post_removed or (lambda:None))()
       feed.__disconnect_post_removed = None
 
+      (feed.__disconnect_summary_changed or (lambda:None))()
+      feed.__disconnect_summary_changed = None
+
       for post in feed.posts.values():
-        post_removed_helper(feed, 'post-removed', post)
+        self.emit('post-removed', feed, post)
 
     self.connect('feed-removed', feed_removed_helper)
 
@@ -708,6 +652,7 @@ class Sources(Model):
   @defer.inlineCallbacks
   def mark_posts_as(self, posts, read):
     now = int(time.time())
+
     if read:
       def modify(doc):
         when = doc.get('updated_at', 0)
@@ -724,9 +669,18 @@ class Sources(Model):
     docs = [post.doc.copy() for post in posts]
     docs = yield self.db.modify_docs(ids, modify, docs=docs)
 
+    changed_posts = []
+
     # update each post with current doc from the db
     for post, doc in zip(posts, docs):
+      if post.read != read:
+        changed_posts.append(post)
       post.doc = doc
+
+    if read:
+      self.emit('posts-marked-read', changed_posts)
+    else:
+      self.emit('posts-marked-unread', changed_posts)
 
 count_load_summaries = 0
 
@@ -740,6 +694,8 @@ class Feed(Model):
     self.posts = {}
     self.summary = summary or dict(total=0, read=0, starred_total=0, starred_read=0)
     self.load_favicon()
+    sources.connect('posts-marked-read', self.posts_marked_read)
+    sources.connect('posts-marked-unread', self.posts_marked_unread)
 
   @defer.inlineCallbacks
   def load_post(self, post_id):
@@ -1171,21 +1127,31 @@ class Feed(Model):
   def error(self):
     return self.doc.get('error', None)
 
-  def post_changed(self, post, event_name, field_name=None):
-    if field_name == 'read':
-      new_read = post.read
-      old_read = not new_read
-      if new_read:
+  def post_changed_starred(self, post, event_name):
+    self.update_summary()
+
+  def posts_marked_read(self, sources, event_name, posts):
+    our_count = 0
+    for post in posts:
+      if post.feed is self:
+        our_count += 1
         self.summary['read'] += 1
         if post.starred:
           self.summary['starred_read'] += 1
-      else:
+    if our_count:
+      self.emit('summary-changed')
+
+  def posts_marked_unread(self, sources, event_name, posts):
+    our_count = 0
+    for post in posts:
+      if post.feed is self:
+        our_count += 1
         self.summary['read'] -= 1
         if post.starred:
           self.summary['starred_read'] -= 1
+    if our_count:
       self.emit('summary-changed')
-    elif field_name == 'starred':
-      self.update_summary()
+
 
   # Retrieves the posts. If each one does not exist, creates it using
   # the appropriate element in default_doc.
@@ -1196,7 +1162,7 @@ class Feed(Model):
       post_id = default_doc['_id']
       if post_id not in self.posts:
         post = self.posts[post_id] = Post(default_doc, self)
-        post.connect('changed', self.post_changed)
+        post.connect('changed::starred', self.post_changed_starred)
 
         if update_summary:
           self.summary['total'] += 1
@@ -1342,11 +1308,7 @@ class Feed(Model):
     if self.x_subscribed_at == when:
       return
 
-    was = self.x_subscribed_at
     yield self.modify(modify)
-    now = self.x_subscribed_at
-    if was != now:
-      self.emit('changed', 'subscribed_at')
 
   @property
   def is_deleted(self):
@@ -1429,14 +1391,16 @@ class Post(Model):
       self._doc = attrdict(new)
       return
 
+    old_read = self.read
+
     old = self._doc
     if old != new:
       self._doc = attrdict(new)
-      self.emit('changed', None)
-      old_read = old.get('read_updated_at', 0) >= old.get('updated_at', 0)
-      new_read = new.get('read_updated_at', 0) >= new.get('updated_at', 0)
-      if old_read != new_read:
-        self.emit('changed', 'read')
+
+    new_read = self.read
+
+    if old_read != new_read:
+      self.emit('changed::read')
 
   def base(self):
     post_domain = urlparse.urlsplit(self.link).netloc
@@ -1493,7 +1457,7 @@ class Post(Model):
     now_starred = self.starred
 
     if was_starred != now_starred: # always true
-      self.emit('changed', 'starred')
+      self.emit('changed::starred')
 
   @property
   def starred(self):
