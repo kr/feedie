@@ -50,40 +50,23 @@ function (doc) {
 }
 '''
 
-EMIT_SNIPPET = '''
-  function emit_snippet(doc) {
-    emit(doc.feed_id, {
-      _id: doc._id,
-      feed_id: doc.feed_id,
-      title: doc.title,
-      starred: doc.starred,
-      read_updated_at: doc.read_updated_at,
-      updated_at: doc.updated_at,
-    });
-  }
-'''
-
 FEED_POST_MAP = '''
 function (doc) {
-  %(EMIT_SNIPPET)s
-
   if (doc.type == 'post' && !doc.deleted_at) {
-    emit_snippet(doc);
+    emit(doc.feed_id, doc);
   }
 }
 ''' % locals()
 
 UNREAD_POSTS_MAP = '''
 function (doc) {
-  %(EMIT_SNIPPET)s
-
   if (doc.type == 'post' && !doc.deleted_at) {
     try {
       if (!(doc.read_updated_at >= doc.updated_at)) {
-        emit_snippet(doc);
+        emit(doc.feed_id, doc);
       }
     } catch (e) {
-      emit_snippet(doc);
+      emit(doc.feed_id, doc);
     }
   }
 }
@@ -91,15 +74,13 @@ function (doc) {
 
 STARRED_POSTS_MAP = '''
 function (doc) {
-  %(EMIT_SNIPPET)s
-
   if (doc.type == 'post' && !doc.deleted_at) {
     try {
       if (doc.starred) {
-        emit_snippet(doc);
+        emit(doc.feed_id, doc);
       }
     } catch (e) {
-      emit_snippet(doc);
+      emit(doc.feed_id, doc);
     }
   }
 }
