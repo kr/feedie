@@ -176,8 +176,7 @@ class UnreadNewsSource(Model):
     self.summary = dict(total=0, read=0, starred_total=0, starred_read=0)
     if self.sources:
       for feed in self.sources.subscribed_feeds:
-        self.summary['total'] += feed.summary['total']
-        self.summary['read'] += feed.summary['read']
+        self.summary['total'] += feed.summary['total'] - feed.summary['read']
     self.emit('summary-changed')
 
   @property
