@@ -83,11 +83,11 @@ class InstallAndUpdateDataDirectory(DistUtilsExtra.auto.install_auto):
 DistUtilsExtra.auto.setup(
     name='feedie',
     version='0.1',
-    #license='GPL v3',
-    #author='Your Name',
-    #author_email='email@ubuntu.com',
-    #description='UI for managing …',
-    #long_description='Here a longer description',
+    license='MIT',
+    author='Keith Rarick',
+    author_email='kr@xph.us',
+    description='Feed Reader',
+    long_description='Read Atom and RSS feeds without fuss.',
     #url='https://launchpad.net/feedie',
     cmdclass={'install': InstallAndUpdateDataDirectory}
     )
