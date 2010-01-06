@@ -1004,7 +1004,7 @@ class Feed(Model):
 
       ifeed = incoming.Feed(parsed)
       yield self.save_ifeed(ifeed, response)
-      yield self.discover_favicon(ifeed)
+      self.discover_favicon(ifeed)
       defer.returnValue(self)
 
     finally:
