@@ -615,7 +615,7 @@ class FeedieWindow(gtk.Window):
 
     def update_posts_title(self, model, path, iter=None, extra=None):
       source = self.sources_view.selected
-      if not source: return
+      if source is None: return
       title = locale.format_string(u'%s \u2013 %d posts',
           (source.title, len(model)), grouping=True)
       if self.search_terms:
@@ -636,7 +636,7 @@ class FeedieWindow(gtk.Window):
 
       self.set_next_unread_sensitivity()
 
-      if not source:
+      if source is None:
         treeview = self.builder.get_object('posts-treeview')
         treeview.set_model(None)
         treeview.get_column(2).get_widget().set_text('')
