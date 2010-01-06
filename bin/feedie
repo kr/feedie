@@ -361,6 +361,7 @@ class FeedieWindow(gtk.Window):
           def set_up_model(tv, data=None):
             model = tv.get_model()
             if not model: return
+            if not hasattr(model, 'get_model'): return
             model = model.get_model() # find the real model
             if not model: return
             model.connect('sorted', was_sorted)
@@ -612,7 +613,7 @@ class FeedieWindow(gtk.Window):
       self.select_feed(self.sources_view, self.sources_view.selected_id,
             self.selected_source_to_remove)
 
-    def update_posts_title(self, model, path, iter=None):
+    def update_posts_title(self, model, path, iter=None, extra=None):
       source = self.sources_view.selected
       if not source: return
       title = locale.format_string(u'%s \u2013 %d posts',
@@ -620,6 +621,8 @@ class FeedieWindow(gtk.Window):
       if self.search_terms:
         terms = [u'\u201c%s\u201d' % (x,) for x in self.search_terms]
         title += ' containing ' + ', '.join(terms)
+      if extra:
+        title = extra + title
       self.treeview.get_column(2).get_widget().set_text(title)
 
     def select_feed(self, widget, selected_id, to_remove):
@@ -650,6 +653,8 @@ class FeedieWindow(gtk.Window):
                 return False
             return True
 
+          need_loading_message[0] = False
+
           raw_model.sort(PostsTreeModel.colnum('age'), gtk.SORT_ASCENDING)
           filtered_model = raw_model.filter_new()
           filtered_model.set_visible_func(search)
@@ -661,6 +666,15 @@ class FeedieWindow(gtk.Window):
           self.update_posts_title(filtered_model, None, None)
           self.builder.get_object('scrolledwindow2').show()
 
+        def show_loading_message(source):
+          if need_loading_message[0]:
+            treeview = self.builder.get_object('posts-treeview')
+            empty_model = gtk.ListStore(*PostsTreeModel.coltypes())
+            treeview.set_model(empty_model)
+            self.update_posts_title(source, None, None, extra='Loading ')
+
+        need_loading_message = [True]
+        reactor.callLater(0.20, show_loading_message, source)
         raw_model = PostsTreeModel(source)
         for disconnecter in to_remove:
           disconnecter()

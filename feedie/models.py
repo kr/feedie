@@ -110,6 +110,9 @@ class UnreadNewsSource(Model):
     self.posts = None
     self.summary = dict(total=0, read=0, starred_total=0, starred_read=0)
 
+  def __len__(self):
+    return self.summary['total']
+
   def added_to(self, sources):
     def posts_marked_read(sources, event_name, posts):
       if self.posts is None: return
@@ -257,6 +260,9 @@ class StarredNewsSource(Model):
     self.sources = None
     self.posts = None
     self.summary = dict(total=0, read=0, starred_total=0, starred_read=0)
+
+  def __len__(self):
+    return self.summary['total']
 
   def added_to(self, sources):
     def feed_summary_changed(sources, event_name, feed):
@@ -709,6 +715,9 @@ class Feed(Model):
     self.load_favicon()
     sources.connect('posts-marked-read', self.posts_marked_read)
     sources.connect('posts-marked-unread', self.posts_marked_unread)
+
+  def __len__(self):
+    return self.summary['total']
 
   @defer.inlineCallbacks
   def load_post(self, post_id):

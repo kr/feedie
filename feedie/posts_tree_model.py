@@ -25,6 +25,10 @@ class PostsTreeModel(gtk.GenericTreeModel):
   )
 
   @classmethod
+  def coltypes(clas):
+    return [x[1] for x in clas.columns]
+
+  @classmethod
   def colnum(clas, name):
     return [x[0] for x in clas.columns].index(name)
 
