@@ -17,7 +17,9 @@ from feedie import util
 from feedie import incoming
 from feedie.attrdict import attrdict
 
-ONE_WEEK = 7 * 24 * 60 * 60
+ONE_DAY = 24 * 60 * 60
+ONE_WEEK = 7 * ONE_DAY
+ONE_MONTH = 30 * ONE_DAY
 
 DELETED_POST_KEYS = tuple('''
 
@@ -1210,6 +1212,7 @@ class Feed(Model):
 
   @defer.inlineCallbacks
   def save_iposts(self, iposts):
+    now = int(time.time())
     def modify(doc):
       ipost = by_id[doc['_id']]
       if doc.get('updated_at', 0) >= ipost.updated_at:
@@ -1232,10 +1235,13 @@ class Feed(Model):
       doc['comments'] = ipost.comments
 
     by_id = {}
+    count = 0
     for ipost in iposts:
       if not ipost.has_useful_updated_at: continue
+      if count >= 2 and ipost.updated_at < now - ONE_MONTH: continue
       post_id = short_hash('%s %s' % (self.id, ipost.id))
       by_id[post_id] = ipost
+      count += 1
 
     docs = yield self.db.modify_docs(by_id.keys(), modify)
 
