@@ -346,10 +346,11 @@ class StarredNewsSource(Model):
     return self.summary['read']
 
 class Sources(Model):
-  def __init__(self, db, http_client, icon_http_client):
+  def __init__(self, db, http_client, icon_http_client, throttle):
     self.db = db
     self.http_client = http_client
     self.icon_http_client = icon_http_client
+    self.throttle = throttle
     self.builtins = {}
     self.feeds = {}
     self.subscribed_feeds = []
@@ -710,6 +711,7 @@ class Feed(Model):
   def __init__(self, sources, doc, summary=None):
     self.sources = sources
     self.db = sources.db
+    self.throttle = sources.throttle
     self.doc = doc
     self.posts = {}
     self.summary = summary or dict(total=0, read=0, starred_total=0, starred_read=0)
@@ -881,7 +883,7 @@ class Feed(Model):
       self.modify_http(doc.setdefault('http', {}), response, 1800)
 
     yield self.modify(modify)
-    yield self.save_iposts(ifeed.posts)
+    yield self.throttle.save_iposts.run(self.save_iposts, ifeed.posts)
     defer.returnValue(None)
 
   @defer.inlineCallbacks

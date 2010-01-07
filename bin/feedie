@@ -55,6 +55,7 @@ from feedie import incoming
 from feedie import util
 from feedie import http
 from feedie import database
+from feedie import throttle
 
 MAX_FEED_DOC_SIZE = 1000000
 
@@ -73,6 +74,8 @@ DB_HTTP.max_connections_per_domain = 6
 ICON_HTTP = http.Client()
 ICON_HTTP.max_connections = 50
 ICON_HTTP.max_connections_per_domain = 6
+
+THROTTLE = throttle.Throttler(save_iposts=1)
 
 post_template = Template(file=getdatapath() + '/templates/post.html')
 source_template = Template(file=getdatapath() + '/templates/source.html')
@@ -152,7 +155,7 @@ class FeedieWindow(gtk.Window):
 
         self.connect('configure-event', configure_event)
 
-        sources = models.Sources(self.db, MAIN_HTTP, ICON_HTTP)
+        sources = models.Sources(self.db, MAIN_HTTP, ICON_HTTP, THROTTLE)
         yield sources.load()
         self.unreadnews = models.UnreadNewsSource(self.db)
         sources.add_builtin(self.unreadnews)
