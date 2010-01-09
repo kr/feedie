@@ -122,10 +122,11 @@ class UnreadNewsSource(Model):
       self.summary['total'] -= len(posts)
 
       for post in posts:
-        del self.posts[post._id]
-        self.emit('post-removed', post)
-        if post.starred:
-          self.summary['starred_total'] -= 1
+        if post._id in self.posts:
+          del self.posts[post._id]
+          self.emit('post-removed', post)
+          if post.starred:
+            self.summary['starred_total'] -= 1
 
       self.emit('summary-changed')
 
