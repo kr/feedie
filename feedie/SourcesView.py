@@ -76,6 +76,12 @@ class SourcesView(gtk.DrawingArea):
       (.00, 0.0000, 0.4000),
       (.54, 0.5789, 0.9500),
     ),
+    'spinner': (
+      (.00, 0.0652, 0.4000),
+      (.00, 0.0000, 1.0000),
+      (.00, 0.0652, 0.4000),
+      (.00, 0.0000, 1.0000),
+    ),
   }
 
   _is_animating = False
@@ -346,6 +352,9 @@ class SourceSeparatorItem:
     cairo_context.fill()
 
 class SourceItem:
+  spin_speed = 70 # in degrees/second
+  _began_spinning_at = 0
+
   def __init__(self, sourceview, source):
     self.source = source
     self.sourceview = sourceview
@@ -354,6 +363,8 @@ class SourceItem:
     self.icon = None
     source.connect('summary-changed', self.summary_changed)
     source.connect('favicon-changed', self.favicon_changed)
+    if self.source.progress < 0:
+      self.sourceview.begin_animation()
 
   @property
   def id(self):
@@ -388,7 +399,10 @@ class SourceItem:
 
   def favicon_changed(self, source, event):
     self.icon = None
-    self.queue_draw()
+    if self.source.progress < 0:
+      self.sourceview.begin_animation()
+    else:
+      self.queue_draw()
 
   def queue_draw_area(self, x, y, width, height):
     self.sourceview.queue_draw_area(self.x + x, self.y + y, width, height)
@@ -403,6 +417,7 @@ class SourceItem:
     self.flash_go = True
 
   def is_animating(self):
+    if self.source.progress < 0: return True
     return self.flash_go or self.flash_prog() < 1.1 # add a little fudge
 
   def flash_prog(self):
@@ -470,10 +485,9 @@ class SourceItem:
     shift = 0
 
     if self.icon:
-      icon_alpha = 0.3 if self.source.progress < 0 else 1
       shift = 20 # icon width + 4
       cairo_context.set_source_pixbuf(self.icon, 20, leading(height, 16) / 2)
-      cairo_context.paint_with_alpha(icon_alpha)
+      cairo_context.paint()
 
     return shift
 
@@ -522,6 +536,35 @@ class SourceItem:
         cairo_context.line_to(cx, cy)
         cairo_context.fill()
         return (r + lr_margin) * 2
+
+      elif self.source.progress < 0:
+        r = 8
+        cx = self.width - lr_margin - r
+        cy = height * 0.5
+
+        if not self._began_spinning_at:
+          self._began_spinning_at = time.time()
+        dt = time.time() - self._began_spinning_at
+        rho = int(dt * self.spin_speed) % 360
+
+        self.sourceview.set_color(cairo_context, 'spinner',
+            selected=self.is_selected)
+
+        cairo_context.new_sub_path()
+        cairo_context.arc(cx, cy, r - 2,
+            (2 * pi * rho / 360),
+            (2 * pi * rho / 360) + (2*pi/3))
+
+        cairo_context.new_sub_path()
+        cairo_context.arc(cx, cy, r - 2,
+            (2 * pi * rho / 360) + (pi),
+            (2 * pi * rho / 360) + (5*pi/3))
+
+        cairo_context.set_line_width(2.5)
+        cairo_context.set_line_cap(cairo.LINE_CAP_ROUND)
+        cairo_context.stroke()
+        return (r + lr_margin) * 2
+      self._began_spinning_at = 0
 
       if self.source.unread < 1: return lr_margin
 
