@@ -777,14 +777,13 @@ class Feed(Model):
   @defer.inlineCallbacks
   def fetch(self, uri, http=None, icon=False):
     def on_connecting(*args):
-      if not icon:
-        self.transfers.append(transfer)
-        in_list[0] = True
+      self.transfers.append(transfer)
+      in_list[0] = True
       transfer.progress = 0
       transfer.total = 0
       self.emit('progress-changed')
     def on_connected(*args):
-      if (not in_list[0]) and not icon:
+      if not in_list[0]:
         self.transfers.append(transfer)
         in_list[0] = True
       transfer.progress = 0
@@ -825,18 +824,19 @@ class Feed(Model):
     d = client.request(uri, headers=headers)
     transfer = Transfer(progress=0, total=0)
     in_list = [False]
-    d.addListener('connecting', on_connecting)
-    d.addListener('connected', on_connected)
-    d.addListener('status', on_status)
-    d.addListener('headers', on_headers)
-    d.addListener('body', on_body)
-    d.addCallback(on_complete)
+    if not icon:
+      d.addListener('connecting', on_connecting)
+      d.addListener('connected', on_connected)
+      d.addListener('status', on_status)
+      d.addListener('headers', on_headers)
+      d.addListener('body', on_body)
+      d.addCallback(on_complete)
 
-    @d.addErrback
-    def d(reason):
-      if transfer in self.transfers:
-        self.transfers.remove(transfer)
-      raise reason
+      @d.addErrback
+      def d(reason):
+        if transfer in self.transfers:
+          self.transfers.remove(transfer)
+        raise reason
 
     defer.returnValue((yield d))
 
