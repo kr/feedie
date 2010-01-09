@@ -363,6 +363,7 @@ class SourceItem:
     self.icon = None
     source.connect('summary-changed', self.summary_changed)
     source.connect('favicon-changed', self.favicon_changed)
+    source.connect('progress-changed', self.progress_changed)
     if self.source.progress < 0:
       self.sourceview.begin_animation()
 
@@ -397,12 +398,15 @@ class SourceItem:
   def summary_changed(self, source, event):
     self.queue_draw()
 
-  def favicon_changed(self, source, event):
-    self.icon = None
+  def progress_changed(self, source, event):
     if self.source.progress < 0:
       self.sourceview.begin_animation()
     else:
       self.queue_draw()
+
+  def favicon_changed(self, source, event):
+    self.icon = None
+    self.queue_draw()
 
   def queue_draw_area(self, x, y, width, height):
     self.sourceview.queue_draw_area(self.x + x, self.y + y, width, height)

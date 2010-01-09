@@ -780,29 +780,29 @@ class Feed(Model):
       self.transfers.append(transfer)
       transfer.progress = 0
       transfer.total = 0
-      self.emit('summary-changed')
+      self.emit('progress-changed')
     def on_connected(*args):
       transfer.progress = 0
       transfer.total = 0
-      self.emit('summary-changed')
+      self.emit('progress-changed')
     def on_status(*args):
       transfer.progress = 0
       transfer.total = 0
-      self.emit('summary-changed')
+      self.emit('progress-changed')
     def on_headers(*args):
       transfer.progress = 0
       transfer.total = 0
-      self.emit('summary-changed')
+      self.emit('progress-changed')
     def on_body(event_name, progress, total):
       transfer.progress = progress
       transfer.total = total
-      self.emit('summary-changed')
+      self.emit('progress-changed')
 
     def on_complete(x):
       try:
         if transfer in self.transfers:
           self.transfers.remove(transfer)
-        self.emit('summary-changed')
+        self.emit('progress-changed')
       except:
         pass
       return x
