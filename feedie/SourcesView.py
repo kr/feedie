@@ -98,19 +98,14 @@ class SourcesView(gtk.DrawingArea):
     self.compute_line_height()
     self.add_sources(self.sources)
     self.connect('style-set', self.style_set_cb)
-    self.hue = 0.6
+    self.compute_colors()
 
-  @property
-  def hue(self):
-    return self._hue
-
-  @hue.setter
-  def hue(self, h):
-    self._hue = h
+  def compute_colors(self):
+    h = self.get_style().bg[gtk.STATE_SELECTED].hue
     self._color = {}
+    conv = colorsys.hsv_to_rgb
     for name, rsv in self._rsv.items():
-      f = colorsys.hsv_to_rgb
-      self._color[name] = tuple(f(h + r, s, v) for r,s,v in rsv)
+      self._color[name] = tuple(conv(h + r, s, v) for r,s,v in rsv)
 
   def color(self, name, selected=True, focused=True):
     i = 2 * int(bool(focused)) + int(bool(selected))
@@ -166,6 +161,7 @@ class SourcesView(gtk.DrawingArea):
 
   def style_set_cb(self, *args):
     self.compute_line_height()
+    self.compute_colors()
     self.update_size_request()
 
   def update_size_request(self):
