@@ -461,28 +461,7 @@ class SourceItem:
 
     shift = 0
 
-    if self.source.progress > 0:
-      shift = 20 # icon width + 4
-      r = 8
-
-      self.sourceview.set_color(cairo_context, 'pill-bg',
-          selected=self.is_selected)
-      cairo_context.new_sub_path()
-      cairo_context.arc(20 + r, height * 0.5, r, 0, 2*pi)
-      cairo_context.set_line_width(1)
-      cairo_context.fill()
-
-      self.sourceview.set_color(cairo_context, 'pill-fg',
-          selected=self.is_selected)
-      cairo_context.move_to(20 + r, height * 0.5)
-      cairo_context.arc(20 + r, height * 0.5, r - 2,
-          (2 * pi * self.source.progress / 100) - (pi/2),
-          -pi/2
-          )
-      cairo_context.line_to(20 + r, height * 0.5)
-      cairo_context.fill()
-
-    elif self.icon:
+    if self.icon:
       icon_alpha = 0.3 if self.source.progress < 0 else 1
       shift = 20 # icon width + 4
       cairo_context.set_source_pixbuf(self.icon, 20, leading(height, 16) / 2)
@@ -511,6 +490,31 @@ class SourceItem:
       padding = 5
       lr_margin = 4
       tb_margin = 3
+      height = self.sourceview.line_height
+
+      if self.source.progress > 0:
+        r = 8
+        cx = self.width - lr_margin - r
+        cy = height * 0.5
+
+        self.sourceview.set_color(cairo_context, 'pill-bg',
+            selected=self.is_selected)
+        cairo_context.new_sub_path()
+        cairo_context.arc(cx, cy, r, 0, 2*pi)
+        cairo_context.set_line_width(1)
+        cairo_context.fill()
+
+        self.sourceview.set_color(cairo_context, 'pill-fg',
+            selected=self.is_selected)
+        cairo_context.move_to(cx, cy)
+        cairo_context.arc(cx, cy, r - 2,
+            (2 * pi * self.source.progress / 100) - (pi/2),
+            -pi/2
+            )
+        cairo_context.line_to(cx, cy)
+        cairo_context.fill()
+        return (r + lr_margin) * 2
+
       if self.source.unread < 1: return lr_margin
 
       layout = cairo_context.create_layout()
