@@ -76,12 +76,6 @@ class SourcesView(gtk.DrawingArea):
       (.00, 0.0000, 0.4000),
       (.54, 0.5789, 0.9500),
     ),
-    'pie': (
-      (.00, 0.0652, 0.4500),
-      (.00, 0.0652, 1.0000),
-      (.00, 0.0652, 0.4500),
-      (.00, 0.0652, 1.0000),
-    ),
   }
 
   def __init__(self, sources):
@@ -469,19 +463,23 @@ class SourceItem:
 
     if self.source.progress > 0:
       shift = 20 # icon width + 4
-      pie_color = self.sourceview.color('pie', selected=self.is_selected)
+      r = 8
 
-      cairo_context.set_source_rgb(*pie_color)
+      self.sourceview.set_color(cairo_context, 'pill-bg',
+          selected=self.is_selected)
       cairo_context.new_sub_path()
-      cairo_context.arc(20 + 8, height * 0.5, 8, 0, 2*pi)
+      cairo_context.arc(20 + r, height * 0.5, r, 0, 2*pi)
       cairo_context.set_line_width(1)
-      cairo_context.stroke()
+      cairo_context.fill()
 
-      cairo_context.set_source_rgb(*pie_color)
-      cairo_context.move_to(20 + 8, height * 0.5)
-      cairo_context.arc(20 + 8, height * 0.5, 8, -pi/2,
-          (2 * pi * self.source.progress / 100) - (pi/2))
-      cairo_context.line_to(20 + 8, height * 0.5)
+      self.sourceview.set_color(cairo_context, 'pill-fg',
+          selected=self.is_selected)
+      cairo_context.move_to(20 + r, height * 0.5)
+      cairo_context.arc(20 + r, height * 0.5, r - 2,
+          (2 * pi * self.source.progress / 100) - (pi/2),
+          -pi/2
+          )
+      cairo_context.line_to(20 + r, height * 0.5)
       cairo_context.fill()
 
     elif self.icon:
