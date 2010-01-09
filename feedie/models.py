@@ -119,8 +119,6 @@ class UnreadNewsSource(Model):
     def posts_marked_read(sources, event_name, posts):
       if self.posts is None: return
 
-      self.summary['total'] -= len(posts)
-
       for post in posts:
         if post._id in self.posts:
           del self.posts[post._id]
@@ -128,12 +126,11 @@ class UnreadNewsSource(Model):
           if post.starred:
             self.summary['starred_total'] -= 1
 
+      self.summary['total'] = len(self.posts)
       self.emit('summary-changed')
 
     def posts_marked_unread(sources, event_name, posts):
       if self.posts is None: return
-
-      self.summary['total'] += len(posts)
 
       for post in posts:
         self.posts[post._id] = post
@@ -141,6 +138,7 @@ class UnreadNewsSource(Model):
         if post.starred:
           self.summary['starred_total'] += 1
 
+      self.summary['total'] = len(self.posts)
       self.emit('summary-changed')
 
     def posts_added(sources, event_name, feed, posts):
@@ -151,11 +149,11 @@ class UnreadNewsSource(Model):
           if post._id not in self.posts:
             self.posts[post._id] = post
             added_here.append(post)
-            self.summary['total'] += 1
             if post.starred:
               self.summary['starred_total'] += 1
       if added_here:
         self.emit('posts-added', added_here)
+      self.summary['total'] = len(self.posts)
       self.emit('summary-changed')
 
     def post_removed(sources, event_name, feed, post):
@@ -163,9 +161,9 @@ class UnreadNewsSource(Model):
       if post._id in self.posts:
         del self.posts[post._id]
         self.emit('post-removed', post)
-        self.summary['total'] -= 1
         if post.starred:
           self.summary['starred_total'] -= 1
+        self.summary['total'] = len(self.posts)
         self.emit('summary-changed')
 
     self.sources = sources
