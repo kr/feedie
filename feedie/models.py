@@ -778,10 +778,14 @@ class Feed(Model):
   def fetch(self, uri, http=None, icon=False):
     def on_connecting(*args):
       self.transfers.append(transfer)
+      in_list[0] = True
       transfer.progress = 0
       transfer.total = 0
       self.emit('progress-changed')
     def on_connected(*args):
+      if not in_list[0]:
+        self.transfers.append(transfer)
+        in_list[0] = True
       transfer.progress = 0
       transfer.total = 0
       self.emit('progress-changed')
@@ -819,6 +823,7 @@ class Feed(Model):
       client = self.sources.http_client
     d = client.request(uri, headers=headers)
     transfer = Transfer(progress=0, total=0)
+    in_list = [False]
     d.addListener('connecting', on_connecting)
     d.addListener('connected', on_connected)
     d.addListener('status', on_status)
