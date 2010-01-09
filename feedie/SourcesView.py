@@ -265,13 +265,16 @@ class SourcesView(gtk.DrawingArea):
   def flash(self, item_id):
     if item_id not in self.items: return
     self.items[item_id].flash()
-    glib.timeout_add(17, self.update_flash_anim)
+    self.begin_animation()
 
-  def update_flash_anim(self):
+  def begin_animation(self):
+    glib.timeout_add(17, self.update_animation)
+
+  def update_animation(self):
     ret = False
     # TODO functionalize
     for item in self.items.values():
-      if item.is_flashing():
+      if item.is_animating():
         item.queue_draw()
         ret = True
     return ret
@@ -394,7 +397,7 @@ class SourceItem:
   def flash(self):
     self.flash_go = True
 
-  def is_flashing(self):
+  def is_animating(self):
     return self.flash_go or self.flash_prog() < 1.1 # add a little fudge
 
   def flash_prog(self):
