@@ -78,6 +78,8 @@ class SourcesView(gtk.DrawingArea):
     ),
   }
 
+  _is_animating = False
+
   def __init__(self, sources):
     gtk.DrawingArea.__init__(self)
     self.connect('expose_event', self.expose)
@@ -268,7 +270,9 @@ class SourcesView(gtk.DrawingArea):
     self.begin_animation()
 
   def begin_animation(self):
-    glib.timeout_add(17, self.update_animation)
+    if not self._is_animating:
+      self._is_animating = True
+      glib.timeout_add(17, self.update_animation)
 
   def update_animation(self):
     ret = False
@@ -277,6 +281,7 @@ class SourcesView(gtk.DrawingArea):
       if item.is_animating():
         item.queue_draw()
         ret = True
+    self._is_animating = ret
     return ret
 
   def draw_text(self, font_desc, cairo_context, text, color_name, width, height, dx, dy,
