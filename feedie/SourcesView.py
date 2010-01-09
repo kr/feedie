@@ -6,6 +6,7 @@ import pango
 import gobject
 import time
 import locale
+import colorsys
 from math import pi, ceil
 from collections import namedtuple
 
@@ -19,6 +20,69 @@ class SourcesView(gtk.DrawingArea):
   __gsignals__ = dict(selection_changed=(gobject.SIGNAL_RUN_LAST,
                                          gobject.TYPE_NONE,
                                          (gobject.TYPE_PYOBJECT,)))
+
+  _rsv = {
+    'list-bg': (
+      (.00, 0.0652, 0.9020), # neither
+      (.00, 0.0652, 0.9020), # only selected
+      (.00, 0.0652, 0.9020), # only focused
+      (.00, 0.0652, 0.9020), # selected and focused
+    ),
+    'item-bg-bottom': (
+      (.00, 0.8230, 0.7290),
+      (.00, 0.8230, 0.7290),
+      (.00, 0.8230, 0.7290),
+      (.00, 0.8230, 0.7290),
+    ),
+    'item-fg': (
+      (.00, 0.0000, 0.1000),
+      (.00, 0.0000, 1.0000),
+      (.00, 0.0000, 0.2000),
+      (.00, 0.0000, 1.0000),
+    ),
+    'item-fg-shadow': (
+      (.00, 0.0652, 0.9020),
+      (.00, 0.8230, 0.3290),
+      (.00, 0.0652, 0.9020),
+      (.00, 0.8230, 0.3290),
+    ),
+    'heading-fg': (
+      (.00, 0.2346, 0.5840),
+      (.00, 0.2346, 0.5840),
+      (.00, 0.2346, 0.5840),
+      (.00, 0.2346, 0.5840),
+    ),
+    'heading-fg-shadow': (
+      (.00, 0.0000, 0.9500),
+      (.00, 0.0000, 0.9500),
+      (.00, 0.0000, 0.9500),
+      (.00, 0.0000, 0.9500),
+    ),
+    'pill-bg': (
+      (.00, 0.4327, 0.8157),
+      (.00, 0.0000, 1.0000),
+      (.00, 0.4327, 0.8157),
+      (.00, 0.0000, 1.0000),
+    ),
+    'pill-fg': (
+      (.00, 0.0000, 1.0000),
+      (.00, 0.0000, 0.3500),
+      (.00, 0.0000, 1.0000),
+      (.00, 0.0000, 0.3500),
+    ),
+    'pulse': (
+      (.00, 0.0000, 0.4000),
+      (.54, 0.5789, 0.9500),
+      (.00, 0.0000, 0.4000),
+      (.54, 0.5789, 0.9500),
+    ),
+    'pie': (
+      (.00, 0.0652, 0.4500),
+      (.00, 0.0652, 1.0000),
+      (.00, 0.0652, 0.4500),
+      (.00, 0.0652, 1.0000),
+    ),
+  }
 
   def __init__(self, sources):
     gtk.DrawingArea.__init__(self)
@@ -34,6 +98,27 @@ class SourcesView(gtk.DrawingArea):
     self.compute_line_height()
     self.add_sources(self.sources)
     self.connect('style-set', self.style_set_cb)
+    self.hue = 0.6
+
+  @property
+  def hue(self):
+    return self._hue
+
+  @hue.setter
+  def hue(self, h):
+    self._hue = h
+    self._color = {}
+    for name, rsv in self._rsv.items():
+      f = colorsys.hsv_to_rgb
+      self._color[name] = tuple(f(h + r, s, v) for r,s,v in rsv)
+
+  def color(self, name, selected=True, focused=True):
+    i = 2 * int(bool(focused)) + int(bool(selected))
+    return self._color[name][i]
+
+  def set_color(self, cairo_context, name, selected=True, focused=True):
+    color = self.color(name, selected=selected, focused=focused)
+    cairo_context.set_source_rgb(*color)
 
   @property
   def selected_view(self):
@@ -180,8 +265,7 @@ class SourcesView(gtk.DrawingArea):
     stop_line = clamp(int(ceil((area.y + area.height) * 1.0 / self.line_height)))
 
     # background
-    cairo_context.set_source_rgb(0.82, 0.85, 0.90)
-    cairo_context.set_source_rgb(0xd7/255.0, 0xdd/255.0, 0xe6/255.0) # copy
+    self.set_color(cairo_context, 'list-bg')
     cairo_context.rectangle(area.x, area.y, area.width, area.height)
     cairo_context.fill()
 
@@ -202,18 +286,24 @@ class SourcesView(gtk.DrawingArea):
         ret = True
     return ret
 
-def draw_text(font_desc, cairo_context, text, rgba, width, height, dx, dy):
-  if width < 1: return
-  cairo_context.set_source_rgba(*rgba)
-  layout = cairo_context.create_layout()
-  layout.set_width(width * pango.SCALE)
-  layout.set_wrap(False)
-  layout.set_ellipsize(pango.ELLIPSIZE_END)
-  layout.set_font_description(font_desc)
-  layout.set_text(text)
-  text_width, text_height = layout.get_pixel_size()
-  cairo_context.move_to(dx, leading(height, text_height) / 2 + dy)
-  cairo_context.show_layout(layout)
+  def draw_text(self, font_desc, cairo_context, text, color_name, width, height, dx, dy,
+      selected=True,
+      focused=True):
+    if width < 1: return
+
+    self.set_color(cairo_context, color_name,
+        selected=selected,
+        focused=focused)
+
+    layout = cairo_context.create_layout()
+    layout.set_width(width * pango.SCALE)
+    layout.set_wrap(False)
+    layout.set_ellipsize(pango.ELLIPSIZE_END)
+    layout.set_font_description(font_desc)
+    layout.set_text(text)
+    text_width, text_height = layout.get_pixel_size()
+    cairo_context.move_to(dx, leading(height, text_height) / 2 + dy)
+    cairo_context.show_layout(layout)
 
 class HeadingItem:
   def __init__(self, sourceview, label):
@@ -229,11 +319,11 @@ class HeadingItem:
 
     fd = sourceview.font_desc.copy()
     fd.set_weight(700)
-    draw_text(fd, cairo_context, text, (1, 1, 1, 0.5),
-        label_width, sourceview.line_height, 10, 1)
+    self.sourceview.draw_text(fd, cairo_context, text,
+        'heading-fg-shadow', label_width, sourceview.line_height, 10, 1)
 
-    draw_text(fd, cairo_context, text, (0.447, 0.498, 0.584, 1),
-        label_width, sourceview.line_height, 10, 0)
+    self.sourceview.draw_text(fd, cairo_context, text,
+        'heading-fg', label_width, sourceview.line_height, 10, 0)
 
 class SourceSeparatorItem:
   def __init__(self, heading):
@@ -346,6 +436,7 @@ class SourceItem:
       color = (0.95, 0.85, 0.4)
     else:
       color = (0.4, 0.4, 0.4)
+    color = self.sourceview.color('pulse', selected=self.is_selected)
 
     linear = cairo.LinearGradient(0, 0, width, 0)
     linear.add_color_stop_rgba(0.0,                 *color + (0,))
@@ -382,14 +473,7 @@ class SourceItem:
 
     if self.source.progress > 0:
       shift = 20 # icon width + 4
-      if self.is_selected:
-        pie_color = (1, 1, 1)
-        pie_alpha = 1
-      else:
-        pie_color = (0.2, 0.2, 0.2)
-        pie_alpha = 0.6
-
-      cairo_context.push_group()
+      pie_color = self.sourceview.color('pie', selected=self.is_selected)
 
       cairo_context.set_source_rgb(*pie_color)
       cairo_context.new_sub_path()
@@ -403,9 +487,6 @@ class SourceItem:
           (2 * pi * self.source.progress / 100) - (pi/2))
       cairo_context.line_to(20 + 8, height * 0.5)
       cairo_context.fill()
-
-      cairo_context.pop_group_to_source()
-      cairo_context.paint_with_alpha(pie_alpha)
 
     elif self.icon:
       icon_alpha = 0.3 if self.source.progress < 0 else 1
@@ -422,11 +503,15 @@ class SourceItem:
     return self.leading(height) / 2
 
   def draw(self, cairo_context):
-    def draw_my_text(weight, rgba, dy):
+    def draw_item_text(color_name, dy):
       fd = self.sourceview.font_desc.copy()
       fd.set_weight(weight)
-      draw_text(fd, cairo_context, self.label,
-          rgba, label_width, self.height, dx, dy)
+
+      # we're abusing 'fosused' here...
+      self.sourceview.draw_text(fd, cairo_context, self.label,
+          color_name, label_width, self.height, dx, dy,
+          selected=self.is_selected,
+          focused=(unread > 0))
 
     def draw_pill():
       padding = 5
@@ -448,33 +533,24 @@ class SourceItem:
 
       text_offset = (pill_width - text_width) * 0.5
 
-      if self.is_selected:
-        cairo_context.set_source_rgb(1, 1, 1)
-      else:
-        #cairo_context.set_source_rgb(0.15, 0.23, 0.99)
-        #cairo_context.set_source_rgb(0x8f/255.0, 0xac/255.0, 0xe0/255.0)
-        cairo_context.set_source_rgb(0x76/255.0, 0x96/255.0, 0xd0/255.0)
+      self.sourceview.set_color(cairo_context, 'pill-bg',
+          selected=self.is_selected)
       graphics.rounded_rect(cairo_context, self.width - pill_width - lr_margin, tb_margin,
           pill_width, pill_height, 1000)
       cairo_context.fill()
 
-      if self.is_selected:
-        cairo_context.set_source_rgb(0.35, 0.35, 0.35)
-      else:
-        cairo_context.set_source_rgb(1, 1, 1)
+      self.sourceview.set_color(cairo_context, 'pill-fg',
+          selected=self.is_selected)
       cairo_context.move_to(
           self.width - text_width - text_offset - lr_margin - 0.5,
           leading(self.height, text_height) * 0.5)
       cairo_context.show_layout(layout)
 
-
-
       return pill_width + 2 * lr_margin
 
     if self.is_selected:
-      bot_grad_color = (0.129, 0.361, 0.729)
+      bot_grad_color = self.sourceview.color('item-bg-bottom')
       top_grad_color = mix(0.30, bot_grad_color, (1, 1, 1))
-      #top_grad_color = (0.153, 0.420, 0.851)
       top_line_color = mix(0.18, bot_grad_color, (1, 1, 1))
 
       linear = cairo.LinearGradient(0, 0, 0, self.height)
@@ -498,13 +574,8 @@ class SourceItem:
 
     label_width = self.width - dx - pill_width
 
-    if self.is_selected:
-      draw_my_text(700, (0, 0, 0, 0.5), 1)
-      draw_my_text(700, (1, 1, 1, 1.0), 0)
-    else:
-      weight, color = (
-          (400, (0.10, 0.10, 0.10, 1.0)),
-          (700, (0.20, 0.20, 0.20, 1.0)),
-        )[self.source.unread > 0]
-      draw_my_text(weight, color, 0)
+    unread = self.source.unread
+    weight = (400, 700)[self.is_selected or unread > 0]
+    draw_item_text('item-fg-shadow', 1)
+    draw_item_text('item-fg', 0)
 
