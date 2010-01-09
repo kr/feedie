@@ -777,13 +777,14 @@ class Feed(Model):
   @defer.inlineCallbacks
   def fetch(self, uri, http=None, icon=False):
     def on_connecting(*args):
-      self.transfers.append(transfer)
-      in_list[0] = True
+      if not icon:
+        self.transfers.append(transfer)
+        in_list[0] = True
       transfer.progress = 0
       transfer.total = 0
       self.emit('progress-changed')
     def on_connected(*args):
-      if not in_list[0]:
+      if (not in_list[0]) and not icon:
         self.transfers.append(transfer)
         in_list[0] = True
       transfer.progress = 0
