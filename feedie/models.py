@@ -692,6 +692,8 @@ class Sources(Model):
 
     by_id = {}
     for sub in subs:
+      if sub['uri'].startswith('feed://'):
+        sub['uri'] = sub['uri'][7:]
       if sub['uri'].startswith('feed:'):
         sub['uri'] = sub['uri'][5:]
       sub['uri'] = http.normalize_uri(sub['uri'])
