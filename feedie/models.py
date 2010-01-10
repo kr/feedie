@@ -630,7 +630,10 @@ class Sources(Model):
     def modify(doc):
       sub = by_id[doc['_id']]
       defaults = sub.get('defaults', {})
-      uri = http.normalize_uri(sub['uri'])
+      uri = sub['uri']
+      if uri.startswith('feed:'):
+        uri = uri[5:]
+      uri = http.normalize_uri(uri)
       doc.setdefault('title', uri[7:] if uri.startswith('http://') else uri)
       for k, v in defaults.items():
         doc.setdefault(k, v)
