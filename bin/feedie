@@ -11,6 +11,7 @@ import sys
 import os
 import cgi
 import traceback
+import dbus, dbus.service
 import gtk
 import gconf
 import pango
@@ -741,7 +742,12 @@ class FeedieWindow(gtk.Window):
 
     def start_subscribe(self):
         uri = self.hide_subscribe_box()
+        self.subscribe(uri)
 
+    def process_args(self, args):
+      pass
+
+    def subscribe(self, uri):
         d = sources.add_subscriptions([dict(uri=uri)])
         # We don't catch errors here. Just let Twisted dump a stack trace.
         # It's best for debugging, and we can't help the user anyway.
@@ -755,6 +761,7 @@ class FeedieWindow(gtk.Window):
           def d(feed):
             self.sources_view.select(feed.id)
             self.sources_view.flash(feed.id)
+
 
     def subscribe_cb(self, widget, data=None):
         self.start_subscribe()
@@ -809,7 +816,8 @@ def NewFeedieWindow():
     yield window.finish_initializing(builder)
     defer.returnValue(window)
 
-def open_window(window):
+def open_window(window, control, args):
+    control.window = window
     width, height = gconf_client.get_pair('/apps/feedie/geometry/window-size',
         'GCONF_VALUE_INT',
         'GCONF_VALUE_INT')
@@ -817,6 +825,16 @@ def open_window(window):
     if not height: height = 800
     window.set_default_size(width, height)
     window.show()
+    window.process_args(args)
+
+class Control(dbus.service.Object):
+  window = None
+
+  @dbus.service.method(dbus_interface='us.xph.Interface',
+                       in_signature='as', out_signature='')
+  def process_args(self, args):
+    if self.window:
+      self.window.process_args(args)
 
 if __name__ == "__main__":
     #support for command line options
@@ -840,8 +858,20 @@ class "GtkWidget" style "feedie-scrolledwindow"
 
     #run the application
     gtk.gdk.threads_init()
-    d = NewFeedieWindow()
-    d.addCallback(open_window)
-    #gtk.main()
-    reactor.run()
+
+    from dbus.mainloop.glib import DBusGMainLoop
+    DBusGMainLoop(set_as_default=True)
+    bus = dbus.SessionBus()
+
+    try:
+      bus_name = dbus.service.BusName('us.xph.Feedie', bus=bus,
+          do_not_queue=True)
+      control = Control(bus_name, '/')
+      d = NewFeedieWindow()
+      d.addCallback(open_window, control, args)
+      reactor.run() #gtk.main()
+    except dbus.exceptions.NameExistsException:
+      server = dbus.Interface(bus.get_object('us.xph.Feedie', '/'),
+                              'us.xph.Interface')
+      server.process_args(args)
 
