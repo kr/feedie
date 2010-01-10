@@ -454,8 +454,17 @@ class Sources(Model):
     try:
       self.doc = yield self.db.load_doc(self._id)
     except couchdb.client.ResourceNotFound, err:
+      self.doc = dict(_id=self._id)
+      self.doc = yield self.db.save_doc(self.doc)
       # Brand new database!
-      pass
+      subs = (
+        dict(uri='http://feeds.boston.com/boston/bigpicture/index'),
+        dict(uri='http://xkcd.com/atom.xml'),
+        dict(uri='http://feeds.arstechnica.com/arstechnica/open-source'),
+        dict(uri='http://feeds.nytimes.com/nyt/rss/HomePage'),
+        dict(uri='http://planet.gnome.org/atom.xml'),
+      )
+      yield self.add_subscriptions(subs)
 
     rows = yield self.db.view('feedie/feed')
 
