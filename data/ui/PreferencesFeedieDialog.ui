@@ -101,7 +101,7 @@
                         <property name="label" translatable="yes">To save disk space, each post will be deleted some time after you have read it. (Starred posts will never be deleted.)</property>
                         <property name="wrap">True</property>
                         <attributes>
-                          <attribute name="scale" value="0.810000"/>
+                          <attribute name="scale" value="0.833333"/>
                         </attributes>
                       </object>
                       <packing>

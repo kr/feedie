@@ -726,6 +726,7 @@ class FeedieWindow(gtk.Window):
     def preferences(self, widget, data=None):
         """preferences - display the preferences window for feedie """
         dialog = PreferencesFeedieDialog.NewPreferencesFeedieDialog(self._preferences)
+        dialog.set_transient_for(self)
         response = dialog.run()
         dialog.destroy()
 
