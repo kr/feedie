@@ -56,17 +56,17 @@ class PreferencesFeedieDialog(gtk.Dialog):
 
         if self.__preferences == None: #the dialog is initializing
             self.__load_preferences()
-            
-        #if there were no saved preference, this 
+
+        #if there were no saved preference, this
         return self.__preferences
 
     def __load_preferences(self):
         #TODO: add prefernces to the self.__preferences dict
         #default preferences that will be overwritten if some are saved
         self.__preferences = {"record_type":self.__record_type}
-        
+
         results = self.__database.get_records(record_type=self.__record_type, create_view=True)
-       
+
         if len(results.rows) == 0:
             #no preferences have ever been saved
             #save them before returning
@@ -74,26 +74,6 @@ class PreferencesFeedieDialog(gtk.Dialog):
         else:
             self.__preferences = results.rows[0].value
             self.__key = results.rows[0].value["_id"]
-        
-    def __save_preferences(self):
-        self.__database.update_fields(self.__key, self.__preferences)
-
-    def ok(self, widget, data=None):
-        """ok - The user has elected to save the changes.
-        Called before the dialog returns gtk.RESONSE_OK from run().
-        """
-
-        #make any updates to self.__preferences here
-        #self.__preferences["preference1"] = "value2"
-        self.__save_preferences()
-
-    def cancel(self, widget, data=None):
-        """cancel - The user has elected cancel changes.
-        Called before the dialog returns gtk.RESPONSE_CANCEL for run()
-        """
-
-        #restore any changes to self.__preferences here
-        pass
 
 def NewPreferencesFeedieDialog():
     """NewPreferencesFeedieDialog - returns a fully instantiated
