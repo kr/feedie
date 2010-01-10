@@ -19,6 +19,7 @@ import webkit
 import couchdb
 import desktopcouch
 import webbrowser
+import xml
 from xml.dom import minidom
 from desktopcouch.records.server import CouchDatabase
 from Cheetah.Template import Template
@@ -580,6 +581,17 @@ class FeedieWindow(gtk.Window):
         sensitive = False
       self.builder.get_object('action-next-unread').set_sensitive(sensitive)
 
+    def warning_message(self, message, title='Feedie'):
+      dialog = gtk.MessageDialog(
+          parent=self,
+          flags=0,
+          type=gtk.MESSAGE_WARNING,
+          buttons=gtk.BUTTONS_CLOSE,
+          message_format=message)
+      dialog.props.title = title
+      dialog.run()
+      dialog.destroy()
+
     def import_subscriptions(self, widget, data=None):
       chooser = gtk.FileChooserDialog('Import Subscriptions', self,
           buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT,
@@ -591,7 +603,14 @@ class FeedieWindow(gtk.Window):
         filename = None
       chooser.destroy()
       if filename is not None:
-        dom = minidom.parse(filename)
+        try:
+          dom = minidom.parse(filename)
+        except xml.parsers.expat.ExpatError:
+          basename = os.path.basename(filename)
+          template = u'Could not find a subscription list in \u201c%s\u201d'
+          self.warning_message(template % (basename,),
+              title='Import Subscriptions')
+          return
         links = dom.getElementsByTagName('outline')
         subs = []
         for link in links:
