@@ -18,7 +18,6 @@ from feedie import incoming
 from feedie.attrdict import attrdict
 
 ONE_DAY = 24 * 60 * 60
-ONE_WEEK = 7 * ONE_DAY
 ONE_MONTH = 30 * ONE_DAY
 
 DELETED_POST_KEYS = tuple('''
@@ -348,12 +347,64 @@ class StarredNewsSource(Model):
   def read(self):
     return self.summary['read']
 
+class Preferences(Model):
+  id = 'preferences'
+  default_keep_days = 7
+
+  def __init__(self, db):
+    self.db = db
+
+  @defer.inlineCallbacks
+  def load(self):
+    try:
+      self.doc = yield self.db.load_doc(self.id)
+    except couchdb.client.ResourceNotFound, err:
+      # Brand new database!
+      self.doc = {
+        '_id': self.id,
+        'keep-days': self.default_keep_days
+      }
+
+  @defer.inlineCallbacks
+  def modify(self, modify):
+    self.doc = yield self.db.modify_doc(self.id, modify, doc=self.doc)
+
+  @property
+  def keep_days(self):
+    return self.doc['keep-days']
+
+  @keep_days.setter
+  def keep_days(self, value):
+    if value == self.keep_days: return
+
+    old = dict(self.doc)
+    self.doc['keep-days'] = value
+    self.emit('keep-days-changed', value)
+
+    def modify(doc):
+      doc['keep-days'] = value
+
+    d = self.modify(modify)
+
+    @d.addCallback
+    def d(doc):
+      pass
+
+    @d.addErrback
+    def d(reason):
+      print reason
+      failed = self.doc
+      self.doc = old
+      if old['keep-days'] != failed['keep-days']:
+        self.emit('keep-days-changed', old['keep-days'])
+
 class Sources(Model):
-  def __init__(self, db, http_client, icon_http_client, throttle):
+  def __init__(self, db, http_client, icon_http_client, throttle, prefs):
     self.db = db
     self.http_client = http_client
     self.icon_http_client = icon_http_client
     self.throttle = throttle
+    self.prefs = prefs
     self.builtins = {}
     self.feeds = {}
     self.subscribed_feeds = []
@@ -458,7 +509,7 @@ class Sources(Model):
 
       if doc.get('feed_deleted', False):
         doc['_deleted'] = True
-      elif (now - read_at) > ONE_WEEK:
+      elif (now - read_at) > self.prefs.keep_days * ONE_DAY:
         # Remove most fields to save space. Keep just enough to know the user
         # has read this post before.
         doc2 = doc.copy()

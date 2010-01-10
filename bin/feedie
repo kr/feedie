@@ -153,7 +153,11 @@ class FeedieWindow(gtk.Window):
 
         self.connect('configure-event', configure_event)
 
-        sources = models.Sources(self.db, MAIN_HTTP, ICON_HTTP, THROTTLE)
+        self._preferences = models.Preferences(self.db)
+        yield self._preferences.load()
+
+        sources = models.Sources(self.db, MAIN_HTTP, ICON_HTTP, THROTTLE,
+            self._preferences)
         yield sources.load()
         self.unreadnews = models.UnreadNewsSource(self.db)
         sources.add_builtin(self.unreadnews)
@@ -721,9 +725,9 @@ class FeedieWindow(gtk.Window):
 
     def preferences(self, widget, data=None):
         """preferences - display the preferences window for feedie """
-        prefs = PreferencesFeedieDialog.NewPreferencesFeedieDialog()
-        response = prefs.run()
-        prefs.destroy()
+        dialog = PreferencesFeedieDialog.NewPreferencesFeedieDialog(self._preferences)
+        response = dialog.run()
+        dialog.destroy()
 
     def quit(self, widget, data=None):
         """quit - signal handler for closing the FeedieWindow"""
