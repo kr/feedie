@@ -1,6 +1,6 @@
 [Desktop Entry]
-Name=Feedie
-Comment=Feed Reader
+Name=Feedie Feed Reader
+Comment=Read Atom and RSS feeds
 Categories=GNOME;Internet;
 Exec=feedie
 Icon=/usr/share/feedie/media/icon.png
