@@ -758,8 +758,8 @@ class FeedieWindow(gtk.Window):
         self.hide_subscribe_box()
 
     def start_subscribe(self):
-        uri = self.hide_subscribe_box()
-        self.subscribe(uri)
+        value = self.hide_subscribe_box()
+        self.subscribe(value.strip().replace('\r', '').replace('\n', ''))
 
     def process_args(self, args):
       for arg in args:
