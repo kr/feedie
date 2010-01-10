@@ -392,7 +392,6 @@ class Preferences(Model):
 
     @d.addErrback
     def d(reason):
-      print reason
       failed = self.doc
       self.doc = old
       if old['keep-days'] != failed['keep-days']:
