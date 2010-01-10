@@ -6,14 +6,17 @@
 import sys
 import os
 import gtk
-from desktopcouch.records.server import CouchDatabase
-from desktopcouch.records.record import Record
+import gconf
 
 from feedie.feedieconfig import getdatapath
 
+gconf_client = gconf.client_get_default()
+
 class PreferencesFeedieDialog(gtk.Dialog):
     __gtype_name__ = "PreferencesFeedieDialog"
-    prefernces = {}
+
+    url_handler_path = '/desktop/gnome/url-handlers/feed'
+    url_handler_command = 'feedie %s'
 
     def __init__(self):
         """__init__ - This function is typically not called directly.
@@ -37,43 +40,50 @@ class PreferencesFeedieDialog(gtk.Dialog):
         self.builder = builder
         self.builder.connect_signals(self)
 
-        #set up couchdb and the preference info
-        self.__db_name = "feedie"
-        self.__database = CouchDatabase(self.__db_name, create=True)
-        self.__preferences = None
-        self.__key = None
+        self.is_default_feed_reader_label = self.builder.get_object('is_default_feed_reader_label')
+        self.is_not_default_feed_reader_label = self.builder.get_object('is_not_default_feed_reader_label')
+        self.make_default_button = self.builder.get_object('make_default_button')
 
-        #set the record type and then initalize the preferences
-        self.__record_type = "http://wiki.ubuntu.com/Quickly/RecordTypes/Feedie/Preferences"
-        self.__preferences = self.get_preferences()
-        #TODO:code for other initialization actions should be added here
+        def gconf_url_handler_notify(gc, path, ptr):
+          self.update_default_reader_display()
 
-    def get_preferences(self):
-        """get_preferences  -returns a dictionary object that contain
-        preferences for feedie. Creates a couchdb record if
-        necessary.
-        """
+        gconf_client.add_dir(self.url_handler_path,
+            gconf.CLIENT_PRELOAD_ONELEVEL)
+        self._handler_id = gconf_client.connect('value-changed',
+            gconf_url_handler_notify)
+        self.update_default_reader_display()
 
-        if self.__preferences == None: #the dialog is initializing
-            self.__load_preferences()
+    def update_default_reader_display(self):
+      feed_handler = gconf_client.get_string(self.url_handler_path + '/command')
+      enabled = gconf_client.get_bool(self.url_handler_path + '/enabled')
+      needs_terminal = gconf_client.get_bool(self.url_handler_path + '/needs_terminal')
 
-        #if there were no saved preference, this
-        return self.__preferences
+      is_default = True
+      if feed_handler != self.url_handler_command:
+        is_default = False
+      elif not enabled:
+        is_default = False
+      elif needs_terminal:
+        is_default = False
 
-    def __load_preferences(self):
-        #TODO: add prefernces to the self.__preferences dict
-        #default preferences that will be overwritten if some are saved
-        self.__preferences = {"record_type":self.__record_type}
+      if is_default:
+        self.is_default_feed_reader_label.show()
+        self.is_not_default_feed_reader_label.hide()
+        self.make_default_button.props.sensitive = False
+      else:
+        self.is_default_feed_reader_label.hide()
+        self.is_not_default_feed_reader_label.show()
+        self.make_default_button.props.sensitive = True
 
-        results = self.__database.get_records(record_type=self.__record_type, create_view=True)
+    def make_default(self, *args):
+      gconf_client.set_string(self.url_handler_path + '/command',
+          self.url_handler_command)
+      gconf_client.set_bool(self.url_handler_path + '/enabled', True)
+      gconf_client.set_bool(self.url_handler_path + '/needs_terminal', False)
 
-        if len(results.rows) == 0:
-            #no preferences have ever been saved
-            #save them before returning
-            self.__key = self.__database.put_record(Record(self.__preferences))
-        else:
-            self.__preferences = results.rows[0].value
-            self.__key = results.rows[0].value["_id"]
+    def close(self, *args):
+      gconf_client.disconnect(self._handler_id)
+      gconf_client.remove_dir(self.url_handler_path)
 
 def NewPreferencesFeedieDialog():
     """NewPreferencesFeedieDialog - returns a fully instantiated

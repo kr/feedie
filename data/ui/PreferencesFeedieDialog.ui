@@ -5,6 +5,8 @@
   <!-- interface-naming-policy project-wide -->
   <object class="PreferencesFeedieDialog" id="preferences_feedie_dialog">
     <property name="border_width">12</property>
+    <property name="title" translatable="yes">Feedie Preferences</property>
+    <property name="resizable">False</property>
     <property name="icon">../media/icon.png</property>
     <property name="type_hint">normal</property>
     <property name="has_separator">False</property>
@@ -55,7 +57,7 @@
                       <object class="GtkLabel" id="label5">
                         <property name="visible">True</property>
                         <property name="xalign">0</property>
-                        <property name="label" translatable="yes">Each post will be deleted, after you have read it, to save disk space.</property>
+                        <property name="label" translatable="yes">To save disk space, each post will be deleted after you have read it.</property>
                         <property name="wrap">True</property>
                       </object>
                       <packing>
@@ -116,7 +118,6 @@
         <child>
           <object class="GtkVBox" id="vbox2">
             <property name="visible">True</property>
-            <property name="sensitive">False</property>
             <property name="orientation">vertical</property>
             <property name="spacing">6</property>
             <child>
@@ -180,11 +181,12 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkButton" id="button3">
+                      <object class="GtkButton" id="make_default_button">
                         <property name="label" translatable="yes">Make Feedie my default feed reader</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="receives_default">True</property>
+                        <signal name="clicked" handler="make_default"/>
                       </object>
                       <packing>
                         <property name="expand">False</property>
@@ -218,6 +220,7 @@
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
                 <property name="use_stock">True</property>
+                <signal name="clicked" handler="close"/>
               </object>
               <packing>
                 <property name="expand">False</property>
