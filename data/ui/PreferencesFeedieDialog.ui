@@ -10,6 +10,7 @@
     <property name="icon">../media/icon.png</property>
     <property name="type_hint">normal</property>
     <property name="has_separator">False</property>
+    <signal name="destroy" handler="on_destroy"/>
     <child internal-child="vbox">
       <object class="GtkVBox" id="dialog-vbox1">
         <property name="visible">True</property>
@@ -222,7 +223,6 @@
                 <property name="is_focus">True</property>
                 <property name="receives_default">True</property>
                 <property name="use_stock">True</property>
-                <signal name="clicked" handler="close"/>
               </object>
               <packing>
                 <property name="expand">False</property>

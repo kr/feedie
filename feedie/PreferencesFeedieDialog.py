@@ -81,7 +81,7 @@ class PreferencesFeedieDialog(gtk.Dialog):
       gconf_client.set_bool(self.url_handler_path + '/enabled', True)
       gconf_client.set_bool(self.url_handler_path + '/needs_terminal', False)
 
-    def close(self, *args):
+    def on_destroy(self, *args):
       gconf_client.disconnect(self._handler_id)
       gconf_client.remove_dir(self.url_handler_path)
 
