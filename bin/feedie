@@ -647,7 +647,7 @@ class FeedieWindow(gtk.Window):
     def select_feed(self, widget, selected_id, to_remove):
       source = widget.selected
 
-      removable = bool(source and sources.can_remove(source))
+      removable = bool(source is not None and source.is_removable)
       self.builder.get_object('action-remove-feed').set_sensitive(removable)
 
       refreshable = bool(source and source.can_refresh)
@@ -799,7 +799,7 @@ class FeedieWindow(gtk.Window):
 
     def remove_feed(self, widget, data=None):
       sel = self.sources_view.selected
-      if sel:
+      if sel is not None:
         sel.delete()
 
     def refresh(self, widget, data=None):

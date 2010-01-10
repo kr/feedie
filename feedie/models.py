@@ -106,6 +106,8 @@ class Model(object):
       reactor.callLater(0, handler, self, name, *args, **kwargs)
 
 class UnreadNewsSource(Model):
+  is_removable = False
+
   def __init__(self, db):
     self.db = db
     self.sources = None
@@ -255,6 +257,8 @@ class UnreadNewsSource(Model):
     return self.summary['read']
 
 class StarredNewsSource(Model):
+  is_removable = False
+
   def __init__(self, db):
     self.db = db
     self.sources = None
@@ -608,9 +612,6 @@ class Sources(Model):
   def get_feed(self, feed_id):
     return self.feeds[feed_id]
 
-  def can_remove(self, source):
-    return source.id in self.feeds
-
   def __iter__(self):
     return iter([self[id] for id in self.order if id in self])
 
@@ -708,6 +709,7 @@ class Sources(Model):
 count_load_summaries = 0
 
 class Feed(Model):
+  is_removable = True
   is_refreshing = False
 
   def __init__(self, sources, doc, summary=None):
