@@ -745,7 +745,8 @@ class FeedieWindow(gtk.Window):
         self.subscribe(uri)
 
     def process_args(self, args):
-      pass
+      for arg in args:
+        self.subscribe(str(arg))
 
     def subscribe(self, uri):
         d = sources.add_subscriptions([dict(uri=uri)])
