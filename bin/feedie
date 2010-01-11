@@ -331,6 +331,7 @@ class FeedieWindow(gtk.Window):
           if fd.get_size() > (9 * pango.SCALE):
             fd.set_size(int(fd.get_size() / 1.2))
           self.sources_view.modify_font(fd)
+          self.sources_treeview.modify_font(fd)
           treeview.modify_font(fd)
           sources_status.modify_font(fd)
           posts_status.modify_font(fd)
