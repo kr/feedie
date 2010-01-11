@@ -156,9 +156,6 @@ class FeedieWindow(gtk.Window):
         self._preferences = models.Preferences(self.db)
         yield self._preferences.load()
 
-        sources = models.Sources(self.db, MAIN_HTTP, ICON_HTTP, THROTTLE,
-            self._preferences)
-
         self.sources_treeview = builder.get_object('sources-treeview')
         sources_treeview_selection = self.sources_treeview.get_selection()
         sources_treeview_selection.set_mode(gtk.SELECTION_BROWSE)
@@ -168,12 +165,11 @@ class FeedieWindow(gtk.Window):
         col.pack_start(source_label_renderer)
         col.add_attribute(source_label_renderer, 'text', 1)
         self.sources_treeview.append_column(col)
-        cols = self.sources_treeview.get_columns()
-        print cols
 
         self.sources_treestore = builder.get_object('sources-treestore')
-        news_row = ('', 'NEWS', 0, 0, False, 0, None, True)
-        news_iter = self.sources_treestore.append(None, row=news_row)
+
+        sources = models.Sources(self.db, MAIN_HTTP, ICON_HTTP, THROTTLE,
+            self._preferences, self.sources_treestore)
 
         yield sources.load()
         self.unreadnews = models.UnreadNewsSource(self.db)

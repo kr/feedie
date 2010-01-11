@@ -398,18 +398,24 @@ class Preferences(Model):
         self.emit('keep-days-changed', old['keep-days'])
 
 class Sources(Model):
-  def __init__(self, db, http_client, icon_http_client, throttle, prefs):
+  def __init__(self, db, http_client, icon_http_client, throttle, prefs,
+      treestore):
     self.db = db
     self.http_client = http_client
     self.icon_http_client = icon_http_client
     self.throttle = throttle
     self.prefs = prefs
+    self.treestore = treestore
     self.builtins = {}
     self.feeds = {}
     self.subscribed_feeds = []
     self.doc = dict(_id=self._id)
     self.builtin_order = []
     self.needs_refresh = []
+
+
+    news_row = ('', 'NEWS', 0, 0, False, 0, None, True)
+    news_iter = self.treestore.append(None, row=news_row)
 
     def feed_added_helper(sources, event_name, feed):
       def posts_added(feed, event_name, posts):
