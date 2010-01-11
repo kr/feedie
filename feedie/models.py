@@ -417,6 +417,9 @@ class Sources(Model):
     news_row = ('', 'NEWS', 0, 0, False, 0, None, True)
     news_iter = self.treestore.append(None, row=news_row)
 
+    dummy_row = ('', 'Dummy', 0, 0, False, 0, None, False)
+    x = self.treestore.append(news_iter, row=dummy_row)
+
     def feed_added_helper(sources, event_name, feed):
       def posts_added(feed, event_name, posts):
         self.emit('posts-added', feed, posts)

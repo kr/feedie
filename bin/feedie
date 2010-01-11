@@ -166,6 +166,9 @@ class FeedieWindow(gtk.Window):
         col.add_attribute(source_label_renderer, 'text', 1)
         self.sources_treeview.append_column(col)
 
+        stv_sel = self.sources_treeview.get_selection()
+        stv_sel.set_select_function(lambda path: len(path) > 1)
+
         self.sources_treestore = builder.get_object('sources-treestore')
 
         sources = models.Sources(self.db, MAIN_HTTP, ICON_HTTP, THROTTLE,
