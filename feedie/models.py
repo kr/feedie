@@ -7,6 +7,7 @@ import hashlib
 import feedparser
 import calendar
 import traceback
+import gtk
 from collections import defaultdict, namedtuple
 from desktopcouch.records.record import Record
 from twisted.internet import reactor, defer, threads
@@ -417,8 +418,22 @@ class Sources(Model):
     news_row = ('', 'NEWS', 0, 0, False, 0, None, True)
     news_iter = self.treestore.append(None, row=news_row)
 
-    dummy_row = ('', 'Dummy', 0, 0, False, 0, None, False)
-    x = self.treestore.append(news_iter, row=dummy_row)
+    fake1_row = ('fake1', 'Fake News', 0, 0, False, 0, None, False)
+    fake1_iter = self.treestore.append(news_iter, row=fake1_row)
+
+    fake2_row = ('fake2', 'Fake News Unread', 7, 0, False, 0, None, False)
+    fake2_iter = self.treestore.append(news_iter, row=fake2_row)
+
+    fake3_row = ('fake3', 'Fake News Progress', 0, 30, False, 0, None, False)
+    fake3_iter = self.treestore.append(news_iter, row=fake3_row)
+
+    fake4_row = ('fake4', 'Fake News Spin', 0, 0, True, 0, None, False)
+    fake4_iter = self.treestore.append(news_iter, row=fake4_row)
+
+    theme = gtk.icon_theme_get_default()
+    icon = theme.load_icon('gtk-file', 16, 0)
+    fake5_row = ('fake5', 'Fake News Icon', 0, 0, False, 0, icon, False)
+    fake5_iter = self.treestore.append(news_iter, row=fake5_row)
 
     def feed_added_helper(sources, event_name, feed):
       def posts_added(feed, event_name, posts):
