@@ -59,6 +59,7 @@ from feedie import util
 from feedie import http
 from feedie import database
 from feedie import throttle
+from feedie import render
 
 MAX_FEED_DOC_SIZE = 1000000
 
@@ -164,9 +165,17 @@ class FeedieWindow(gtk.Window):
         sources_treeview_selection.set_mode(gtk.SELECTION_BROWSE)
         col = gtk.TreeViewColumn()
         col.set_sizing(gtk.TREE_VIEW_COLUMN_FIXED)
+
+        renderer = render.CellRendererItems()
+        col.pack_start(renderer, expand=False)
+        col.add_attribute(renderer, 'text', 1)
+        col.add_attribute(renderer, 'icon', 6)
+        col.add_attribute(renderer, 'unread', 2)
+
         source_label_renderer = gtk.CellRendererText()
         col.pack_start(source_label_renderer)
         col.add_attribute(source_label_renderer, 'text', 1)
+
         self.sources_treeview.append_column(col)
 
         stv_sel = self.sources_treeview.get_selection()

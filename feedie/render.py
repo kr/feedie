@@ -1,0 +1,189 @@
+import gobject
+import gtk
+
+class Item(object):
+  width = 0
+  height = 0
+
+  def render(self, ctx, area, flags):
+    pass
+
+class ItemShim(Item):
+  def __init__(self, width=0, height=0):
+    self.width = width
+    self.height = height
+
+class ItemIcon(Item):
+  @property
+  def width(self):
+    icon = self.cellr._props['icon']
+    if icon: return 16
+    return 0
+
+  @property
+  def height(self):
+    icon = self.cellr._props['icon']
+    if icon: return 16
+    return 0
+
+  def render(self, ctx, area, flags):
+    icon = self.cellr._props['icon']
+    if not icon: return
+
+    # Offset to center the icon
+    dx = abs(area.width - icon.get_width()) / 2
+    dy = abs(area.height - icon.get_height()) / 2
+
+    ctx.set_source_pixbuf(icon, area.x + dx, area.y + dy)
+    ctx.paint()
+
+
+
+class ItemText(Item):
+  width = 0
+
+  @property
+  def height(self):
+    return 22 # TODO measure text and add leading
+
+  def render(self, ctx, area, flags):
+    ctx.rectangle(*area)
+    ctx.set_source_rgb(1, 0, 1)
+    ctx.fill()
+
+class ItemPill(Item):
+  @property
+  def width(self):
+    unread = self.cellr._props['unread']
+    if unread: return 20
+    return 0
+
+  @property
+  def height(self):
+    return 0
+
+  def render(self, ctx, area, flags):
+    ctx.rectangle(*area)
+    ctx.set_source_rgb(1, 1, 0)
+    ctx.fill()
+
+class ItemProg(Item):
+  @property
+  def width(self):
+    return 16
+
+  @property
+  def height(self):
+    return 0
+
+  def render(self, ctx, area, flags):
+    ctx.rectangle(*area)
+    ctx.set_source_rgb(0.5, 0.5, 0)
+    ctx.fill()
+
+class ItemSpin(Item):
+  @property
+  def width(self):
+    return 16
+
+  @property
+  def height(self):
+    return 0
+
+  def render(self, ctx, area, flags):
+    ctx.rectangle(*area)
+    ctx.set_source_rgb(0, 0.5, 0.5)
+    ctx.fill()
+
+class CellRendererItems(gtk.GenericCellRenderer):
+  __gproperties__ = {
+    'text': (str, 'Text', 'Text', '(unknown)', gobject.PARAM_WRITABLE),
+    'icon': (gtk.gdk.Pixbuf, 'Icon', 'Icon', gobject.PARAM_WRITABLE),
+    'unread': (int, 'Unread', 'Unread Count', 0, 1000000, 0,
+        gobject.PARAM_WRITABLE),
+  }
+
+  _padding_left = 10
+
+  _start_items = (
+    ItemShim(width=10),
+    ItemIcon(),
+  )
+
+  _flex_item = ItemText()
+
+  _end_items = (
+    ItemPill(),
+    ItemProg(),
+    ItemSpin(),
+  )
+
+  def __init__(self):
+    gtk.GenericCellRenderer.__init__(self)
+    self._props = {}
+    for r in self._items:
+      r.cellr = self
+
+  @property
+  def _items(self):
+    return self._start_items + (self._flex_item,) + self._end_items
+
+  def on_get_size(self, widget, cell_area):
+    width = sum(x.width for x in self._items)
+    height = max(x.height for x in self._items)
+    return (0, 0, width, height)
+
+  def on_render(self, window, widget, bg_area, cell_area, expose_area, flags):
+    ctx = window.cairo_create()
+
+    # Render background
+    if flags & gtk.CELL_RENDERER_SELECTED:
+      if widget.props.has_focus:
+        ctx.rectangle(*bg_area)
+        ctx.set_source_rgb(1, 0, 0)
+        ctx.fill()
+      else:
+        ctx.rectangle(*bg_area)
+        ctx.set_source_rgb(0, 1, 0)
+        ctx.fill()
+
+    ctx.rectangle(*expose_area)
+    ctx.clip()
+
+    area = gtk.gdk.Rectangle(*cell_area)
+    for item in self._start_items:
+      w = item.width
+      if w:
+        item_area = gtk.gdk.Rectangle(area.x, area.y,
+            min(w, area.width), area.height)
+        item.render(ctx, item_area, flags)
+        area.x += w
+        area.width -= w
+        if not area.width: return
+
+    for item in self._end_items:
+      w = item.width
+      if w:
+        item_area = gtk.gdk.Rectangle(area.x + area.width - w, area.y,
+            min(w, area.width), area.height)
+        item.render(ctx, item_area, flags)
+        area.width -= w
+        if not area.width: return
+
+    item = self._flex_item
+    if item:
+      item.render(ctx, area, flags)
+      if not area.width: return
+
+    return
+
+  def on_activate(self, event, widget, path, bg_area, cell_area, flags):
+    pass
+
+  def on_start_editing(self, event, widget, path, bg_area, cell_area, flags):
+    pass
+
+
+  def do_set_property(self, k, v):
+    self._props[k.name] = v
+
