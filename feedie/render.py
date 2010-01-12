@@ -2,6 +2,7 @@ import gobject
 import gtk
 import pango
 import locale
+from feedie import graphics
 
 rsv = {
   'list-bg': (
@@ -81,12 +82,20 @@ class Item(object):
   def render(self, ctx, area, flags):
     pass
 
-class ItemShim(Item):
+  def dynamic_width(self, ctx, area):
+    return self.width
+
+class ItemIndent(Item):
   @property
   def width(self):
     is_heading = self.cellr._props['is-heading']
     if is_heading: return 8
     return 18
+
+class ItemShim(Item):
+  def __init__(self, width=0, height=0):
+    self.width = width
+    self.height = height
 
 class ItemIcon(Item):
   @property
@@ -174,30 +183,53 @@ class ItemText(Item):
 
 
 class ItemPill(Item):
-  height = 0
-
   _padding = 5
+  _tb_margin = 3
 
-  @property
-  def width(self):
+  def dynamic_width(self, ctx, area):
     unread = self.cellr._props['unread']
     if not unread: return 0
 
-    layout = self.cellr.widget.window.cairo_create().create_layout()
+    layout = ctx.create_layout()
     layout.set_wrap(False)
     fd = self.cellr.widget.get_style().font_desc.copy()
     fd.set_weight(700)
     layout.set_font_description(fd)
     layout.set_text(locale.format('%d', unread, grouping=True))
     text_width, text_height = layout.get_pixel_size()
-    pill_width = max(text_width + 2 * self._padding, 2 * text_height)
+    pill_height = area.height - 2 * self._tb_margin
+    pill_width = max(text_width + 2 * self._padding, int(1.5 * pill_height))
     return pill_width
 
 
   def render(self, ctx, area, flags):
-    ctx.rectangle(*area)
-    ctx.set_source_rgb(1, 1, 0)
+    stv = self.cellr.widget
+    is_selected = bool(flags & gtk.CELL_RENDERER_SELECTED)
+    unread = self.cellr._props['unread']
+
+    layout = ctx.create_layout()
+    layout.set_wrap(False)
+    fd = self.cellr.widget.get_style().font_desc.copy()
+    fd.set_weight(700)
+    layout.set_font_description(fd)
+    layout.set_text(locale.format('%d', unread, grouping=True))
+    text_width, text_height = layout.get_pixel_size()
+    pill_height = area.height - 2 * self._tb_margin
+    pill_width = max(text_width + 2 * self._padding, int(1.5 * pill_height))
+
+    text_offset = (pill_width - text_width) * 0.5
+
+    cx = (area.width - text_width) * 0.5
+    cy = (area.height - text_height) * 0.5
+
+    set_color(stv, ctx, 'pill-bg', selected=is_selected)
+    graphics.rounded_rect(ctx, area.x,
+        area.y + self._tb_margin, pill_width, pill_height, 1000)
     ctx.fill()
+
+    set_color(stv, ctx, 'pill-fg', selected=is_selected)
+    ctx.move_to(area.x + cx, area.y + cy)
+    ctx.show_layout(layout)
 
 class ItemProg(Item):
   @property
@@ -247,13 +279,14 @@ class CellRendererItems(gtk.GenericCellRenderer):
   _padding_between = 2
 
   _start_items = (
-    ItemShim(),
+    ItemIndent(),
     ItemIcon(),
   )
 
   _flex_item = ItemText()
 
   _end_items = (
+    ItemShim(width=2),
     ItemPill(),
     ItemProg(),
     ItemSpin(),
@@ -297,7 +330,7 @@ class CellRendererItems(gtk.GenericCellRenderer):
 
       area = gtk.gdk.Rectangle(*cell_area)
       for item in self._start_items:
-        w = item.width
+        w = item.dynamic_width(ctx, area)
         if w:
           item_area = gtk.gdk.Rectangle(area.x, area.y, w, area.height)
           item.render(ctx, item_area, flags)
@@ -308,7 +341,7 @@ class CellRendererItems(gtk.GenericCellRenderer):
           if not area.width: return
 
       for item in self._end_items:
-        w = item.width
+        w = item.dynamic_width(ctx, area)
         if w and w < area.width and area.width > 50:
           item_area = gtk.gdk.Rectangle(area.x + area.width - w, area.y,
               w, area.height)

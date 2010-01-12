@@ -421,7 +421,7 @@ class Sources(Model):
     fake1_row = ('fake1', 'Fake News', 0, 0, False, 0, None, False)
     fake1_iter = self.treestore.append(news_iter, row=fake1_row)
 
-    fake2_row = ('fake2', 'Fake News Unread', 7, 0, False, 0, None, False)
+    fake2_row = ('fake2', 'Fake News Unread', 3127, 0, False, 0, None, False)
     fake2_iter = self.treestore.append(news_iter, row=fake2_row)
 
     fake3_row = ('fake3', 'Fake News Progress', 0, 30, False, 0, None, False)
