@@ -14,6 +14,11 @@ class ItemShim(Item):
     self.width = width
     self.height = height
 
+  def render(self, ctx, area, flags):
+    ctx.rectangle(*area)
+    ctx.set_source_rgb(1, 1, 1)
+    ctx.fill()
+
 class ItemIcon(Item):
   @property
   def width(self):
@@ -55,7 +60,7 @@ def draw_text(ctx, fd, area, text, dx, dy):
   ctx.show_layout(layout)
 
 class ItemText(Item):
-  width = 50
+  width = 0
 
   @property
   def height(self):
@@ -139,9 +144,10 @@ class CellRendererItems(gtk.GenericCellRenderer):
   }
 
   _padding_left = 10
+  _padding_between = 2
 
   _start_items = (
-    ItemShim(width=10),
+    ItemShim(width=8),
     ItemIcon(),
   )
 
@@ -196,6 +202,8 @@ class CellRendererItems(gtk.GenericCellRenderer):
           item_area = gtk.gdk.Rectangle(area.x, area.y,
               min(w, area.width), area.height)
           item.render(ctx, item_area, flags)
+
+          w += self._padding_between
           area.x += w
           area.width -= w
           if not area.width: return
@@ -206,6 +214,8 @@ class CellRendererItems(gtk.GenericCellRenderer):
           item_area = gtk.gdk.Rectangle(area.x + area.width - w, area.y,
               min(w, area.width), area.height)
           item.render(ctx, item_area, flags)
+
+          w += self._padding_between
           area.width -= w
           if not area.width: return
 
