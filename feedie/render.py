@@ -199,8 +199,7 @@ class CellRendererItems(gtk.GenericCellRenderer):
       for item in self._start_items:
         w = item.width
         if w:
-          item_area = gtk.gdk.Rectangle(area.x, area.y,
-              min(w, area.width), area.height)
+          item_area = gtk.gdk.Rectangle(area.x, area.y, w, area.height)
           item.render(ctx, item_area, flags)
 
           w += self._padding_between
@@ -210,9 +209,9 @@ class CellRendererItems(gtk.GenericCellRenderer):
 
       for item in self._end_items:
         w = item.width
-        if w:
+        if w and w < area.width and area.width > 50:
           item_area = gtk.gdk.Rectangle(area.x + area.width - w, area.y,
-              min(w, area.width), area.height)
+              w, area.height)
           item.render(ctx, item_area, flags)
 
           w += self._padding_between
