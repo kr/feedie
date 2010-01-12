@@ -70,8 +70,8 @@ def color(stv, name, selected=True, focused=True):
   return stv.color[name][i]
 
 def set_color(stv, ctx, name, selected=True, focused=True):
-  color = color(stv, name, selected=selected, focused=focused)
-  ctx.set_source_rgb(*color)
+  rgb = color(stv, name, selected=selected, focused=focused)
+  ctx.set_source_rgb(*rgb)
 
 class Item(object):
   width = 0
@@ -84,11 +84,6 @@ class ItemShim(Item):
   def __init__(self, width=0, height=0):
     self.width = width
     self.height = height
-
-  def render(self, ctx, area, flags):
-    ctx.rectangle(*area)
-    ctx.set_source_rgb(1, 1, 1)
-    ctx.fill()
 
 class ItemIcon(Item):
   @property
@@ -115,7 +110,6 @@ class ItemIcon(Item):
     ctx.paint()
 
 def draw_text(ctx, fd, area, text, dx, dy):
-  ctx.set_source_rgb(0, 0, 0)
   layout = ctx.create_layout()
   layout.set_width(area.width * pango.SCALE)
   layout.set_wrap(False)
@@ -144,14 +138,36 @@ class ItemText(Item):
     return 22 # TODO measure text and add leading
 
   def render(self, ctx, area, flags):
-    ctx.rectangle(*area)
-    ctx.set_source_rgb(1, 0, 1)
-    ctx.fill()
+    stv = self.cellr.widget
+    is_selected = bool(flags & gtk.CELL_RENDERER_SELECTED)
+    unread = self.cellr._props['unread']
 
-    text = self.cellr._props['text']
-    fd = self.cellr.widget.get_style().font_desc
-    draw_text(ctx, fd, area, text, 0, 0)
+    if self.cellr._props['is-heading']:
+      text = self.cellr._props['text']
+      fd = self.cellr.widget.get_style().font_desc
+      fd.set_weight(700)
 
+      set_color(stv, ctx, 'heading-fg-shadow')
+      draw_text(ctx, fd, area, text, 0, 1)
+
+      set_color(stv, ctx, 'heading-fg')
+      draw_text(ctx, fd, area, text, 0, 0)
+    else:
+      # Abusing "focused" here...
+      is_focused = unread > 0
+
+      text = self.cellr._props['text']
+      weight = (400, 700)[is_selected or is_focused]
+      fd = self.cellr.widget.get_style().font_desc
+      fd.set_weight(weight)
+
+      if is_selected or is_focused:
+        set_color(stv, ctx, 'item-fg-shadow', selected=is_selected)
+        draw_text(ctx, fd, area, text, 0, 1)
+
+      set_color(stv, ctx, 'item-fg',
+          selected=is_selected, focused=is_focused)
+      draw_text(ctx, fd, area, text, 0, 0)
 
 
 class ItemPill(Item):
@@ -210,7 +226,7 @@ class CellRendererItems(gtk.GenericCellRenderer):
     'spin-update': (int, 'Spin Update', 'Spin Update', 0, 1000000000, 0,
         gobject.PARAM_WRITABLE),
     'icon': (gtk.gdk.Pixbuf, 'Icon', 'Icon', gobject.PARAM_WRITABLE),
-    'is_heading': (bool, 'Is Heading', 'Is Heading', False,
+    'is-heading': (bool, 'Is Heading', 'Is Heading', False,
         gobject.PARAM_WRITABLE),
   }
 
