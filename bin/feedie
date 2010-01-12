@@ -933,6 +933,13 @@ style "feedie-scrolledwindow"
   GtkScrolledWindow::scrollbar-spacing = 0
 }
 class "GtkWidget" style "feedie-scrolledwindow"
+
+
+style "feedie-treeview"
+{
+  GtkTreeView::vertical-separator = 0
+}
+widget_class "*<GtkHPaned><GtkVBox><GtkTreeView>" style "feedie-treeview"
     ''')
 
     #run the application

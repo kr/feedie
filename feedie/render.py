@@ -1,5 +1,6 @@
 import gobject
 import gtk
+import pango
 
 class Item(object):
   width = 0
@@ -44,6 +45,12 @@ class ItemText(Item):
 
   @property
   def height(self):
+    fd = self.cellr.widget.get_style().font_desc
+    p_ctx = self.cellr.widget.get_pango_context()
+    metrics = p_ctx.get_metrics(fd, None)
+    approx = (metrics.get_ascent() + metrics.get_descent()) / pango.SCALE
+    return max(approx + approx / 2 - 1, 10)
+
     return 22 # TODO measure text and add leading
 
   def render(self, ctx, area, flags):
@@ -137,8 +144,10 @@ class CellRendererItems(gtk.GenericCellRenderer):
     return self._start_items + (self._flex_item,) + self._end_items
 
   def on_get_size(self, widget, cell_area):
+    self.widget = widget
     width = sum(x.width for x in self._items)
     height = max(x.height for x in self._items)
+    del self.widget
     return (0, 0, width, height)
 
   def on_render(self, window, widget, bg_area, cell_area, expose_area, flags):
