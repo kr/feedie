@@ -5,7 +5,7 @@ import locale
 import time
 import cairo
 from math import pi
-from feedie import graphics
+from feedie import graphics, util
 
 rsv = {
   'list-bg': (
@@ -15,8 +15,8 @@ rsv = {
     (.00, 0.0652, 0.9020), # selected and focused
   ),
   'item-bg-bottom': (
-    (.00, 0.8230, 0.7290),
-    (.00, 0.8230, 0.7290),
+    (.00, 0.0000, 0.5150),
+    (.00, 0.0000, 0.5150),
     (.00, 0.8230, 0.7290),
     (.00, 0.8230, 0.7290),
   ),
@@ -368,14 +368,24 @@ class CellRendererItems(gtk.GenericCellRenderer):
 
       # Render background
       if flags & gtk.CELL_RENDERER_SELECTED:
-        if widget.props.has_focus:
-          ctx.rectangle(*bg_area)
-          ctx.set_source_rgb(1, 0, 0)
-          ctx.fill()
-        else:
-          ctx.rectangle(*bg_area)
-          ctx.set_source_rgb(0, 1, 0)
-          ctx.fill()
+        bot_grad_color = color(widget, 'item-bg-bottom',
+            focused=widget.props.has_focus)
+        top_grad_color = util.mix(0.30, bot_grad_color, (1, 1, 1))
+        top_line_color = util.mix(0.18, bot_grad_color, (1, 1, 1))
+
+        linear = cairo.LinearGradient(0, bg_area.y,
+                                      0, bg_area.y + bg_area.height)
+        linear.add_color_stop_rgb(0, *top_grad_color)
+        linear.add_color_stop_rgb(1, *bot_grad_color)
+        ctx.set_source(linear)
+        ctx.rectangle(*bg_area)
+        ctx.fill()
+
+        ctx.set_source_rgb(*top_line_color)
+        ctx.move_to(bg_area.x + 0.5, bg_area.y + 0.5)
+        ctx.line_to(bg_area.x + bg_area.width + 0.5, bg_area.y + 0.5)
+        ctx.set_line_width(1)
+        ctx.stroke()
 
       ctx.rectangle(*expose_area)
       ctx.clip()
