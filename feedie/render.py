@@ -2,6 +2,7 @@ import gobject
 import gtk
 import pango
 import locale
+from math import pi
 from feedie import graphics
 
 rsv = {
@@ -245,8 +246,24 @@ class ItemProg(Item):
     return 0
 
   def render(self, ctx, area, flags):
-    ctx.rectangle(*area)
-    ctx.set_source_rgb(0.5, 0.5, 0)
+    stv = self.cellr.widget
+    prog = self.cellr._props['progress']
+    is_selected = bool(flags & gtk.CELL_RENDERER_SELECTED)
+
+    r = 8
+    cx = area.x + area.width * 0.5
+    cy = area.y + area.height * 0.5
+
+    set_color(stv, ctx, 'pill-bg', selected=is_selected)
+    ctx.new_sub_path()
+    ctx.arc(cx, cy, r, 0, 2*pi)
+    ctx.set_line_width(1)
+    ctx.fill()
+
+    set_color(stv, ctx, 'pill-fg', selected=is_selected)
+    ctx.move_to(cx, cy)
+    ctx.arc(cx, cy, r - 2, (2 * pi * prog / 100) - (pi/2), -pi/2)
+    ctx.line_to(cx, cy)
     ctx.fill()
 
 class ItemSpin(Item):
