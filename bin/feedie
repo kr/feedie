@@ -160,7 +160,7 @@ class FeedieWindow(gtk.Window):
 
         self.sources_treeview = builder.get_object('sources-treeview')
         self.sources_treeview.set_show_expanders(False)
-        self.sources_treeview.set_level_indentation(10)
+        #self.sources_treeview.set_level_indentation(10)
         sources_treeview_selection = self.sources_treeview.get_selection()
         sources_treeview_selection.set_mode(gtk.SELECTION_BROWSE)
         col = gtk.TreeViewColumn()
@@ -937,6 +937,7 @@ class "GtkWidget" style "feedie-scrolledwindow"
 style "feedie-treeview"
 {
   GtkTreeView::vertical-separator = 0
+  GtkTreeView::horizontal-separator = 0
 }
 widget_class "*<GtkHPaned><GtkVBox><GtkTreeView>" style "feedie-treeview"
     ''')

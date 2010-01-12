@@ -82,9 +82,11 @@ class Item(object):
     pass
 
 class ItemShim(Item):
-  def __init__(self, width=0, height=0):
-    self.width = width
-    self.height = height
+  @property
+  def width(self):
+    is_heading = self.cellr._props['is-heading']
+    if is_heading: return 8
+    return 18
 
 class ItemIcon(Item):
   @property
@@ -245,7 +247,7 @@ class CellRendererItems(gtk.GenericCellRenderer):
   _padding_between = 2
 
   _start_items = (
-    ItemShim(width=8),
+    ItemShim(),
     ItemIcon(),
   )
 
