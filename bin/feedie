@@ -347,24 +347,31 @@ class FeedieWindow(gtk.Window):
         self.connect('style-set', style_set)
 
         list_bg = (
-          (.00, 0.0652, 0.9020), # neither
-          (.00, 0.0652, 0.9020), # only selected
+          (.00, 0.0000, 0.9020), # neither
+          (.00, 0.0000, 0.9020), # only selected
           (.00, 0.0652, 0.9020), # only focused
           (.00, 0.0652, 0.9020), # selected and focused
         )
         list_bg_colors = []
         def stv_style_set(stv, previous_style):
+          has_focus = self.props.has_toplevel_focus
           style = stv.get_style()
           h = style.base[gtk.STATE_SELECTED].hue
           self._color = {}
           conv = colorsys.hsv_to_rgb
           list_bg_colors[:] = tuple(conv(h + r, s, v) for r,s,v in list_bg)
-          bg_color = gtk.gdk.Color(*list_bg_colors[3])
+          i = 2 * int(bool(has_focus)) + 1
+          bg_color = gtk.gdk.Color(*list_bg_colors[i])
           if bg_color != style.base[gtk.STATE_NORMAL]:
             stv.modify_base(gtk.STATE_NORMAL, bg_color)
 
         self.sources_treeview.connect('style-set', stv_style_set)
         stv_style_set(self.sources_treeview, None)
+
+        def has_focus_cb(*args):
+          stv_style_set(self.sources_treeview, None)
+
+        self.connect('notify::has-toplevel-focus', has_focus_cb)
 
         def treeview_clicked(tv, event):
           path_info = tv.get_path_at_pos(int(event.x), int(event.y))
