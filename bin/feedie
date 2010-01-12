@@ -167,7 +167,7 @@ class FeedieWindow(gtk.Window):
         col.set_sizing(gtk.TREE_VIEW_COLUMN_FIXED)
 
         renderer = render.CellRendererItems()
-        col.pack_start(renderer, expand=False)
+        col.pack_start(renderer)
         col.add_attribute(renderer, 'text', 1)
         col.add_attribute(renderer, 'unread', 2)
         col.add_attribute(renderer, 'progress', 3)
@@ -175,10 +175,6 @@ class FeedieWindow(gtk.Window):
         col.add_attribute(renderer, 'spin-update', 5)
         col.add_attribute(renderer, 'icon', 6)
         col.add_attribute(renderer, 'is_heading', 7)
-
-        source_label_renderer = gtk.CellRendererText()
-        col.pack_start(source_label_renderer)
-        col.add_attribute(source_label_renderer, 'text', 1)
 
         self.sources_treeview.append_column(col)
 

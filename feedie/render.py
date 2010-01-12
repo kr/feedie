@@ -38,10 +38,24 @@ class ItemIcon(Item):
     ctx.set_source_pixbuf(icon, area.x + dx, area.y + dy)
     ctx.paint()
 
+def draw_text(ctx, fd, area, text, dx, dy):
+  ctx.set_source_rgb(0, 0, 0)
+  layout = ctx.create_layout()
+  layout.set_width(area.width * pango.SCALE)
+  layout.set_wrap(False)
+  layout.set_ellipsize(pango.ELLIPSIZE_END)
+  layout.set_font_description(fd)
+  layout.set_text(text)
+  text_width, text_height = layout.get_pixel_size()
+  if text_width > area.width: return
 
+  cy = (area.height - text_height) / 2
+
+  ctx.move_to(area.x + dx, area.y + cy + dy)
+  ctx.show_layout(layout)
 
 class ItemText(Item):
-  width = 0
+  width = 50
 
   @property
   def height(self):
@@ -57,6 +71,12 @@ class ItemText(Item):
     ctx.rectangle(*area)
     ctx.set_source_rgb(1, 0, 1)
     ctx.fill()
+
+    text = self.cellr._props['text']
+    fd = self.cellr.widget.get_style().font_desc
+    draw_text(ctx, fd, area, text, 0, 0)
+
+
 
 class ItemPill(Item):
   @property
@@ -151,48 +171,51 @@ class CellRendererItems(gtk.GenericCellRenderer):
     return (0, 0, width, height)
 
   def on_render(self, window, widget, bg_area, cell_area, expose_area, flags):
-    ctx = window.cairo_create()
+    try:
+      self.widget = widget
+      ctx = window.cairo_create()
 
-    # Render background
-    if flags & gtk.CELL_RENDERER_SELECTED:
-      if widget.props.has_focus:
-        ctx.rectangle(*bg_area)
-        ctx.set_source_rgb(1, 0, 0)
-        ctx.fill()
-      else:
-        ctx.rectangle(*bg_area)
-        ctx.set_source_rgb(0, 1, 0)
-        ctx.fill()
+      # Render background
+      if flags & gtk.CELL_RENDERER_SELECTED:
+        if widget.props.has_focus:
+          ctx.rectangle(*bg_area)
+          ctx.set_source_rgb(1, 0, 0)
+          ctx.fill()
+        else:
+          ctx.rectangle(*bg_area)
+          ctx.set_source_rgb(0, 1, 0)
+          ctx.fill()
 
-    ctx.rectangle(*expose_area)
-    ctx.clip()
+      ctx.rectangle(*expose_area)
+      ctx.clip()
 
-    area = gtk.gdk.Rectangle(*cell_area)
-    for item in self._start_items:
-      w = item.width
-      if w:
-        item_area = gtk.gdk.Rectangle(area.x, area.y,
-            min(w, area.width), area.height)
-        item.render(ctx, item_area, flags)
-        area.x += w
-        area.width -= w
+      area = gtk.gdk.Rectangle(*cell_area)
+      for item in self._start_items:
+        w = item.width
+        if w:
+          item_area = gtk.gdk.Rectangle(area.x, area.y,
+              min(w, area.width), area.height)
+          item.render(ctx, item_area, flags)
+          area.x += w
+          area.width -= w
+          if not area.width: return
+
+      for item in self._end_items:
+        w = item.width
+        if w:
+          item_area = gtk.gdk.Rectangle(area.x + area.width - w, area.y,
+              min(w, area.width), area.height)
+          item.render(ctx, item_area, flags)
+          area.width -= w
+          if not area.width: return
+
+      item = self._flex_item
+      if item:
+        item.render(ctx, area, flags)
         if not area.width: return
 
-    for item in self._end_items:
-      w = item.width
-      if w:
-        item_area = gtk.gdk.Rectangle(area.x + area.width - w, area.y,
-            min(w, area.width), area.height)
-        item.render(ctx, item_area, flags)
-        area.width -= w
-        if not area.width: return
-
-    item = self._flex_item
-    if item:
-      item.render(ctx, area, flags)
-      if not area.width: return
-
-    return
+    finally:
+      del self.widget
 
   def on_activate(self, event, widget, path, bg_area, cell_area, flags):
     pass
