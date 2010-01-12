@@ -269,10 +269,14 @@ class ItemProg(Item):
 class ItemSpin(Item):
   @property
   def width(self):
-    return 16
+    prog = self.cellr._props['progress']
+    if prog < 0: return 16
+    return 0
 
   @property
   def height(self):
+    prog = self.cellr._props['progress']
+    if prog < 0: return 16
     return 0
 
   def render(self, ctx, area, flags):
@@ -285,7 +289,7 @@ class CellRendererItems(gtk.GenericCellRenderer):
     'text': (str, 'Text', 'Text', '(unknown)', gobject.PARAM_WRITABLE),
     'unread': (int, 'Unread', 'Unread Count', 0, 1000000, 0,
         gobject.PARAM_WRITABLE),
-    'progress': (int, 'Progress', 'Progress', 0, 100, 0,
+    'progress': (int, 'Progress', 'Progress', -1, 100, 0,
         gobject.PARAM_WRITABLE),
     'spin-start': (float, 'Spin Start', 'Spin Start', 0, 10000000000, 0,
         gobject.PARAM_WRITABLE),

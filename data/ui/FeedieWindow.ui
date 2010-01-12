@@ -13,7 +13,7 @@
       <!-- column-name unread_count -->
       <column type="guint"/>
       <!-- column-name progress -->
-      <column type="guint"/>
+      <column type="gint"/>
       <!-- column-name spin-start -->
       <column type="gfloat"/>
       <!-- column-name spin-update -->
