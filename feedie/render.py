@@ -234,10 +234,14 @@ class ItemPill(Item):
 class ItemProg(Item):
   @property
   def width(self):
-    return 16
+    prog = self.cellr._props['progress']
+    if prog > 0: return 16
+    return 0
 
   @property
   def height(self):
+    prog = self.cellr._props['progress']
+    if prog > 0: return 16
     return 0
 
   def render(self, ctx, area, flags):
