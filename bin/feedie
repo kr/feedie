@@ -363,16 +363,19 @@ class FeedieWindow(gtk.Window):
         )
         list_bg_colors = []
         def stv_style_set(stv, previous_style):
-          style = stv.get_style()
-          h = style.base[gtk.STATE_SELECTED].hue
-          self._color = {}
+          h = stv.get_style().bg[gtk.STATE_SELECTED].hue
+          stv.color = {}
           conv = colorsys.hsv_to_rgb
-          list_bg_colors[:] = tuple(conv(h + r, s, v) for r,s,v in list_bg)
-          i = 2 * int(bool(self.props.is_active)) + 1
-          bg_color = gtk.gdk.Color(*list_bg_colors[i])
+          for name, rsv in render.rsv.items():
+            stv.color[name] = tuple(conv(h + r, s, v) for r,s,v in rsv)
+
+          style = stv.get_style()
+          rgb = render.color(stv, 'list-bg', focused=self.props.is_active)
+          bg_color = gtk.gdk.Color(*rgb)
           if bg_color != style.base[gtk.STATE_NORMAL]:
             stv.modify_base(gtk.STATE_NORMAL, bg_color)
 
+        self.sources_treeview.__foo = 1
         self.sources_treeview.connect('style-set', stv_style_set)
         stv_style_set(self.sources_treeview, None)
 
