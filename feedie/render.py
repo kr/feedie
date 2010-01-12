@@ -1,6 +1,7 @@
 import gobject
 import gtk
 import pango
+import locale
 
 rsv = {
   'list-bg': (
@@ -129,7 +130,7 @@ class ItemText(Item):
 
   @property
   def height(self):
-    fd = self.cellr.widget.get_style().font_desc
+    fd = self.cellr.widget.get_style().font_desc.copy()
     p_ctx = self.cellr.widget.get_pango_context()
     metrics = p_ctx.get_metrics(fd, None)
     approx = (metrics.get_ascent() + metrics.get_descent()) / pango.SCALE
@@ -144,7 +145,7 @@ class ItemText(Item):
 
     if self.cellr._props['is-heading']:
       text = self.cellr._props['text']
-      fd = self.cellr.widget.get_style().font_desc
+      fd = self.cellr.widget.get_style().font_desc.copy()
       fd.set_weight(700)
 
       set_color(stv, ctx, 'heading-fg-shadow')
@@ -158,7 +159,7 @@ class ItemText(Item):
 
       text = self.cellr._props['text']
       weight = (400, 700)[is_selected or is_focused]
-      fd = self.cellr.widget.get_style().font_desc
+      fd = self.cellr.widget.get_style().font_desc.copy()
       fd.set_weight(weight)
 
       if is_selected or is_focused:
@@ -171,15 +172,25 @@ class ItemText(Item):
 
 
 class ItemPill(Item):
+  height = 0
+
+  _padding = 5
+
   @property
   def width(self):
     unread = self.cellr._props['unread']
-    if unread: return 20
-    return 0
+    if not unread: return 0
 
-  @property
-  def height(self):
-    return 0
+    layout = self.cellr.widget.window.cairo_create().create_layout()
+    layout.set_wrap(False)
+    fd = self.cellr.widget.get_style().font_desc.copy()
+    fd.set_weight(700)
+    layout.set_font_description(fd)
+    layout.set_text(locale.format('%d', unread, grouping=True))
+    text_width, text_height = layout.get_pixel_size()
+    pill_width = max(text_width + 2 * self._padding, 2 * text_height)
+    return pill_width
+
 
   def render(self, ctx, area, flags):
     ctx.rectangle(*area)
