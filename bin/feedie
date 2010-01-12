@@ -169,8 +169,12 @@ class FeedieWindow(gtk.Window):
         renderer = render.CellRendererItems()
         col.pack_start(renderer, expand=False)
         col.add_attribute(renderer, 'text', 1)
-        col.add_attribute(renderer, 'icon', 6)
         col.add_attribute(renderer, 'unread', 2)
+        col.add_attribute(renderer, 'progress', 3)
+        col.add_attribute(renderer, 'spin-start', 4)
+        col.add_attribute(renderer, 'spin-update', 5)
+        col.add_attribute(renderer, 'icon', 6)
+        col.add_attribute(renderer, 'is_heading', 7)
 
         source_label_renderer = gtk.CellRendererText()
         col.pack_start(source_label_renderer)
