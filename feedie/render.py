@@ -2,6 +2,8 @@ import gobject
 import gtk
 import pango
 import locale
+import time
+import cairo
 from math import pi
 from feedie import graphics
 
@@ -267,6 +269,8 @@ class ItemProg(Item):
     ctx.fill()
 
 class ItemSpin(Item):
+  spin_speed = 70 # in degrees/second
+
   @property
   def width(self):
     prog = self.cellr._props['progress']
@@ -280,9 +284,32 @@ class ItemSpin(Item):
     return 0
 
   def render(self, ctx, area, flags):
-    ctx.rectangle(*area)
-    ctx.set_source_rgb(0, 0.5, 0.5)
-    ctx.fill()
+    stv = self.cellr.widget
+    began = self.cellr._props['spin-start']
+    is_selected = bool(flags & gtk.CELL_RENDERER_SELECTED)
+
+    r = 8
+    cx = area.x + area.width * 0.5
+    cy = area.y + area.height * 0.5
+
+    dt = time.time() - began
+    rho = int(dt * self.spin_speed) % 360
+
+    set_color(stv, ctx, 'spinner', selected=is_selected)
+
+    ctx.new_sub_path()
+    ctx.arc(cx, cy, r - 2,
+        (2 * pi * rho / 360),
+        (2 * pi * rho / 360) + (2*pi/3))
+
+    ctx.new_sub_path()
+    ctx.arc(cx, cy, r - 2,
+        (2 * pi * rho / 360) + (pi),
+        (2 * pi * rho / 360) + (5*pi/3))
+
+    ctx.set_line_width(2.5)
+    ctx.set_line_cap(cairo.LINE_CAP_ROUND)
+    ctx.stroke()
 
 class CellRendererItems(gtk.GenericCellRenderer):
   __gproperties__ = {
