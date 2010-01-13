@@ -813,6 +813,7 @@ class Feed(Model):
   is_removable = True
   is_refreshing = False
   rowref = None
+  spin_start = 0
 
   def __init__(self, sources, doc, summary=None):
     self.sources = sources
@@ -826,6 +827,7 @@ class Feed(Model):
     sources.connect('posts-marked-unread', self.posts_marked_unread)
     self.connect('favicon-changed', self.update_rowref_icon)
     self.connect('summary-changed', self.update_rowref_unread)
+    self.connect('progress-changed', self.update_rowref_progress)
 
   def __len__(self):
     return self.summary['total']
@@ -1229,6 +1231,20 @@ class Feed(Model):
       model = self.rowref.get_model()
       path = self.rowref.get_path()
       model[path][2] = self.unread
+
+  def update_rowref_progress(self, *args):
+    if self.rowref:
+      model = self.rowref.get_model()
+      path = self.rowref.get_path()
+      model[path][3] = self.progress
+      if self.progress < 0:
+        if not self.spin_start:
+          self.spin_start = time.time()
+          model[path][4] = self.spin_start
+      else:
+        if self.spin_start:
+          self.spin_start = 0
+          model[path][4] = 0
 
   def update_rowref_icon(self, *args):
     if self.rowref:
