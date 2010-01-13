@@ -212,15 +212,12 @@ class FeedieWindow(gtk.Window):
             glib.timeout_add(17, update_animation)
 
         self.sources_treestore = builder.get_object('sources-treestore')
+        self.sources_treestore.set_sort_column_id(8, gtk.SORT_ASCENDING)
         self.sources_treestore.connect('row-changed', sources_row_changed)
 
         sources = models.Sources(self.db, MAIN_HTTP, ICON_HTTP, THROTTLE,
             self._preferences, self.sources_treestore)
 
-        sorted_sources_model = gtk.TreeModelSort(self.sources_treestore)
-        sorted_sources_model.set_sort_column_id(8, gtk.SORT_ASCENDING)
-
-        self.sources_treeview.set_model(sorted_sources_model)
         self.sources_treeview.expand_all()
 
         yield sources.load()
