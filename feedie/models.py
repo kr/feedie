@@ -815,6 +815,7 @@ class Feed(Model):
   rowref = None
   spin_start = 0
   favicon_data = None
+  _doc = None
 
   def __init__(self, sources, doc, summary=None):
     self.sources = sources
@@ -829,6 +830,14 @@ class Feed(Model):
     self.connect('favicon-changed', self.update_rowref_icon)
     self.connect('summary-changed', self.update_rowref_unread)
     self.connect('progress-changed', self.update_rowref_progress)
+
+  @property
+  def doc(self):
+    return self._doc
+
+  @doc.setter
+  def doc(self, doc):
+    self._doc = doc
 
   def __len__(self):
     return self.summary['total']
