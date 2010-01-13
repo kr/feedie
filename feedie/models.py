@@ -107,6 +107,7 @@ class Model(object):
 
 class UnreadNewsSource(Model):
   is_removable = False
+  rowref = None
 
   def __init__(self, db):
     self.db = db
@@ -258,6 +259,7 @@ class UnreadNewsSource(Model):
 
 class StarredNewsSource(Model):
   is_removable = False
+  rowref = None
 
   def __init__(self, db):
     self.db = db
@@ -796,6 +798,7 @@ count_load_summaries = 0
 class Feed(Model):
   is_removable = True
   is_refreshing = False
+  rowref = None
 
   def __init__(self, sources, doc, summary=None):
     self.sources = sources
@@ -807,6 +810,7 @@ class Feed(Model):
     self.load_favicon()
     sources.connect('posts-marked-read', self.posts_marked_read)
     sources.connect('posts-marked-unread', self.posts_marked_unread)
+    self.connect('favicon-changed', self.update_rowref_icon)
 
   def __len__(self):
     return self.summary['total']
@@ -1204,6 +1208,21 @@ class Feed(Model):
     self.doc = yield self.db.load_doc(self.id)
     self.favicon_data = favicon_data
     self.emit('favicon-changed')
+
+  def update_rowref_icon(self, *args):
+    if self.rowref:
+      if self.favicon_data:
+        loader = gtk.gdk.PixbufLoader()
+        loader.set_size(16, 16)
+        loader.write(self.favicon_data)
+        loader.close()
+        icon = loader.get_pixbuf()
+      else:
+        theme = gtk.icon_theme_get_default()
+        icon = theme.load_icon(self.icon, 16, 0)
+      model = self.rowref.get_model()
+      path = self.rowref.get_path()
+      model[path][6] = icon
 
   @defer.inlineCallbacks
   def load_favicon(self):
