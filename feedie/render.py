@@ -70,9 +70,12 @@ rsva = {
   ),
 }
 
-def color_rgb(stv, name, selected=True, focused=True):
+def color_rgba(stv, name, selected=True, focused=True):
   i = 2 * int(bool(focused)) + int(bool(selected))
-  return stv.color[name][i][:3]
+  return stv.color[name][i]
+
+def color_rgb(stv, name, selected=True, focused=True):
+  return color_rgba(stv, name, selected=selected, focused=focused)[:3]
 
 def set_color(stv, ctx, name, selected=True, focused=True):
   rgb = color_rgb(stv, name, selected=selected, focused=focused)
