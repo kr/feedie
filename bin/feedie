@@ -386,13 +386,6 @@ class FeedieWindow(gtk.Window):
 
         self.connect('style-set', style_set)
 
-        list_bg = (
-          (.00, 0.0000, 0.9020), # neither
-          (.00, 0.0000, 0.9020), # only selected
-          (.00, 0.0652, 0.9020), # only focused
-          (.00, 0.0652, 0.9020), # selected and focused
-        )
-        list_bg_colors = []
         def stv_style_set(stv, previous_style):
           h = stv.get_style().bg[gtk.STATE_SELECTED].hue
           stv.color = {}
