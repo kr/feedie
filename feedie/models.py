@@ -114,6 +114,7 @@ class UnreadNewsSource(Model):
     self.sources = None
     self.posts = None
     self.summary = dict(total=0, read=0, starred_total=0, starred_read=0)
+    self.connect('summary-changed', self.update_rowref_unread)
 
   def __len__(self):
     return self.summary['total']
@@ -182,6 +183,12 @@ class UnreadNewsSource(Model):
       for feed in self.sources.subscribed_feeds:
         self.summary['total'] += feed.summary['total'] - feed.summary['read']
     self.emit('summary-changed')
+
+  def update_rowref_unread(self, *args):
+    if self.rowref:
+      model = self.rowref.get_model()
+      path = self.rowref.get_path()
+      model[path][2] = self.unread
 
   @property
   def id(self):
@@ -266,6 +273,7 @@ class StarredNewsSource(Model):
     self.sources = None
     self.posts = None
     self.summary = dict(total=0, read=0, starred_total=0, starred_read=0)
+    self.connect('summary-changed', self.update_rowref_unread)
 
   def __len__(self):
     return self.summary['total']
@@ -285,6 +293,12 @@ class StarredNewsSource(Model):
         self.summary['total'] += feed.summary['starred_total']
         self.summary['read'] += feed.summary['starred_read']
     self.emit('summary-changed')
+
+  def update_rowref_unread(self, *args):
+    if self.rowref:
+      model = self.rowref.get_model()
+      path = self.rowref.get_path()
+      model[path][2] = self.unread
 
   @property
   def id(self):
@@ -811,6 +825,7 @@ class Feed(Model):
     sources.connect('posts-marked-read', self.posts_marked_read)
     sources.connect('posts-marked-unread', self.posts_marked_unread)
     self.connect('favicon-changed', self.update_rowref_icon)
+    self.connect('summary-changed', self.update_rowref_unread)
 
   def __len__(self):
     return self.summary['total']
@@ -1208,6 +1223,12 @@ class Feed(Model):
     self.doc = yield self.db.load_doc(self.id)
     self.favicon_data = favicon_data
     self.emit('favicon-changed')
+
+  def update_rowref_unread(self, *args):
+    if self.rowref:
+      model = self.rowref.get_model()
+      path = self.rowref.get_path()
+      model[path][2] = self.unread
 
   def update_rowref_icon(self, *args):
     if self.rowref:
