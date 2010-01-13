@@ -814,6 +814,7 @@ class Feed(Model):
   is_refreshing = False
   rowref = None
   spin_start = 0
+  favicon_data = None
 
   def __init__(self, sources, doc, summary=None):
     self.sources = sources
