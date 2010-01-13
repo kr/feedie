@@ -211,14 +211,16 @@ class FeedieWindow(gtk.Window):
             currently_spinning[0] = True
             glib.timeout_add(17, update_animation)
 
+        def sources_row_inserted(model, path, iter):
+          self.sources_treeview.expand_all()
+
         self.sources_treestore = builder.get_object('sources-treestore')
         self.sources_treestore.set_sort_column_id(8, gtk.SORT_ASCENDING)
         self.sources_treestore.connect('row-changed', sources_row_changed)
+        self.sources_treestore.connect('row-inserted', sources_row_inserted)
 
         sources = models.Sources(self.db, MAIN_HTTP, ICON_HTTP, THROTTLE,
             self._preferences, self.sources_treestore)
-
-        self.sources_treeview.expand_all()
 
         yield sources.load()
         self.unreadnews = models.UnreadNewsSource(self.db)
