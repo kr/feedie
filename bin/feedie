@@ -934,12 +934,19 @@ style "feedie-scrolledwindow"
 class "GtkWidget" style "feedie-scrolledwindow"
 
 
-style "feedie-treeview"
+style "feedie-sources-treeview"
 {
   GtkTreeView::vertical-separator = 0
   GtkTreeView::horizontal-separator = 0
 }
-widget_class "*<GtkHPaned><GtkVBox><GtkTreeView>" style "feedie-treeview"
+widget "*.sources-treeview" style "feedie-sources-treeview"
+
+style "feedie-posts-treeview"
+{
+  GtkTreeView::vertical-separator = 0
+  GtkTreeView::horizontal-separator = 6
+}
+widget "*.posts-treeview" style "feedie-posts-treeview"
     ''')
 
     #run the application
