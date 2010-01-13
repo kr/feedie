@@ -1257,6 +1257,7 @@ class Feed(Model):
     if self.rowref:
       model = self.rowref.get_model()
       path = self.rowref.get_path()
+      if path is None: return
       model[path][3] = self.progress
       if self.progress < 0:
         if not self.spin_start:
