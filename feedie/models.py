@@ -481,6 +481,10 @@ class Sources(Model):
       for post in feed.posts.values():
         self.emit('post-removed', feed, post)
 
+      if feed.rowref:
+        path = feed.rowref.get_path()
+        self.treestore.remove(self.treestore.get_iter(path))
+
     self.connect('feed-removed', feed_removed_helper)
 
   @property
