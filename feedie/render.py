@@ -78,8 +78,8 @@ def color_rgb(stv, name, selected=True, focused=True):
   return color_rgba(stv, name, selected=selected, focused=focused)[:3]
 
 def set_color(stv, ctx, name, selected=True, focused=True):
-  rgb = color_rgb(stv, name, selected=selected, focused=focused)
-  ctx.set_source_rgb(*rgb)
+  rgba = color_rgba(stv, name, selected=selected, focused=focused)
+  ctx.set_source_rgba(*rgba)
 
 class Item(object):
   width = 0
