@@ -390,8 +390,8 @@ class FeedieWindow(gtk.Window):
           h = stv.get_style().bg[gtk.STATE_SELECTED].hue
           stv.color = {}
           conv = colorsys.hsv_to_rgb
-          for name, rsv in render.rsv.items():
-            stv.color[name] = tuple(conv(h + r, s, v) for r,s,v in rsv)
+          for name, rsva in render.rsva.items():
+            stv.color[name] = tuple(conv(h+r, s, v) + (a,) for r,s,v,a in rsva)
 
           style = stv.get_style()
           rgb = render.color_rgb(stv, 'list-bg', focused=self.props.is_active)
