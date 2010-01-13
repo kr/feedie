@@ -415,24 +415,24 @@ class Sources(Model):
     self.needs_refresh = []
 
 
-    news_row = ('', 'NEWS', 0, 0, 0, 0, None, True)
+    news_row = ('', 'NEWS', 0, 0, 0, 0, None, True, '')
     news_iter = self.treestore.append(None, row=news_row)
 
-    fake1_row = ('fake1', 'Fake News', 0, 0, 0, 0, None, False)
+    fake1_row = ('fake1', 'Fake News', 0, 0, 0, 0, None, False, '')
     fake1_iter = self.treestore.append(news_iter, row=fake1_row)
 
-    fake2_row = ('fake2', 'Fake News Unread', 3127, 0, 0, 0, None, False)
+    fake2_row = ('fake2', 'Fake News Unread', 3127, 0, 0, 0, None, False, '')
     fake2_iter = self.treestore.append(news_iter, row=fake2_row)
 
-    fake3_row = ('fake3', 'Fake News Progress', 0, 30, 0, 0, None, False)
+    fake3_row = ('fake3', 'Fake News Progress', 0, 30, 0, 0, None, False, '')
     fake3_iter = self.treestore.append(news_iter, row=fake3_row)
 
-    fake4_row = ('fake4', 'Fake News Spin', 0, -1, time.time(), 0, None, False)
+    fake4_row = ('fake4', 'Fake News Spin', 0, -1, time.time(), 0, None, False, '')
     fake4_iter = self.treestore.append(news_iter, row=fake4_row)
 
     theme = gtk.icon_theme_get_default()
     icon = theme.load_icon('gtk-file', 16, 0)
-    fake5_row = ('fake5', 'Fake News Icon', 0, 0, 0, 0, icon, False)
+    fake5_row = ('fake5', 'Fake News Icon', 0, 0, 0, 0, icon, False, '')
     fake5_iter = self.treestore.append(news_iter, row=fake5_row)
 
     def feed_added_helper(sources, event_name, feed):
@@ -452,13 +452,15 @@ class Sources(Model):
           summary_changed)
 
       icon = theme.load_icon(feed.icon, 16, 0)
-      row = (feed.id, feed.title, feed.unread, 0, 0, 0, icon, False)
+      row = (feed.id, feed.title, feed.unread, 0, 0, 0, icon, False,
+          feed.sort_key)
       iter = self.treestore.append(news_iter, row=row)
       path = self.treestore.get_path(iter)
       feed.rowref = gtk.TreeRowReference(self.treestore, path)
 
     def builtin_added_helper(sources, event_name, builtin):
-      row = (builtin.id, builtin.title, builtin.unread, 0, 0, 0, None, False)
+      row = (builtin.id, builtin.title, builtin.unread, 0, 0, 0, None, False,
+          builtin.sort_key)
       iter = self.treestore.append(news_iter, row=row)
       path = self.treestore.get_path(iter)
       builtin.rowref = gtk.TreeRowReference(self.treestore, path)
