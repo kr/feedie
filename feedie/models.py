@@ -838,6 +838,11 @@ class Feed(Model):
   @doc.setter
   def doc(self, doc):
     self._doc = doc
+    if self.rowref:
+      model = self.rowref.get_model()
+      path = self.rowref.get_path()
+      model[path][1] = self.title
+      model[path][8] = self.sort_key
 
   def __len__(self):
     return self.summary['total']
