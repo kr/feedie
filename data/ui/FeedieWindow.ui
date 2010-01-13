@@ -50,8 +50,8 @@
                     <child>
                       <object class="GtkImageMenuItem" id="new-subscription-menuitem">
                         <property name="visible">True</property>
-                        <property name="related_action">action-show-subscribe</property>
                         <property name="use_action_appearance">True</property>
+                        <property name="related_action">action-show-subscribe</property>
                         <property name="use_underline">True</property>
                         <property name="image">image1</property>
                         <property name="use_stock">True</property>
@@ -61,8 +61,8 @@
                     <child>
                       <object class="GtkImageMenuItem" id="imagemenuitem2">
                         <property name="visible">True</property>
-                        <property name="related_action">action-remove-feed</property>
                         <property name="use_action_appearance">True</property>
+                        <property name="related_action">action-remove-feed</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                       </object>
@@ -75,8 +75,8 @@
                     <child>
                       <object class="GtkImageMenuItem" id="import-menuitem">
                         <property name="visible">True</property>
-                        <property name="related_action">action-import-subscriptions</property>
                         <property name="use_action_appearance">True</property>
+                        <property name="related_action">action-import-subscriptions</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                       </object>
@@ -92,8 +92,8 @@
                         <property name="visible">True</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
-                        <accelerator key="w" signal="activate" modifiers="GDK_CONTROL_MASK"/>
                         <accelerator key="q" signal="activate" modifiers="GDK_CONTROL_MASK"/>
+                        <accelerator key="w" signal="activate" modifiers="GDK_CONTROL_MASK"/>
                         <signal name="activate" handler="quit"/>
                       </object>
                     </child>
@@ -112,8 +112,8 @@
                     <child>
                       <object class="GtkImageMenuItem" id="mark-as-read">
                         <property name="visible">True</property>
-                        <property name="related_action">action-mark-as-read</property>
                         <property name="use_action_appearance">True</property>
+                        <property name="related_action">action-mark-as-read</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                         <accelerator key="k" signal="activate" modifiers="GDK_CONTROL_MASK"/>
@@ -122,8 +122,8 @@
                     <child>
                       <object class="GtkImageMenuItem" id="mark-as-unread">
                         <property name="visible">True</property>
-                        <property name="related_action">action-mark-as-unread</property>
                         <property name="use_action_appearance">True</property>
+                        <property name="related_action">action-mark-as-unread</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                         <accelerator key="k" signal="activate" modifiers="GDK_SHIFT_MASK | GDK_CONTROL_MASK"/>
@@ -158,8 +158,8 @@
                     <child>
                       <object class="GtkImageMenuItem" id="next-unread-menuitem">
                         <property name="visible">True</property>
-                        <property name="related_action">action-next-unread</property>
                         <property name="use_action_appearance">True</property>
+                        <property name="related_action">action-next-unread</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                         <accelerator key="n" signal="activate"/>
@@ -202,8 +202,8 @@
             <child>
               <object class="GtkToolButton" id="toolbutton1">
                 <property name="visible">True</property>
-                <property name="related_action">action-show-subscribe</property>
                 <property name="use_action_appearance">True</property>
+                <property name="related_action">action-show-subscribe</property>
                 <property name="use_underline">True</property>
               </object>
               <packing>
@@ -214,8 +214,8 @@
             <child>
               <object class="GtkToolButton" id="toolbutton2">
                 <property name="visible">True</property>
-                <property name="related_action">action-refresh</property>
                 <property name="use_action_appearance">True</property>
+                <property name="related_action">action-refresh</property>
                 <property name="use_underline">True</property>
               </object>
               <packing>
@@ -313,8 +313,8 @@
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="receives_default">True</property>
-                        <property name="use_action_appearance">True</property>
                         <property name="related_action">action-subscribe</property>
+                        <property name="use_action_appearance">True</property>
                       </object>
                       <packing>
                         <property name="expand">False</property>
@@ -327,8 +327,8 @@
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="receives_default">True</property>
-                        <property name="use_action_appearance">True</property>
                         <property name="related_action">action-cancel-subscribe</property>
+                        <property name="use_action_appearance">True</property>
                         <property name="use_stock">True</property>
                       </object>
                       <packing>
@@ -371,44 +371,21 @@
             <property name="can_focus">True</property>
             <property name="position">5</property>
             <child>
-              <object class="GtkVBox" id="vbox3">
+              <object class="GtkScrolledWindow" id="scrolledwindow3">
                 <property name="visible">True</property>
-                <property name="orientation">vertical</property>
+                <property name="can_focus">True</property>
+                <property name="hscrollbar_policy">automatic</property>
+                <property name="vscrollbar_policy">automatic</property>
                 <child>
-                  <object class="GtkScrolledWindow" id="sources-scrolledwindow">
+                  <object class="GtkTreeView" id="sources-treeview">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
-                    <property name="hscrollbar_policy">automatic</property>
-                    <property name="vscrollbar_policy">automatic</property>
-                    <child>
-                      <placeholder/>
-                    </child>
+                    <property name="model">sources-treestore</property>
+                    <property name="headers_visible">False</property>
+                    <property name="enable_search">False</property>
+                    <property name="search_column">0</property>
+                    <property name="fixed_height_mode">True</property>
                   </object>
-                  <packing>
-                    <property name="position">0</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkScrolledWindow" id="scrolledwindow3">
-                    <property name="visible">True</property>
-                    <property name="can_focus">True</property>
-                    <property name="hscrollbar_policy">automatic</property>
-                    <property name="vscrollbar_policy">automatic</property>
-                    <child>
-                      <object class="GtkTreeView" id="sources-treeview">
-                        <property name="visible">True</property>
-                        <property name="can_focus">True</property>
-                        <property name="model">sources-treestore</property>
-                        <property name="headers_visible">False</property>
-                        <property name="enable_search">False</property>
-                        <property name="search_column">0</property>
-                        <property name="fixed_height_mode">True</property>
-                      </object>
-                    </child>
-                  </object>
-                  <packing>
-                    <property name="position">1</property>
-                  </packing>
                 </child>
               </object>
               <packing>
