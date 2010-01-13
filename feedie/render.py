@@ -27,10 +27,10 @@ rsva = {
     (.00, 0.0000, 1.0000, 1.0),
   ),
   'item-fg-shadow': (
-    (.00, 0.0652, 0.9020, 1.0),
-    (.00, 0.8230, 0.3290, 1.0),
-    (.00, 0.0652, 0.9020, 1.0),
-    (.00, 0.8230, 0.3290, 1.0),
+    (.00, 0.0000, 0.0000, 0.6),
+    (.00, 0.0000, 0.0000, 0.6),
+    (.00, 0.0000, 0.0000, 0.6),
+    (.00, 0.0000, 0.0000, 0.6),
   ),
   'heading-fg': (
     (.00, 0.2346, 0.5840, 1.0),
@@ -179,7 +179,7 @@ class ItemText(Item):
       fd = self.cellr.widget.get_style().font_desc.copy()
       fd.set_weight(weight)
 
-      if is_selected or is_focused:
+      if is_selected:
         set_color(stv, ctx, 'item-fg-shadow', selected=is_selected)
         draw_text(ctx, fd, area, text, 0, 1)
 
