@@ -50,7 +50,6 @@ from twisted.internet import reactor, defer
 from twisted.web import client
 
 from feedie import AboutFeedieDialog, PreferencesFeedieDialog
-from feedie.SourcesView import SourcesView
 from feedie.posts_tree_model import PostsTreeModel
 from feedie import models
 from feedie.feedieconfig import getdatapath
@@ -162,8 +161,8 @@ class FeedieWindow(gtk.Window):
         self.sources_treeview = builder.get_object('sources-treeview')
         self.sources_treeview.set_show_expanders(False)
         #self.sources_treeview.set_level_indentation(10)
-        sources_treeview_selection = self.sources_treeview.get_selection()
-        sources_treeview_selection.set_mode(gtk.SELECTION_BROWSE)
+        self.sources_treeview_selection = self.sources_treeview.get_selection()
+        self.sources_treeview_selection.set_mode(gtk.SELECTION_BROWSE)
         col = gtk.TreeViewColumn()
         col.set_sizing(gtk.TREE_VIEW_COLUMN_FIXED)
 
@@ -227,12 +226,6 @@ class FeedieWindow(gtk.Window):
         sources.add_builtin(self.unreadnews)
         starrednews = models.StarredNewsSource(self.db)
         sources.add_builtin(starrednews)
-        self.sources_view = SourcesView(sources)
-        self.sources_view.show()
-
-        self.builder.get_object('sources-scrolledwindow').add_with_viewport(self.sources_view)
-        vp = self.builder.get_object('sources-scrolledwindow').get_child()
-        vp.set_shadow_type(gtk.SHADOW_NONE)
 
         def poppop(webview, menu):
           def blah_blah(item):
@@ -312,7 +305,7 @@ class FeedieWindow(gtk.Window):
             feed = sources.get_feed(feed_id)
             post = yield feed.load_post(post_id)
             post_template.post = post
-            post_template.display_feed = (feed_id != self.sources_view.selected_id)
+            post_template.display_feed = (feed_id != self.selected_feed_id)
             try:
               html = str(post_template)
             except Exception, e:
@@ -378,7 +371,6 @@ class FeedieWindow(gtk.Window):
           fd = widget.get_style().font_desc.copy()
           if fd.get_size() > (9 * pango.SCALE):
             fd.set_size(int(fd.get_size() / 1.2))
-          self.sources_view.modify_font(fd)
           self.sources_treeview.modify_font(fd)
           treeview.modify_font(fd)
           sources_status.modify_font(fd)
@@ -564,7 +556,7 @@ class FeedieWindow(gtk.Window):
           gconf_client.set_int('/apps/feedie/geometry/posts-pane-position',
               new_pos)
 
-        self.sources_view.connect('size-allocate', sources_pane_resized)
+        self.sources_treeview.connect('size-allocate', sources_pane_resized)
         sources_status.connect('size-allocate', status_paned_resized)
 
         vpaned1 = self.builder.get_object('vpaned1')
@@ -582,12 +574,20 @@ class FeedieWindow(gtk.Window):
         self.builder.get_object('subscribe-box').modify_bg(gtk.STATE_NORMAL, blue)
 
         self.selected_source_to_remove = []
-        self.sources_view.connect('selection-changed', self.select_feed,
-            self.selected_source_to_remove)
+        self.sources_treeview_selection.connect('changed',
+            self.sources_selection_changed)
 
-        self.sources_view.select(self.unreadnews.id)
+        self.select_feed_id(self.unreadnews.id)
         sw2 = self.builder.get_object('scrolledwindow2')
         self.treeview.grab_focus()
+
+    def select_feed_id(self, source_id):
+      if source_id not in sources: return
+      source = sources[source_id]
+      if not source.rowref: return
+
+      sel = self.sources_treeview_selection
+      sel.select_path(source.rowref.get_path())
 
     def mark_as_read(self, action):
       treeviewsel = self.treeview.get_selection()
@@ -720,11 +720,11 @@ class FeedieWindow(gtk.Window):
 
       # And for my next trick...
       self.search_terms = entry.get_text().lower().split()
-      self.select_feed(self.sources_view, self.sources_view.selected_id,
+      self.select_feed(None, self.selected_feed_id,
             self.selected_source_to_remove)
 
     def update_posts_title(self, model, path, iter=None, extra=None):
-      source = self.sources_view.selected
+      source = self.selected_feed
       if source is None: return
       title = locale.format_string(u'%s \u2013 %d posts',
           (source.title, len(model)), grouping=True)
@@ -735,8 +735,25 @@ class FeedieWindow(gtk.Window):
         title = extra + title
       self.treeview.get_column(2).get_widget().set_text(title)
 
+    @property
+    def selected_feed_id(self):
+      sel = self.sources_treeview_selection
+      model, iter = sel.get_selected()
+      if iter is None: return None
+      return model[model.get_path(iter)][0]
+
+    @property
+    def selected_feed(self):
+      source_id = self.selected_feed_id
+      if source_id not in sources: return None
+      return sources[source_id]
+
+    def sources_selection_changed(self, sel):
+      self.select_feed(None, self.selected_feed_id,
+            self.selected_source_to_remove)
+
     def select_feed(self, widget, selected_id, to_remove):
-      source = widget.selected
+      source = sources[selected_id]
 
       removable = bool(source is not None and source.is_removable)
       self.builder.get_object('action-remove-feed').set_sensitive(removable)
@@ -864,8 +881,7 @@ class FeedieWindow(gtk.Window):
 
           @d.addCallback
           def d(feed):
-            self.sources_view.select(feed.id)
-            self.sources_view.flash(feed.id)
+            self.select_feed_id(feed.id)
 
 
     def subscribe_cb(self, widget, data=None):
@@ -890,14 +906,14 @@ class FeedieWindow(gtk.Window):
           return
 
     def remove_feed(self, widget, data=None):
-      sel = self.sources_view.selected
+      sel = self.selected_feed
       if sel is not None:
         sel.delete()
 
     def refresh(self, widget, data=None):
       def success(x):
-        self.sources_view.flash(sel.id)
-      sel = self.sources_view.selected
+        pass
+      sel = self.selected_feed
       if sel:
         d = sel.refresh(force=True)
         d.addCallback(success)

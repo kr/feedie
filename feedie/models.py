@@ -432,8 +432,7 @@ class Sources(Model):
 
 
     news_row = ('', 'NEWS', 0, 0, 0, 0, None, True, '')
-    news_iter = self.treestore.append(None, row=news_row)
-    theme = gtk.icon_theme_get_default()
+    self.news_iter = self.treestore.append(None, row=news_row)
 
     def feed_added_helper(sources, event_name, feed):
       def posts_added(feed, event_name, posts):
@@ -451,23 +450,7 @@ class Sources(Model):
       feed.__disconnect_summary_changed = feed.connect('summary-changed',
           summary_changed)
 
-      if feed.subscribed:
-        icon = theme.load_icon(feed.icon, 16, 0)
-        row = (feed.id, feed.title, feed.unread, 0, 0, 0, icon, False,
-            feed.sort_key)
-        iter = self.treestore.append(news_iter, row=row)
-        path = self.treestore.get_path(iter)
-        feed.rowref = gtk.TreeRowReference(self.treestore, path)
-
-    def builtin_added_helper(sources, event_name, builtin):
-      row = (builtin.id, builtin.title, builtin.unread, 0, 0, 0, None, False,
-          builtin.sort_key)
-      iter = self.treestore.append(news_iter, row=row)
-      path = self.treestore.get_path(iter)
-      builtin.rowref = gtk.TreeRowReference(self.treestore, path)
-
     self.connect('feed-added', feed_added_helper)
-    self.connect('builtin-added', builtin_added_helper)
 
     def feed_removed_helper(sources, event_name, feed):
       (feed.__disconnect_posts_added or (lambda:None))()
@@ -481,10 +464,6 @@ class Sources(Model):
 
       for post in feed.posts.values():
         self.emit('post-removed', feed, post)
-
-      if feed.rowref:
-        path = feed.rowref.get_path()
-        self.treestore.remove(self.treestore.get_iter(path))
 
     self.connect('feed-removed', feed_removed_helper)
 
@@ -681,6 +660,12 @@ class Sources(Model):
     self.emit('builtin-added', source)
     self.emit('sources-added', [source])
 
+    row = (source.id, source.title, source.unread, 0, 0, 0, None, False,
+        source.sort_key)
+    iter = self.treestore.append(self.news_iter, row=row)
+    path = self.treestore.get_path(iter)
+    source.rowref = gtk.TreeRowReference(self.treestore, path)
+
   # Retrieves the feeds. If each one does not exist, creates it using an
   # element of default_docs.
   def upsert_feeds(self, default_docs, summaries={}):
@@ -695,6 +680,16 @@ class Sources(Model):
         self.emit('feed-added', feed)
         feed.connect('deleted', self.feed_deleted)
         is_new = True
+
+        if feed.subscribed:
+          theme = gtk.icon_theme_get_default()
+          icon = theme.load_icon(feed.icon, 16, 0)
+          row = (feed.id, feed.title, feed.unread, 0, 0, 0, icon, False,
+              feed.sort_key)
+          iter = self.treestore.append(self.news_iter, row=row)
+          path = self.treestore.get_path(iter)
+          feed.rowref = gtk.TreeRowReference(self.treestore, path)
+
       else:
         is_new = False
 
@@ -765,6 +760,11 @@ class Sources(Model):
       self.subscribed_feeds.remove(feed)
     self.emit('feed-removed', feed)
     self.emit('source-removed', feed)
+
+    if feed.rowref:
+      path = feed.rowref.get_path()
+      if path:
+        self.treestore.remove(self.treestore.get_iter(path))
 
   BATCH_SIZE = 113
 
@@ -846,8 +846,9 @@ class Feed(Model):
     if self.rowref:
       model = self.rowref.get_model()
       path = self.rowref.get_path()
-      model[path][1] = self.title
-      model[path][8] = self.sort_key
+      if path:
+        model[path][1] = self.title
+        model[path][8] = self.sort_key
 
   def __len__(self):
     return self.summary['total']
