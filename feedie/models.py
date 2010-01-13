@@ -451,7 +451,20 @@ class Sources(Model):
       feed.__disconnect_summary_changed = feed.connect('summary-changed',
           summary_changed)
 
+      icon = theme.load_icon(feed.icon, 16, 0)
+      row = (feed.id, feed.title, feed.unread, 0, 0, 0, icon, False)
+      iter = self.treestore.append(news_iter, row=row)
+      path = self.treestore.get_path(iter)
+      feed.rowref = gtk.TreeRowReference(self.treestore, path)
+
+    def builtin_added_helper(sources, event_name, builtin):
+      row = (builtin.id, builtin.title, builtin.unread, 0, 0, 0, None, False)
+      iter = self.treestore.append(news_iter, row=row)
+      path = self.treestore.get_path(iter)
+      builtin.rowref = gtk.TreeRowReference(self.treestore, path)
+
     self.connect('feed-added', feed_added_helper)
+    self.connect('builtin-added', builtin_added_helper)
 
     def feed_removed_helper(sources, event_name, feed):
       (feed.__disconnect_posts_added or (lambda:None))()
