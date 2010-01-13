@@ -394,7 +394,7 @@ class FeedieWindow(gtk.Window):
             stv.color[name] = tuple(conv(h + r, s, v) for r,s,v in rsv)
 
           style = stv.get_style()
-          rgb = render.color(stv, 'list-bg', focused=self.props.is_active)
+          rgb = render.color_rgb(stv, 'list-bg', focused=self.props.is_active)
           bg_color = gtk.gdk.Color(*rgb)
           if bg_color != style.base[gtk.STATE_NORMAL]:
             stv.modify_base(gtk.STATE_NORMAL, bg_color)

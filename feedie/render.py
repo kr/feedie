@@ -70,12 +70,12 @@ rsv = {
   ),
 }
 
-def color(stv, name, selected=True, focused=True):
+def color_rgb(stv, name, selected=True, focused=True):
   i = 2 * int(bool(focused)) + int(bool(selected))
   return stv.color[name][i]
 
 def set_color(stv, ctx, name, selected=True, focused=True):
-  rgb = color(stv, name, selected=selected, focused=focused)
+  rgb = color_rgb(stv, name, selected=selected, focused=focused)
   ctx.set_source_rgb(*rgb)
 
 class Item(object):
@@ -368,7 +368,7 @@ class CellRendererItems(gtk.GenericCellRenderer):
 
       # Render background
       if flags & gtk.CELL_RENDERER_SELECTED:
-        bot_grad_color = color(widget, 'item-bg-bottom',
+        bot_grad_color = color_rgb(widget, 'item-bg-bottom',
             focused=widget.props.has_focus)
         top_grad_color = util.mix(0.30, bot_grad_color, (1, 1, 1))
         top_line_color = util.mix(0.18, bot_grad_color, (1, 1, 1))
