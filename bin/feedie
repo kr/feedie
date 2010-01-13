@@ -13,6 +13,7 @@ import cgi
 import traceback
 import dbus, dbus.service
 import gtk
+import glib
 import gconf
 import pango
 import webkit
@@ -181,7 +182,37 @@ class FeedieWindow(gtk.Window):
         stv_sel = self.sources_treeview.get_selection()
         stv_sel.set_select_function(lambda path: len(path) > 1)
 
+        spinning_rows = []
+        currently_spinning = [False]
+        def sources_row_changed(model, path, iter):
+          def update_animation():
+            if not spinning_rows:
+              currently_spinning[0] = False
+              return False
+
+            for rowref in spinning_rows:
+              row = model[rowref.get_path()]
+              row[5] = 0
+
+            return True
+
+          if model[path][3] < 0:
+            for rowref in spinning_rows:
+              if rowref.get_path() == path: return
+            rowref = gtk.TreeRowReference(model, path)
+            spinning_rows.append(rowref)
+          else:
+            rows, spinning_rows[:] = spinning_rows[:], []
+            for rowref in rows:
+              if rowref.get_path() != path:
+                spinning_rows.append(rowref)
+
+          if spinning_rows and not currently_spinning[0]:
+            currently_spinning[0] = True
+            glib.timeout_add(17, update_animation)
+
         self.sources_treestore = builder.get_object('sources-treestore')
+        self.sources_treestore.connect('row-changed', sources_row_changed)
 
         sources = models.Sources(self.db, MAIN_HTTP, ICON_HTTP, THROTTLE,
             self._preferences, self.sources_treestore)
