@@ -298,7 +298,7 @@ class StarredNewsSource(Model):
     if self.rowref:
       model = self.rowref.get_model()
       path = self.rowref.get_path()
-      model[path][2] = self.unread
+      model[path][2] = int(self.unread)
 
   @property
   def id(self):
