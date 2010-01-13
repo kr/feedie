@@ -1270,11 +1270,15 @@ class Feed(Model):
   def update_rowref_icon(self, *args):
     if self.rowref:
       if self.favicon_data:
-        loader = gtk.gdk.PixbufLoader()
-        loader.set_size(16, 16)
-        loader.write(self.favicon_data)
-        loader.close()
-        icon = loader.get_pixbuf()
+        try:
+          loader = gtk.gdk.PixbufLoader()
+          loader.set_size(16, 16)
+          loader.write(self.favicon_data)
+          loader.close()
+          icon = loader.get_pixbuf()
+        except:
+          theme = gtk.icon_theme_get_default()
+          icon = theme.load_icon(self.icon, 16, 0)
       else:
         theme = gtk.icon_theme_get_default()
         icon = theme.load_icon(self.icon, 16, 0)
