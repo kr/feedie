@@ -204,7 +204,7 @@ class FeedieWindow(gtk.Window):
           else:
             rows, spinning_rows[:] = spinning_rows[:], []
             for rowref in rows:
-              if rowref.get_path() != path:
+              if rowref.get_path() != path and rowref.valid():
                 spinning_rows.append(rowref)
 
           if spinning_rows and not currently_spinning[0]:
