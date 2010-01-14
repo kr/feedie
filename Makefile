@@ -8,5 +8,5 @@ help:
 	@echo make help    -- this message
 
 package:
-	#dpkg-buildpackage -tc -I.git -us -uc
-	git-buildpackage -us -uc --git-ignore-new
+	dpkg-buildpackage -tc -I.git -us -uc
+	#git-buildpackage -us -uc --git-ignore-new

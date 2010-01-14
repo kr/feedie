@@ -80,12 +80,9 @@ class InstallAndUpdateDataDirectory(DistUtilsExtra.auto.install_auto):
 ###################### YOU SHOULD MODIFY ONLY WHAT IS BELOW ######################
 ##################################################################################
 
-from subprocess import Popen, PIPE
-VERSION = Popen(['./version.sh'], stdout=PIPE).communicate()[0].strip()
-
 DistUtilsExtra.auto.setup(
     name='feedie',
-    version=VERSION,
+    version='0',
     license='MIT',
     author='Keith Rarick',
     author_email='kr@xph.us',

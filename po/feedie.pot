@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2010-01-05 01:51-0800\n"
+"POT-Creation-Date: 2010-01-14 01:53-0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,11 +17,53 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 
 #: ../data/ui/PreferencesFeedieDialog.ui.h:1
-msgid "gtk-cancel"
+msgid "Default Feed Reader"
 msgstr ""
 
 #: ../data/ui/PreferencesFeedieDialog.ui.h:2
-msgid "gtk-ok"
+msgid "Feedie Preferences"
+msgstr ""
+
+#: ../data/ui/PreferencesFeedieDialog.ui.h:3
+msgid "Feedie is currently your default feed reader."
+msgstr ""
+
+#: ../data/ui/PreferencesFeedieDialog.ui.h:4
+msgid "Feedie is not currently your default feed reader."
+msgstr ""
+
+#: ../data/ui/PreferencesFeedieDialog.ui.h:5
+msgid "Forever"
+msgstr ""
+
+#: ../data/ui/PreferencesFeedieDialog.ui.h:6
+msgid "Housekeeping"
+msgstr ""
+
+#: ../data/ui/PreferencesFeedieDialog.ui.h:7
+msgid "Keep read posts for:"
+msgstr ""
+
+#: ../data/ui/PreferencesFeedieDialog.ui.h:8
+msgid "Make Feedie my default feed reader"
+msgstr ""
+
+#: ../data/ui/PreferencesFeedieDialog.ui.h:9
+msgid "One Month"
+msgstr ""
+
+#: ../data/ui/PreferencesFeedieDialog.ui.h:10
+msgid "One Week"
+msgstr ""
+
+#: ../data/ui/PreferencesFeedieDialog.ui.h:11
+msgid "Three Months"
+msgstr ""
+
+#: ../data/ui/PreferencesFeedieDialog.ui.h:12
+msgid ""
+"To save disk space, each post will be deleted some time after you have read "
+"it. (Starred posts will never be deleted.)"
 msgstr ""
 
 #: ../data/ui/FeedieWindow.ui.h:1
