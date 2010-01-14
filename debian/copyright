@@ -1,8 +1,8 @@
 Format-Specification: http://wiki.debian.org/Proposals/CopyrightFormat
 Upstream-Name: feedie
-Upstream-Maintainer: UNKNOWN <UNKNOWN>
+Upstream-Maintainer: Keith Rarick <kr@xph.us>
 Upstream-Source: UNKNOWN
 
 Files: *
-Copyright: (C) YYYY <Your Name> <Your E-mail>
-License: UNKNOWN
+Copyright: (C) 2010 Keith Rarick <kr@xph.us>
+License: MIT
