@@ -1,6 +1,4 @@
 
-VERSION := $(shell ./version.sh)
-
 all: help
 
 help:
@@ -10,3 +8,6 @@ help:
 package:
 	dpkg-buildpackage -tc -I.git -us -uc
 	#git-buildpackage -us -uc --git-ignore-new
+
+snapshot-changelog:
+	git dch -S -a
