@@ -1,3 +1,11 @@
+feedie (0ubuntu1~1.gbpfcc41f) UNRELEASED; urgency=low
+
+  ** SNAPSHOT build @fcc41f675b6b4c09c19111a3e1113d8ae76d2684 **
+
+  * Okay, getting the hang of this debian packaging stuff.
+
+ -- Keith Rarick <kr@xph.us>  Thu, 14 Jan 2010 01:48:48 -0800
+
 feedie (0) karmic; urgency=low
 
   * Fake 0th release.
