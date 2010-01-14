@@ -1,3 +1,2 @@
-debian/control
 debian/pycompat
 *.pyc
