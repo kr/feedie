@@ -215,7 +215,6 @@ class FeedieWindow(gtk.Window):
           self.sources_treeview.expand_all()
 
         self.sources_treestore = builder.get_object('sources-treestore')
-        self.sources_treestore.set_sort_column_id(8, gtk.SORT_ASCENDING)
         self.sources_treestore.connect('row-changed', sources_row_changed)
         self.sources_treestore.connect('row-inserted', sources_row_inserted)
 
@@ -227,6 +226,8 @@ class FeedieWindow(gtk.Window):
         sources.add_builtin(self.unreadnews)
         starrednews = models.StarredNewsSource(self.db)
         sources.add_builtin(starrednews)
+
+        self.sources_treestore.set_sort_column_id(8, gtk.SORT_ASCENDING)
 
         status_rhs_hbox = self.builder.get_object('status-rhs-hbox')
         resize_grip = grip.ResizeGrip()
