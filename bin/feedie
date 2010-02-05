@@ -992,6 +992,7 @@ class "GtkWidget" style "feedie-scrolledwindow"
 
 style "feedie-sources-treeview"
 {
+  GtkWidget::focus-line-width = 0
   GtkTreeView::vertical-separator = 0
   GtkTreeView::horizontal-separator = 0
 }
@@ -999,6 +1000,7 @@ widget "*.sources-treeview" style "feedie-sources-treeview"
 
 style "feedie-posts-treeview"
 {
+  GtkWidget::focus-line-width = 0
   GtkTreeView::vertical-separator = 0
   GtkTreeView::horizontal-separator = 6
 }
