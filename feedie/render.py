@@ -175,7 +175,7 @@ class ItemText(Item):
       is_focused = unread > 0
 
       text = self.cellr._props['text']
-      weight = (400, 700)[is_selected or is_focused]
+      weight = (500, 600)[is_selected or is_focused]
       fd = self.cellr.widget.get_style().font_desc.copy()
       fd.set_weight(weight)
 
@@ -199,7 +199,7 @@ class ItemPill(Item):
     layout = ctx.create_layout()
     layout.set_wrap(False)
     fd = self.cellr.widget.get_style().font_desc.copy()
-    fd.set_weight(700)
+    fd.set_weight(600)
     layout.set_font_description(fd)
     layout.set_text(locale.format('%d', unread, grouping=True))
     text_width, text_height = layout.get_pixel_size()
@@ -216,7 +216,7 @@ class ItemPill(Item):
     layout = ctx.create_layout()
     layout.set_wrap(False)
     fd = self.cellr.widget.get_style().font_desc.copy()
-    fd.set_weight(700)
+    fd.set_weight(600)
     layout.set_font_description(fd)
     layout.set_text(locale.format('%d', unread, grouping=True))
     text_width, text_height = layout.get_pixel_size()

@@ -100,7 +100,7 @@ class PostsTreeModel(gtk.GenericTreeModel):
     return images.get_pixbuf(('hollow-star', 'star')[starred])
 
   def column_weight(self, doc):
-    return (700, 400)[doc.read]
+    return (600, 400)[doc.read]
 
   def column_post_id(self, doc):
     return doc._id
