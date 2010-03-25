@@ -29,10 +29,10 @@ function (doc) {
 
 SUMMARY_REDUCE = '''
 function (keys, values, rereduce) {
-  total = sum(values.map(function (x) { x.total }));
-  read = sum(values.map(function (x) { x.read }));
-  starred_total = sum(values.map(function (x) { x.starred_total }));
-  starred_read = sum(values.map(function (x) { x.starred_read }));
+  total = sum(values.map(function (x) { return x.total }));
+  read = sum(values.map(function (x) { return x.read }));
+  starred_total = sum(values.map(function (x) { return x.starred_total }));
+  starred_read = sum(values.map(function (x) { return x.starred_read }));
   return {
     total:total,
     read:read,
